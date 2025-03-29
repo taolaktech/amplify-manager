@@ -1,4 +1,8 @@
-import { Injectable, UnauthorizedException } from '@nestjs/common';
+import {
+  Injectable,
+  InternalServerErrorException,
+  UnauthorizedException,
+} from '@nestjs/common';
 import firebaseAdmin from 'firebase-admin';
 import path from 'node:path';
 
@@ -27,16 +31,73 @@ export class FirebaseService {
   }
 
   async verifyIdToken(idToken: string) {
-    {
-      try {
-        const decodedToken = await firebaseAdmin.auth().verifyIdToken(idToken);
-        return decodedToken;
-      } catch (error: any) {
-        if (error.code === 'auth/id-token-expired') {
-          throw new UnauthorizedException(error.message);
-        }
-        throw new UnauthorizedException('Cannot validate login');
+    try {
+      const decodedToken = await firebaseAdmin.auth().verifyIdToken(idToken);
+      return decodedToken;
+    } catch (error: any) {
+      if (error.code === 'auth/id-token-expired') {
+        throw new UnauthorizedException(error.message);
       }
+      throw new UnauthorizedException('Cannot validate Login');
+    }
+  }
+
+  async generateEmailVerificationUrl(email: string) {
+    try {
+      const url = await firebaseAdmin
+        .auth()
+        .generateEmailVerificationLink(email);
+
+      return url;
+    } catch {
+      throw new InternalServerErrorException('Something went wrong');
+    }
+  }
+
+  async createUser(email: string, password: string, displayName: string) {
+    try {
+      const user = await firebaseAdmin.auth().createUser({
+        email,
+        password,
+        displayName,
+      });
+      return user;
+    } catch {
+      throw new InternalServerErrorException('Something went wrong');
+    }
+  }
+
+  async verifyUserEmail(uid: string) {
+    try {
+      await firebaseAdmin.auth().updateUser(uid, { emailVerified: true });
+    } catch {
+      throw new InternalServerErrorException('Something went wrong');
+    }
+  }
+
+  async getUserByEmail(email: string) {
+    try {
+      const user = await firebaseAdmin.auth().getUserByEmail(email);
+      return user;
+    } catch {
+      throw new InternalServerErrorException('Something went wrong');
+    }
+  }
+
+  async getUserById(uid: string) {
+    try {
+      const user = await firebaseAdmin.auth().getUser(uid);
+      return user;
+    } catch {
+      throw new InternalServerErrorException('Something went wrong');
+    }
+  }
+
+  async updateUserPassword(uid: string, password: string) {
+    try {
+      await firebaseAdmin.auth().updateUser(uid, { password: password });
+    } catch {
+      throw new InternalServerErrorException('Something Went Wrong');
     }
   }
 }
