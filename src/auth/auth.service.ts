@@ -19,6 +19,7 @@ import { DateTime } from 'luxon';
 import { UtilsService } from 'src/utils/utils.service';
 import { JwtService } from '@nestjs/jwt';
 import { AppConfigService } from 'src/config/config.service';
+import { ErrorCode } from 'src/enums';
 
 @Injectable()
 export class AuthService {
@@ -36,7 +37,7 @@ export class AuthService {
     });
 
     if (userAlreadyExists) {
-      throw new BadRequestException('E_USER_ALREADY_EXISTS');
+      throw new BadRequestException(ErrorCode.E_USER_ALREADY_EXISTS);
     }
     const firebaseUser = await this.firebaseService.createUser(
       dto.email,
@@ -64,7 +65,6 @@ export class AuthService {
   private signJwt(userId: string) {
     const payload = {
       sub: userId,
-      // iat: DateTime.now().toMillis(),
     };
     const token = this.jwtService.sign(payload, {
       secret: this.config.get('JWT_SECRET'),
@@ -109,7 +109,7 @@ export class AuthService {
     const firebaseUser = await this.firebaseService.verifyIdToken(dto.idToken);
 
     if (!firebaseUser.email_verified) {
-      throw new BadRequestException('E_UNVERIFIED_EMAIL');
+      throw new BadRequestException(ErrorCode.E_UNVERIFIED_EMAIL);
     }
 
     let user = await this.userModel.findOne({
@@ -138,7 +138,7 @@ export class AuthService {
     const user = await this.userModel.findOne({ email: dto.email });
 
     if (!user) {
-      throw new BadRequestException('E_USER_NOT_FOUND');
+      throw new BadRequestException(ErrorCode.E_USER_NOT_FOUND);
     }
 
     const otpIsValid = this.otpIsValid(user, dto.otp);
@@ -159,7 +159,7 @@ export class AuthService {
     const user = await this.userModel.findOne({ email: dto.email });
 
     if (!user) {
-      throw new BadRequestException('E_USER_NOT_FOUND');
+      throw new BadRequestException(ErrorCode.E_USER_NOT_FOUND);
     }
     //check if already verified
     const firebaseUser = await this.firebaseService.getUserById(
@@ -167,7 +167,7 @@ export class AuthService {
     );
 
     if (firebaseUser.emailVerified) {
-      throw new BadRequestException('E_EMAIL_ALREADY_VERIFIED');
+      throw new BadRequestException(ErrorCode.E_EMAIL_ALREADY_VERIFIED);
     }
     // generate otp and expriry
     const { otp, otpExpiryDate } = this.generateOtp();
@@ -196,7 +196,7 @@ export class AuthService {
     const user = await this.userModel.findOne({ email: dto.email });
 
     if (!user) {
-      throw new NotFoundException('E_USER_NOT_FOUND');
+      throw new NotFoundException(ErrorCode.E_USER_NOT_FOUND);
     }
 
     const { otp, otpExpiryDate } = this.generateOtp();
@@ -217,13 +217,13 @@ export class AuthService {
     const user = await this.userModel.findOne({ email: dto.email });
 
     if (!user) {
-      throw new NotFoundException('E_USER_NOT_FOUND');
+      throw new NotFoundException(ErrorCode.E_USER_NOT_FOUND);
     }
 
     const otpIsValid = this.otpIsValid(user, dto.otp);
 
     if (!otpIsValid) {
-      throw new BadRequestException('E_INVALID_OTP');
+      throw new BadRequestException(ErrorCode.E_INVALID_OTP);
     }
 
     await this.firebaseService.updateUserPassword(
