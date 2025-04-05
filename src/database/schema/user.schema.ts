@@ -5,7 +5,7 @@ export type UserDoc = HydratedDocument<User>;
 
 @Schema({ timestamps: true })
 export class User {
-  @Prop()
+  @Prop({ unique: true })
   email: string;
 
   @Prop()
@@ -13,6 +13,21 @@ export class User {
 
   @Prop()
   lastName: string;
+
+  @Prop()
+  name: string;
+
+  @Prop()
+  photoUrl: string;
+
+  @Prop({ unique: true })
+  firebaseUserId: string;
+
+  @Prop()
+  otp: string;
+
+  @Prop({ type: Date })
+  otpExpiryDate: Date;
 }
 
 export const UserSchema = SchemaFactory.createForClass(User);
