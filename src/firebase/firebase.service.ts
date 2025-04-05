@@ -4,23 +4,18 @@ import {
   UnauthorizedException,
 } from '@nestjs/common';
 import firebaseAdmin from 'firebase-admin';
-import path from 'node:path';
+import { AppConfigService } from 'src/config/config.service';
 
 @Injectable()
 export class FirebaseService {
-  constructor() {
+  constructor(private config: AppConfigService) {
     // initialize firebase admin
-    const serviceAccountCredentialsPath = path.join(
-      __dirname,
-      '..',
-      '..',
-      'secrets',
-      'firebase-service-account-credentials.json',
-    );
+    const firebaseSirverAccoutCred = this.config.get('FIREBASE_SERVICE_ACCOUNT_JSON');
     try {
+      const serviceAccount = JSON.parse(firebaseSirverAccoutCred);
       firebaseAdmin.initializeApp({
         credential: firebaseAdmin.credential.cert(
-          serviceAccountCredentialsPath,
+          serviceAccount,
         ),
       });
     } catch (error: any) {
