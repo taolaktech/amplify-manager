@@ -1,6 +1,9 @@
 import { z } from 'zod';
 
 export const configSchema = z.object({
+  NODE_ENV: z
+    .enum(['development', 'production', 'test', 'staging'])
+    .default('development'),
   PORT: z
     .string()
     .transform((val) => parseInt(val, 10))
@@ -23,7 +26,7 @@ export const configSchema = z.object({
   SMTP_USERNAME: z.string(),
   SMTP_PASSWORD: z.string(),
   SMTP_FROM: z.string(),
-  
+
   //firebase
   FIREBASE_SERVICE_ACCOUNT_JSON: z.string(),
 });
