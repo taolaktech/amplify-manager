@@ -76,7 +76,10 @@ export class FirebaseService {
     try {
       const user = await firebaseAdmin.auth().getUserByEmail(email);
       return user;
-    } catch {
+    } catch (error: any) {
+      if (error.code === 'auth/user-not-found') {
+        return null;
+      }
       throw new InternalServerErrorException('Something went wrong');
     }
   }

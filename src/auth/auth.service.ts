@@ -236,4 +236,10 @@ export class AuthService {
 
     return { message: 'Password Change Successful' };
   }
+
+  async userExists(email: string) {
+    const user = await this.firebaseService.getUserByEmail(email);
+
+    return { userExists: !!user };
+  }
 }
