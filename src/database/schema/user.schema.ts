@@ -28,6 +28,9 @@ export class User {
 
   @Prop({ type: Date })
   otpExpiryDate: Date;
+
+  @Prop()
+  signUpMethod: string;
 }
 
 export const UserSchema = SchemaFactory.createForClass(User);

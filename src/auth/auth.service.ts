@@ -55,9 +55,10 @@ export class AuthService {
       otp,
       otpExpiryDate,
       photoUrl: firebaseUser.photoURL,
+      signUpMethod: 'password',
     });
 
-    await this.sendOtpToEmail(dto.email, otp);
+    this.sendOtpToEmail(dto.email, otp).catch(() => undefined);
 
     return user;
   }
@@ -111,16 +112,17 @@ export class AuthService {
     if (!firebaseUser.email_verified) {
       throw new BadRequestException(ErrorCode.E_UNVERIFIED_EMAIL);
     }
-
+    let userCreated = false;
     let user = await this.userModel.findOne({
       email: firebaseUser.email,
     });
-
     if (!user) {
+      userCreated = true;
       user = await this.userModel.create({
         email: firebaseUser.email,
         name: firebaseUser.name ?? firebaseUser.displayName,
         firebaseUserId: firebaseUser.uid,
+        signUpMethod: firebaseUser.firebase.sign_in_provider,
       });
     }
 
@@ -128,7 +130,8 @@ export class AuthService {
 
     return {
       message: 'Log in successful',
-      user,
+      user: { ...user.toObject(), otp: undefined, otpExpiryDate: undefined },
+      userCreated,
       access_token: accessToken,
     };
   }
