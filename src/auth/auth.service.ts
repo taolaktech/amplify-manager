@@ -81,6 +81,38 @@ export class AuthService {
     return { otp, otpExpiryDate };
   }
 
+  private generateResetPasswordToken(userId: string) {
+    const payload = {
+      sub: userId,
+    };
+    const token = this.jwtService.sign(payload, {
+      secret: this.config.get('JWT_SECRET'),
+      expiresIn: '15m',
+    });
+    return token;
+  }
+
+  private verifyResetPasswordToken(token: string) {
+    try {
+      const payload = this.jwtService.verify<{ sub: string }>(token, {
+        secret: this.config.get('JWT_SECRET'),
+      });
+      return payload.sub;
+    } catch {
+      throw new BadRequestException(ErrorCode.E_INVALID_TOKEN);
+    }
+  }
+
+  private generateResetPasswordUrl(userId: string) {
+    const token = this.generateResetPasswordToken(userId);
+
+    const resetPasswordUrl = `${this.config.get(
+      'CLIENT_BASE_URL',
+    )}/auth/reset-password?token=${token}`;
+
+    return resetPasswordUrl;
+  }
+
   private otpIsValid(user: UserDoc, otp: string) {
     const now = DateTime.now().toJSDate();
 
@@ -102,6 +134,40 @@ export class AuthService {
     await this.util.sendEmail({
       to: email,
       subject: 'Verify Your Email',
+      message: body,
+    });
+  }
+
+  private async sendForgotPasswordEmail(params: {
+    email: string;
+    url: string;
+    name: string;
+  }) {
+    const name = params.name.split(' ')[0];
+    const body = `<body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333;">
+      <div style="max-width: 600px; margin: 0 auto; padding: 20px;">
+        <h1 style="color: #2c3e50; text-align: center;">Password Reset Request</h1>
+        <p>Hello ${name},</p>
+        <p>We received a request to reset your password for your Amplify account. </p>
+        <p>Click the button below to reset your password:</p>
+        <div style="text-align: center; margin: 30px 0;">
+          <a href="${params.url}"
+            style="background-color: #4CAF50; color: white; padding: 15px 32px; text-decoration: none; display: inline-block; border-radius: 4px; font-weight: bold;">
+            Reset Password
+          </a>
+        </div>
+        <p>If you didn't request a password reset, please ignore this email or contact support if you have concerns.</p>
+        <hr style="border: 1px solid #eee; margin: 20px 0;">
+        <p style="text-align: center; color: #666;">
+          Best regards,<br>
+          The Amplify Team
+        </p>
+      </div>
+    </body>`;
+
+    await this.util.sendEmail({
+      to: params.email,
+      subject: 'Password Reset Request',
       message: body,
     });
   }
@@ -187,7 +253,6 @@ export class AuthService {
     // send otp to email
     this.sendOtpToEmail(user.email, otp).catch(() => {
       console.log('Error sending email');
-      // TODO Error handling or logging for this ??
     });
 
     return {
@@ -202,14 +267,13 @@ export class AuthService {
       throw new NotFoundException(ErrorCode.E_USER_NOT_FOUND);
     }
 
-    const { otp, otpExpiryDate } = this.generateOtp();
+    const url = this.generateResetPasswordUrl(user.id);
 
-    user.otp = otp;
-    user.otpExpiryDate = otpExpiryDate;
-    await user.save();
-
-    // send otp to email
-    this.sendOtpToEmail(user.email, otp).catch(() => {
+    this.sendForgotPasswordEmail({
+      email: user.email,
+      name: user.name,
+      url,
+    }).catch(() => {
       console.log('Error sending email');
     });
 
@@ -217,22 +281,30 @@ export class AuthService {
   }
 
   async resetPassword(dto: ResetPasswordDto) {
-    const user = await this.userModel.findOne({ email: dto.email });
+    const userId = this.verifyResetPasswordToken(dto.token);
+
+    const user = await this.userModel.findById(userId);
 
     if (!user) {
       throw new NotFoundException(ErrorCode.E_USER_NOT_FOUND);
     }
+    const minutesSincePasswordChange = DateTime.now().diff(
+      DateTime.fromJSDate(user.passwordChangedAt),
+      'minutes',
+    ).minutes;
 
-    const otpIsValid = this.otpIsValid(user, dto.otp);
-
-    if (!otpIsValid) {
-      throw new BadRequestException(ErrorCode.E_INVALID_OTP);
+    if (minutesSincePasswordChange < 15) {
+      throw new BadRequestException(ErrorCode.E_PASSWORD_CHANGED_RECENTLY);
     }
 
     await this.firebaseService.updateUserPassword(
       user.firebaseUserId,
       dto.newPassword,
     );
+
+    user.passwordChangedAt = DateTime.now().toJSDate();
+
+    await user.save();
 
     return { message: 'Password Change Successful' };
   }
