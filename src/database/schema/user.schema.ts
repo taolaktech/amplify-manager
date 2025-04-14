@@ -33,7 +33,7 @@ export class User {
   signUpMethod: string;
 
   @Prop()
-  passwordChangedAt: Date;
+  passwordChangedAt?: Date;
 }
 
 export const UserSchema = SchemaFactory.createForClass(User);

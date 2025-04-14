@@ -288,13 +288,16 @@ export class AuthService {
     if (!user) {
       throw new NotFoundException(ErrorCode.E_USER_NOT_FOUND);
     }
-    const minutesSincePasswordChange = DateTime.now().diff(
-      DateTime.fromJSDate(user.passwordChangedAt),
-      'minutes',
-    ).minutes;
 
-    if (minutesSincePasswordChange < 15) {
-      throw new BadRequestException(ErrorCode.E_PASSWORD_CHANGED_RECENTLY);
+    if (user.passwordChangedAt) {
+      const minutesSincePasswordChange = DateTime.now().diff(
+        DateTime.fromJSDate(user.passwordChangedAt),
+        'minutes',
+      ).minutes;
+
+      if (minutesSincePasswordChange < 15) {
+        throw new BadRequestException(ErrorCode.E_PASSWORD_CHANGED_RECENTLY);
+      }
     }
 
     await this.firebaseService.updateUserPassword(
