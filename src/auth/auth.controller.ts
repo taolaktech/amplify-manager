@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Post } from '@nestjs/common';
+import { Body, Controller, Get, Param, Post } from '@nestjs/common';
 import { AuthService } from './auth.service';
 import { Public } from './decorators';
 import {
@@ -61,5 +61,11 @@ export class AuthController {
   @Post('/reset-password')
   async resetPassword(@Body() dto: ResetPasswordDto) {
     return await this.authService.resetPassword(dto);
+  }
+
+  @Public()
+  @Get('/does-user-exist/:email')
+  async doesUserExist(@Param('email') email: string) {
+    return await this.authService.userExists(email);
   }
 }

@@ -65,12 +65,7 @@ export class ResetPasswordDto {
   @ApiProperty()
   @IsString()
   @IsNotEmpty()
-  email: string;
-
-  @ApiProperty()
-  @IsString()
-  @IsNotEmpty()
-  otp: string;
+  token: string;
 
   @ApiProperty()
   @IsString()

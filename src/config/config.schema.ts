@@ -23,7 +23,7 @@ export const configSchema = z.object({
   SMTP_USERNAME: z.string(),
   SMTP_PASSWORD: z.string(),
   SMTP_FROM: z.string(),
-  
+
   //firebase
   FIREBASE_SERVICE_ACCOUNT_JSON: z.string(),
 });
