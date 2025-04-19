@@ -218,8 +218,11 @@ export class AuthService {
 
     await this.firebaseService.verifyUserEmail(user.firebaseUserId);
 
+    const accessToken = this.signJwt(user.id);
+
     return {
       message: 'Email Verified Successfully',
+      access_token: accessToken,
     };
   }
 
