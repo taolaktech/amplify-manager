@@ -4,6 +4,7 @@ import { MongooseModule } from '@nestjs/mongoose';
 import { AppConfigService } from 'src/config/config.service';
 import { AppConfigModule } from 'src/config/config.module';
 import { UserSchema } from './schema';
+import { ShopifySchema } from './schema/shopify-account.schema';
 
 @Global()
 @Module({
@@ -18,7 +19,10 @@ import { UserSchema } from './schema';
       }),
       inject: [AppConfigService],
     }),
-    MongooseModule.forFeature([{ name: 'users', schema: UserSchema }]),
+    MongooseModule.forFeature([
+      { name: 'users', schema: UserSchema },
+      { name: 'shopify-accounts', schema: ShopifySchema },
+    ]),
   ],
   exports: [MongooseModule],
 })

@@ -4,6 +4,7 @@ export const configSchema = z.object({
   NODE_ENV: z
     .enum(['development', 'production', 'test', 'staging'])
     .default('development'),
+
   PORT: z
     .string()
     .transform((val) => parseInt(val, 10))
@@ -29,6 +30,10 @@ export const configSchema = z.object({
 
   //firebase
   FIREBASE_SERVICE_ACCOUNT_JSON: z.string(),
+
+  // amplify integration
+  INTEGRATION_API_URL: z.string(),
+  INTEGRATION_API_KEY: z.string(),
 });
 
 export type AppConfig = z.infer<typeof configSchema>;
