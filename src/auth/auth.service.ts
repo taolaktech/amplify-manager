@@ -223,6 +223,7 @@ export class AuthService {
     return {
       message: 'Email Verified Successfully',
       access_token: accessToken,
+      user: { ...user.toObject(), otp: undefined, otpExpiryDate: undefined },
     };
   }
 
