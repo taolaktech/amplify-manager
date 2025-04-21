@@ -7,12 +7,10 @@ import {
   ParseIntPipe,
   Post,
   Query,
-  UseGuards,
 } from '@nestjs/common';
-import { GetUser, Public } from 'src/auth/decorators';
-import { GetShopifyProductByIdDto, SaveShopifyAccountDto } from './dto';
+import { GetUser } from 'src/auth/decorators';
+import { GetShopifyProductByIdDto } from './dto';
 import { ShopifyService } from './shopify.service';
-import { IntegrationsGaurd } from 'src/auth/integrations.guard';
 import { ApiBearerAuth, ApiQuery } from '@nestjs/swagger';
 import { UserDoc } from 'src/database/schema';
 
@@ -20,14 +18,6 @@ import { UserDoc } from 'src/database/schema';
 @Controller('api/shopify')
 export class ShopifyController {
   constructor(private shopifyService: ShopifyService) {}
-
-  @Public()
-  @UseGuards(IntegrationsGaurd)
-  @Post('/save-account')
-  async saveShopifyAccount(@Body() dto: SaveShopifyAccountDto) {
-    const account = await this.shopifyService.saveShopifyAccount(dto);
-    return { account };
-  }
 
   @Get('/auth/url/:shop')
   async getConnectionUrl(

@@ -6,7 +6,6 @@ import {
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
 import { ShopifyAccountDoc, UserDoc } from 'src/database/schema';
-import { SaveShopifyAccountDto } from './dto';
 import { ShopifyAccountStatus } from 'src/enums/shopify-account-status';
 import axios, { AxiosError } from 'axios';
 import { AppConfigService } from 'src/config/config.service';
@@ -17,39 +16,10 @@ export class ShopifyService {
   constructor(
     private configService: AppConfigService,
     @InjectModel('shopify-accounts')
-    private shopifyModel: Model<ShopifyAccountDoc>,
+    private shopifyAccountModel: Model<ShopifyAccountDoc>,
     @InjectModel('users')
     private usersModel: Model<UserDoc>,
   ) {}
-
-  async saveShopifyAccount(dto: SaveShopifyAccountDto) {
-    const user = await this.usersModel.findById(dto.userId);
-
-    if (!user) {
-      throw new BadRequestException('User not found');
-    }
-
-    const shopifyAccountAlreadyExists = await this.shopifyModel.findOne({
-      belongsTo: user._id,
-      accountStatus: ShopifyAccountStatus.CONNECTED,
-    });
-
-    if (shopifyAccountAlreadyExists) {
-      throw new BadRequestException(
-        'Shopify account already exists for this user',
-      );
-    }
-
-    const shopify = await this.shopifyModel.create({
-      shop: dto.shop,
-      accessToken: dto.accessToken,
-      scope: dto.scope,
-      belongsTo: user._id,
-      accountStatus: ShopifyAccountStatus.CONNECTED,
-    });
-
-    return shopify;
-  }
 
   private integrationsAxiosInstance() {
     const axiosInstance = axios.create({
@@ -139,7 +109,7 @@ export class ShopifyService {
   }
 
   async getShopifyProducts(userId: Types.ObjectId, query: any) {
-    const shopifyAccount = await this.shopifyModel.findOne({
+    const shopifyAccount = await this.shopifyAccountModel.findOne({
       belongsTo: userId,
       accountStatus: ShopifyAccountStatus.CONNECTED,
     });
@@ -161,7 +131,7 @@ export class ShopifyService {
   }
 
   async getShopifyAccountConnectionUrl(userId: Types.ObjectId, shop: string) {
-    const shopifyAccountAlreadyExists = await this.shopifyModel.findOne({
+    const shopifyAccountAlreadyExists = await this.shopifyAccountModel.findOne({
       belongsTo: userId,
       accountStatus: ShopifyAccountStatus.CONNECTED,
     });
@@ -176,7 +146,7 @@ export class ShopifyService {
   }
 
   async getShopifyProductById(userId: Types.ObjectId, productId: string) {
-    const shopifyAccount = await this.shopifyModel.findOne({
+    const shopifyAccount = await this.shopifyAccountModel.findOne({
       belongsTo: userId,
       accountStatus: ShopifyAccountStatus.CONNECTED,
     });

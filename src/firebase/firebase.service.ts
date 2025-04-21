@@ -9,23 +9,22 @@ import { AppConfigService } from 'src/config/config.service';
 @Injectable()
 export class FirebaseService {
   constructor(private config: AppConfigService) {
-
     if (!firebaseAdmin.apps.length) {
       // initialize firebase admin
-      const firebaseSirverAccoutCred = this.config.get('FIREBASE_SERVICE_ACCOUNT_JSON');
+      const firebaseSirverAccoutCred = this.config.get(
+        'FIREBASE_SERVICE_ACCOUNT_JSON',
+      );
       try {
         const serviceAccount = JSON.parse(firebaseSirverAccoutCred);
         firebaseAdmin.initializeApp({
-          credential: firebaseAdmin.credential.cert(
-            serviceAccount,
-          ),
+          credential: firebaseAdmin.credential.cert(serviceAccount),
         });
       } catch (error: any) {
-        console.info(`Failed to initialize firebase admin.
-          Suggestion: Create a file called '/secrets/firebase-service-account-credentials.json' in the project base directory with the appropriate firebase service account secrets from the firebase console. \n`);
+        console.info(`Failed to initialize firebase admin. \n
+          Suggestion: Make sure the JSON for the service account credentials are in one line. env.'FIREBASE_SERVICE_ACCOUNT_JSON' \n`);
         console.error({ error });
       }
-    } 
+    }
   }
 
   async verifyIdToken(idToken: string) {
@@ -77,7 +76,10 @@ export class FirebaseService {
     try {
       const user = await firebaseAdmin.auth().getUserByEmail(email);
       return user;
-    } catch {
+    } catch (error: any) {
+      if (error.code === 'auth/user-not-found') {
+        return null;
+      }
       throw new InternalServerErrorException('Something went wrong');
     }
   }
