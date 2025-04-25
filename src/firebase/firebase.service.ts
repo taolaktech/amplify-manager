@@ -20,8 +20,8 @@ export class FirebaseService {
           credential: firebaseAdmin.credential.cert(serviceAccount),
         });
       } catch (error: any) {
-        console.info(`Failed to initialize firebase admin.
-          Suggestion: Create a file called '/secrets/firebase-service-account-credentials.json' in the project base directory with the appropriate firebase service account secrets from the firebase console. \n`);
+        console.info(`Failed to initialize firebase admin. \n
+          Suggestion: Make sure the JSON for the service account credentials are in one line. env.'FIREBASE_SERVICE_ACCOUNT_JSON' \n`);
         console.error({ error });
       }
     }

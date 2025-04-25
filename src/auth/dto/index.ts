@@ -47,11 +47,6 @@ export class ResendVerificationEmailDto {
   @IsString()
   @IsNotEmpty()
   email: string;
-
-  @ApiProperty()
-  @IsString()
-  @IsNotEmpty()
-  otp: string;
 }
 
 export class ForgotPasswordDto {
