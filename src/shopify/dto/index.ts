@@ -14,3 +14,10 @@ export class GetShopifyProductByIdDto {
   @IsNotEmpty()
   productId: string;
 }
+
+export class GetShopifyAuthUrlDto {
+  @ApiProperty()
+  @IsString()
+  @IsNotEmpty()
+  shop: string;
+}

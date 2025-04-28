@@ -34,6 +34,9 @@ export class User {
 
   @Prop()
   passwordChangedAt?: Date;
+
+  @Prop({ default: false })
+  shopifyAccountConnected: boolean;
 }
 
 export const UserSchema = SchemaFactory.createForClass(User);
