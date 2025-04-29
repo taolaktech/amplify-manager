@@ -58,4 +58,10 @@ export class ShopifyController {
 
     return response;
   }
+
+  @Get('/connected-account')
+  async getConnectShopifyAccount(@GetUser() user: UserDoc) {
+    const account = await this.shopifyService.getConnectedAccount(user._id);
+    return { account };
+  }
 }

@@ -164,4 +164,13 @@ export class ShopifyService {
 
     return productRes;
   }
+
+  async getConnectedAccount(userId: Types.ObjectId) {
+    const account = await this.shopifyAccountModel.findOne({
+      belongsTo: userId,
+      accountStatus: ShopifyAccountStatus.CONNECTED,
+    });
+    const acc = { ...account, accessToken: undefined, scope: undefined };
+    return acc;
+  }
 }
