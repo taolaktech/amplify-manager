@@ -1,6 +1,9 @@
 import {
   BadRequestException,
+  HttpException,
+  HttpStatus,
   Injectable,
+  Logger,
   NotFoundException,
 } from '@nestjs/common';
 import {
@@ -10,6 +13,7 @@ import {
   VerifyEmailDto,
   ForgotPasswordDto,
   ResetPasswordDto,
+  VerifyTokenDto,
 } from './dto';
 import { FirebaseService } from 'src/firebase/firebase.service';
 import { InjectModel } from '@nestjs/mongoose';
@@ -23,6 +27,7 @@ import { ErrorCode } from 'src/enums';
 
 @Injectable()
 export class AuthService {
+  private readonly logger = new Logger(AuthService.name);
   constructor(
     private firebaseService: FirebaseService,
     private config: AppConfigService,
@@ -320,5 +325,59 @@ export class AuthService {
     const user = await this.firebaseService.getUserByEmail(email);
 
     return { userExists: !!user };
+  }
+
+  /**
+   * Verifies a JWT token and retrieves the associated user.
+   *
+   * @param dto - The token verification data transfer object
+   * @returns The user associated with the token
+   * @throws {BadRequestException} If the token is invalid or cannot be verified
+   */
+  async verifyToken(dto: VerifyTokenDto) {
+    try {
+      const payload = await this.firebaseService.verifyIdToken(dto.token);
+
+      const user = await this.userModel.findOne({
+        firebaseUserId: payload.uid,
+      });
+
+      if (!user) {
+        throw new HttpException(
+          {
+            success: false,
+            data: null,
+            message: 'User not found',
+          },
+          HttpStatus.NOT_FOUND,
+        );
+      }
+
+      return user;
+    } catch (error) {
+      this.logger.error(`::: error while verifying token ::: ${error}`);
+      const message =
+        error?.message || 'Something went wrong while verifying token';
+
+      if (error instanceof HttpException) {
+        // get the status code from the error object
+        const status = error.getStatus();
+        // rethrow with the status code and message
+        throw new HttpException(
+          {
+            success: false,
+            data: null,
+            message,
+          },
+          status,
+        );
+      }
+
+      throw new BadRequestException({
+        success: false,
+        data: null,
+        message,
+      });
+    }
   }
 }
