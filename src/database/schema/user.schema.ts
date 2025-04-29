@@ -34,6 +34,22 @@ export class User {
 
   @Prop()
   passwordChangedAt?: Date;
+
+  // Added Stripe-related fields
+  @Prop({ unique: true, sparse: true })
+  stripeCustomerId?: string;
+
+  @Prop()
+  defaultPaymentMethod?: string;
+
+  @Prop({ default: false })
+  hasActiveSubscription?: boolean;
+
+  @Prop({ type: Date })
+  lastStripeSync?: Date;
+
+  @Prop({ enum: ['active', 'past_due', 'canceled', 'none'], default: 'none' })
+  paymentStatus?: string;
 }
 
 export const UserSchema = SchemaFactory.createForClass(User);
