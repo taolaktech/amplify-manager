@@ -8,6 +8,7 @@ import { UtilsModule } from './utils/utils.module';
 import { AuthGuard } from './auth/auth.guard';
 import { APP_GUARD } from '@nestjs/core';
 import { ShopifyModule } from './shopify/shopify.module';
+import { BusinessDetailsModule } from './business-details/business-details.module';
 
 @Module({
   imports: [
@@ -16,6 +17,7 @@ import { ShopifyModule } from './shopify/shopify.module';
     UtilsModule,
     HealthcheckModule,
     ShopifyModule,
+    BusinessDetailsModule,
   ],
   controllers: [AppController],
   providers: [

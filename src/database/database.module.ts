@@ -3,8 +3,7 @@ import { Global, Module } from '@nestjs/common';
 import { MongooseModule } from '@nestjs/mongoose';
 import { AppConfigService } from 'src/config/config.service';
 import { AppConfigModule } from 'src/config/config.module';
-import { UserSchema } from './schema';
-import { ShopifySchema } from './schema/shopify-account.schema';
+import { UserSchema, ShopifySchema, BusinessDetailsSchema } from './schema';
 
 @Global()
 @Module({
@@ -22,6 +21,7 @@ import { ShopifySchema } from './schema/shopify-account.schema';
     MongooseModule.forFeature([
       { name: 'users', schema: UserSchema },
       { name: 'shopify-accounts', schema: ShopifySchema },
+      { name: 'business-details', schema: BusinessDetailsSchema },
     ]),
   ],
   exports: [MongooseModule],
