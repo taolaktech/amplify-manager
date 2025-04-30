@@ -30,13 +30,19 @@ export class BusinessDetailsService {
           currency: 'USD',
           amount: dto.estimatedMonthlyBudget,
         },
-        extimatedAnnualRevenue: {
+        estimatedAnnualRevenue: {
           currency: 'USD',
           amount: dto.estimatedAnnualRevenue,
         },
       },
       { new: true, upsert: true },
     );
+
+    return businessDetails;
+  }
+
+  async getBusinessDetails(userId: Types.ObjectId) {
+    const businessDetails = await this.businessDetailsModel.findOne({ userId });
 
     return businessDetails;
   }

@@ -1,4 +1,4 @@
-import { Body, Controller, Post } from '@nestjs/common';
+import { Body, Controller, Get, Post } from '@nestjs/common';
 import { BusinessDetailsService } from './business-details.service';
 import {
   SetBusinessDetailsDto,
@@ -21,6 +21,13 @@ export class BusinessDetailsController {
   ) {
     const businessDetails =
       await this.businessDetailsService.setBusinessDetails(userId, dto);
+    return { businessDetails };
+  }
+
+  @Get('/')
+  async getBusinessDetails(@GetUser('_id') userId: Types.ObjectId) {
+    const businessDetails =
+      await this.businessDetailsService.getBusinessDetails(userId);
     return { businessDetails };
   }
 
