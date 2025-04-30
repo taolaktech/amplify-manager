@@ -1,6 +1,7 @@
 import {
   Injectable,
   InternalServerErrorException,
+  Logger,
   UnauthorizedException,
 } from '@nestjs/common';
 import firebaseAdmin from 'firebase-admin';
@@ -8,6 +9,7 @@ import { AppConfigService } from 'src/config/config.service';
 
 @Injectable()
 export class FirebaseService {
+  private readonly logger = new Logger(FirebaseService.name);
   constructor(private config: AppConfigService) {
     if (!firebaseAdmin.apps.length) {
       // initialize firebase admin
@@ -59,7 +61,10 @@ export class FirebaseService {
         displayName,
       });
       return user;
-    } catch {
+    } catch (error) {
+      this.logger.error(
+        `::: Failed to create user with ${email}, cause => ${error}`,
+      );
       throw new InternalServerErrorException('Something went wrong');
     }
   }

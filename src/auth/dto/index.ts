@@ -67,3 +67,10 @@ export class ResetPasswordDto {
   @IsNotEmpty()
   newPassword: string;
 }
+
+export class VerifyTokenDto {
+  @ApiProperty()
+  @IsString()
+  @IsNotEmpty()
+  token: string;
+}
