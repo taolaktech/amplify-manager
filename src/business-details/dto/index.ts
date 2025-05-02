@@ -1,0 +1,91 @@
+import { ApiProperty } from '@nestjs/swagger';
+import { Type } from 'class-transformer';
+import {
+  ArrayNotEmpty,
+  IsArray,
+  IsBoolean,
+  IsNotEmpty,
+  IsNumber,
+  IsObject,
+  IsPositive,
+  IsString,
+} from 'class-validator';
+
+class TeamSize {
+  @ApiProperty()
+  min: number;
+
+  @ApiProperty()
+  max: number;
+}
+
+export class SetBusinessDetailsDto {
+  @ApiProperty()
+  @IsString()
+  @IsNotEmpty()
+  companyName: string;
+
+  @ApiProperty()
+  @IsString()
+  @IsNotEmpty()
+  description: string;
+
+  @ApiProperty()
+  @IsString()
+  @IsNotEmpty()
+  website: string;
+
+  @ApiProperty()
+  @IsString()
+  @IsNotEmpty()
+  industry: string;
+
+  @ApiProperty()
+  @IsString()
+  @IsNotEmpty()
+  companyRole: string;
+
+  @ApiProperty()
+  @IsObject()
+  teamSize: TeamSize;
+
+  @ApiProperty()
+  @IsNumber()
+  @IsPositive()
+  estimatedMonthlyBudget: number;
+
+  @ApiProperty()
+  @IsNumber()
+  @IsPositive()
+  estimatedAnnualRevenue: number;
+}
+
+export class SetBusinessGoalsDto {
+  @ApiProperty()
+  @IsBoolean()
+  brandAwareness: boolean;
+
+  @ApiProperty()
+  @IsBoolean()
+  acquireNewCustomers: boolean;
+
+  @ApiProperty()
+  @IsBoolean()
+  boostRepeatPurchases: boolean;
+}
+
+export class SetShippingLocationsDto {
+  @ApiProperty()
+  @IsArray()
+  @ArrayNotEmpty()
+  @Type(() => String)
+  @IsString({ each: true })
+  localShippingLocations: string[];
+
+  @ApiProperty()
+  @IsArray()
+  @ArrayNotEmpty()
+  @Type(() => String)
+  @IsString({ each: true })
+  internationalShippingLocations: string[];
+}

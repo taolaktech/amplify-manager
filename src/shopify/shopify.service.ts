@@ -5,7 +5,7 @@ import {
 } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
-import { ShopifyAccountDoc, UserDoc } from 'src/database/schema';
+import { ShopifyAccountDoc } from 'src/database/schema';
 import { ShopifyAccountStatus } from 'src/enums/shopify-account-status';
 import axios, { AxiosError } from 'axios';
 import { AppConfigService } from 'src/config/config.service';
@@ -17,8 +17,6 @@ export class ShopifyService {
     private configService: AppConfigService,
     @InjectModel('shopify-accounts')
     private shopifyAccountModel: Model<ShopifyAccountDoc>,
-    @InjectModel('users')
-    private usersModel: Model<UserDoc>,
   ) {}
 
   private integrationsAxiosInstance() {
@@ -163,5 +161,14 @@ export class ShopifyService {
     });
 
     return productRes;
+  }
+
+  async getConnectedAccount(userId: Types.ObjectId) {
+    const account = await this.shopifyAccountModel.findOne({
+      belongsTo: userId,
+      accountStatus: ShopifyAccountStatus.CONNECTED,
+    });
+    const acc = { ...account, accessToken: undefined, scope: undefined };
+    return acc;
   }
 }

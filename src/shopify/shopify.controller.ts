@@ -3,13 +3,12 @@ import {
   Controller,
   DefaultValuePipe,
   Get,
-  Param,
   ParseIntPipe,
   Post,
   Query,
 } from '@nestjs/common';
 import { GetUser } from 'src/auth/decorators';
-import { GetShopifyProductByIdDto } from './dto';
+import { GetShopifyAuthUrlDto, GetShopifyProductByIdDto } from './dto';
 import { ShopifyService } from './shopify.service';
 import { ApiBearerAuth, ApiQuery } from '@nestjs/swagger';
 import { UserDoc } from 'src/database/schema';
@@ -19,14 +18,14 @@ import { UserDoc } from 'src/database/schema';
 export class ShopifyController {
   constructor(private shopifyService: ShopifyService) {}
 
-  @Get('/auth/url/:shop')
+  @Post('/auth/url')
   async getConnectionUrl(
     @GetUser() user: UserDoc,
-    @Param('shop') shop: string,
+    @Body() dto: GetShopifyAuthUrlDto,
   ) {
     const url = await this.shopifyService.getShopifyAccountConnectionUrl(
       user._id,
-      shop,
+      dto.shop,
     );
     return { url };
   }
@@ -58,5 +57,11 @@ export class ShopifyController {
     );
 
     return response;
+  }
+
+  @Get('/connected-account')
+  async getConnectShopifyAccount(@GetUser() user: UserDoc) {
+    const account = await this.shopifyService.getConnectedAccount(user._id);
+    return { account };
   }
 }

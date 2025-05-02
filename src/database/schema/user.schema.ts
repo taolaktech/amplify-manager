@@ -35,6 +35,8 @@ export class User {
   @Prop()
   passwordChangedAt?: Date;
 
+  @Prop({ default: false })
+  shopifyAccountConnected: boolean;
   // Added Stripe-related fields
   @Prop({ unique: true, sparse: true })
   stripeCustomerId?: string;
