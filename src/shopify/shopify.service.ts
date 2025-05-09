@@ -168,7 +168,9 @@ export class ShopifyService {
       belongsTo: userId,
       accountStatus: ShopifyAccountStatus.CONNECTED,
     });
-    const acc = { ...account, accessToken: undefined, scope: undefined };
-    return acc;
+    // const acc = { };
+    return account
+      ? { ...account.toObject(), accessToken: undefined, scope: undefined }
+      : null;
   }
 }
