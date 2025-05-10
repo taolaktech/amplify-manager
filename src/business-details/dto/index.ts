@@ -9,6 +9,7 @@ import {
   IsObject,
   IsPositive,
   IsString,
+  ValidateNested,
 } from 'class-validator';
 
 class TeamSize {
@@ -74,13 +75,27 @@ export class SetBusinessGoalsDto {
   boostRepeatPurchases: boolean;
 }
 
+class LocalShippingLocations {
+  @ApiProperty()
+  @IsString()
+  country: string;
+
+  @ApiProperty()
+  @IsString()
+  state: string;
+
+  @ApiProperty()
+  @IsString()
+  city: string;
+}
+
 export class SetShippingLocationsDto {
   @ApiProperty()
   @IsArray()
   @ArrayNotEmpty()
-  @Type(() => String)
-  @IsString({ each: true })
-  localShippingLocations: string[];
+  @ValidateNested({ each: true })
+  @Type(() => LocalShippingLocations)
+  localShippingLocations: LocalShippingLocations[];
 
   @ApiProperty()
   @IsArray()
