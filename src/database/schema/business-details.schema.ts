@@ -32,10 +32,23 @@ class Price {
   @Prop()
   currency: string;
 }
+
+@Schema({ _id: false })
+class LocalShippingLocations {
+  @Prop()
+  country: string;
+
+  @Prop()
+  city: string;
+
+  @Prop()
+  state: string;
+}
+
 @Schema({ _id: false })
 class ShippingLocations {
   @Prop()
-  localShippingLocations: string[];
+  localShippingLocations: LocalShippingLocations[];
 
   @Prop()
   internationalShippingLocations: string[];

@@ -1,7 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
-import { BusinessDetailsDoc } from 'src/database/schema';
+import { BusinessDetailsDoc, UserDoc } from 'src/database/schema';
 import {
   SetBusinessDetailsDto,
   SetBusinessGoalsDto,
@@ -11,6 +11,8 @@ import {
 @Injectable()
 export class BusinessDetailsService {
   constructor(
+    @InjectModel('users')
+    private usersModel: Model<UserDoc>,
     @InjectModel('business-details')
     private businessDetailsModel: Model<BusinessDetailsDoc>,
   ) {}
@@ -38,6 +40,13 @@ export class BusinessDetailsService {
       { new: true, upsert: true },
     );
 
+    const user = await this.usersModel.findById(userId);
+
+    if (user) {
+      user.onboarding = { ...user.onboarding, isBusinessDetailsSet: true };
+      await user.save();
+    }
+
     return businessDetails;
   }
 
@@ -62,6 +71,13 @@ export class BusinessDetailsService {
       { new: true, upsert: true },
     );
 
+    const user = await this.usersModel.findById(userId);
+
+    if (user) {
+      user.onboarding = { ...user.onboarding, isShippingDetailsSet: true };
+      await user.save();
+    }
+
     return businessDetails.shippingLocations;
   }
 
@@ -71,6 +87,16 @@ export class BusinessDetailsService {
       { businessGoals: dto },
       { new: true, upsert: true },
     );
+
+    const user = await this.usersModel.findById(userId);
+
+    if (user) {
+      user.onboarding = {
+        ...user.onboarding,
+        isBusinessGoalsSet: true,
+      };
+      await user.save();
+    }
 
     return businessDetails.businessGoals;
   }

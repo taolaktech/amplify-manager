@@ -6,7 +6,7 @@ export type ShopifyAccountDoc = HydratedDocument<ShopifyAccount>;
 
 @Schema({ timestamps: true })
 export class ShopifyAccount {
-  @Prop({ unique: true })
+  @Prop()
   shop: string;
 
   @Prop()
