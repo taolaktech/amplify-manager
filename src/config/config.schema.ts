@@ -34,6 +34,9 @@ export const configSchema = z.object({
   // amplify integration
   INTEGRATION_API_URL: z.string(),
   INTEGRATION_API_KEY: z.string(),
+
+  // google maps/places
+  GOOGLE_MAPS_API_KEY: z.string(),
 });
 
 export type AppConfig = z.infer<typeof configSchema>;

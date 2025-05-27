@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, InternalServerErrorException } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
 import { BusinessDetailsDoc, UserDoc } from 'src/database/schema';
@@ -7,6 +7,9 @@ import {
   SetBusinessGoalsDto,
   SetShippingLocationsDto,
 } from './dto';
+import axios from 'axios';
+import { AppConfigService } from 'src/config/config.service';
+import { GoogleMapsAutoCompleteResponse } from './business-details.types';
 
 @Injectable()
 export class BusinessDetailsService {
@@ -15,7 +18,22 @@ export class BusinessDetailsService {
     private usersModel: Model<UserDoc>,
     @InjectModel('business-details')
     private businessDetailsModel: Model<BusinessDetailsDoc>,
+    private configService: AppConfigService,
   ) {}
+
+  private async getCitesFromGoogleCall(input: string) {
+    try {
+      const apiKey = this.configService.get('GOOGLE_MAPS_API_KEY');
+      const res = await axios.get<GoogleMapsAutoCompleteResponse>(
+        `https://maps.googleapis.com/maps/api/place/autocomplete/json?input=${input}&types=(cities)&components=country:us|country:ca&key=${apiKey}`,
+      );
+      return res.data;
+    } catch {
+      throw new InternalServerErrorException(
+        'cannot retrieve places at this time',
+      );
+    }
+  }
 
   async setBusinessDetails(userId: Types.ObjectId, dto: SetBusinessDetailsDto) {
     const businessDetails = await this.businessDetailsModel.findOneAndUpdate(
@@ -99,5 +117,10 @@ export class BusinessDetailsService {
     }
 
     return businessDetails.businessGoals;
+  }
+
+  async getCities(input: string) {
+    const data = await this.getCitesFromGoogleCall(input);
+    return data.predictions;
   }
 }

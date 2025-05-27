@@ -39,10 +39,13 @@ class LocalShippingLocations {
   country: string;
 
   @Prop()
+  state: string;
+
+  @Prop()
   city: string;
 
   @Prop()
-  state: string;
+  shorthand: string;
 }
 
 @Schema({ _id: false })
