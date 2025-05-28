@@ -1,6 +1,7 @@
 import { Body, Controller, Get, Post } from '@nestjs/common';
 import { BusinessDetailsService } from './business-details.service';
 import {
+  GetCitiesDto,
   SetBusinessDetailsDto,
   SetBusinessGoalsDto,
   SetShippingLocationsDto,
@@ -51,5 +52,11 @@ export class BusinessDetailsController {
       dto,
     );
     return { businessGoals };
+  }
+
+  @Post('/cities')
+  async getCities(@Body() dto: GetCitiesDto) {
+    const predictions = await this.businessDetailsService.getCities(dto.input);
+    return predictions;
   }
 }

@@ -87,6 +87,10 @@ class LocalShippingLocations {
   @ApiProperty()
   @IsString()
   city: string;
+
+  @ApiProperty()
+  @IsString()
+  shorthand: string;
 }
 
 export class SetShippingLocationsDto {
@@ -103,4 +107,11 @@ export class SetShippingLocationsDto {
   @Type(() => String)
   @IsString({ each: true })
   internationalShippingLocations: string[];
+}
+
+export class GetCitiesDto {
+  @ApiProperty()
+  @IsString()
+  @IsNotEmpty()
+  input: string;
 }

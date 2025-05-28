@@ -3,7 +3,12 @@ import { Global, Module } from '@nestjs/common';
 import { MongooseModule } from '@nestjs/mongoose';
 import { AppConfigService } from 'src/config/config.service';
 import { AppConfigModule } from 'src/config/config.module';
-import { UserSchema, ShopifySchema, BusinessDetailsSchema } from './schema';
+import {
+  UserSchema,
+  ShopifySchema,
+  BusinessDetailsSchema,
+  WaitlistSchema,
+} from './schema';
 
 @Global()
 @Module({
@@ -19,6 +24,7 @@ import { UserSchema, ShopifySchema, BusinessDetailsSchema } from './schema';
       inject: [AppConfigService],
     }),
     MongooseModule.forFeature([
+      { name: 'waitlist', schema: WaitlistSchema },
       { name: 'users', schema: UserSchema },
       { name: 'shopify-accounts', schema: ShopifySchema },
       { name: 'business-details', schema: BusinessDetailsSchema },

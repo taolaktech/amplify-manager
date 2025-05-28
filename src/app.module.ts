@@ -9,6 +9,7 @@ import { AuthGuard } from './auth/auth.guard';
 import { APP_GUARD } from '@nestjs/core';
 import { ShopifyModule } from './shopify/shopify.module';
 import { BusinessDetailsModule } from './business-details/business-details.module';
+import { WaitlistModule } from './waitlist/waitlist.module';
 
 @Module({
   imports: [
@@ -18,6 +19,7 @@ import { BusinessDetailsModule } from './business-details/business-details.modul
     HealthcheckModule,
     ShopifyModule,
     BusinessDetailsModule,
+    WaitlistModule,
   ],
   controllers: [AppController],
   providers: [
