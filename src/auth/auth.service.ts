@@ -355,7 +355,10 @@ export class AuthService {
 
       return user;
     } catch (error) {
-      this.logger.error(`::: error while verifying token ::: ${error}`);
+      this.logger.error(
+        `::: error while verifying token ::: ${error}`,
+        error.stack,
+      );
       const message =
         error?.message || 'Something went wrong while verifying token';
 
