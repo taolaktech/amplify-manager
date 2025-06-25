@@ -383,4 +383,42 @@ export class AuthService {
       });
     }
   }
+
+  async verifyTokenV2(dto: VerifyTokenDto) {
+    try {
+      const payload = await this.jwtService.verifyAsync(dto.token, {
+        secret: process.env.JWT_SECRET as string,
+      });
+
+      // get the user from the database
+      const user = await this.userModel.findById(payload.sub);
+
+      if (!user) {
+        throw new HttpException(
+          {
+            success: false,
+            data: null,
+            message: 'User not found',
+          },
+          HttpStatus.UNAUTHORIZED,
+        );
+      }
+
+      return user;
+    } catch (error) {
+      this.logger.error(
+        `::: error while verifying token ::: ${error}`,
+        error.stack,
+      );
+      throw new HttpException(
+        {
+          success: false,
+          data: null,
+          message:
+            error?.message || 'Something went wrong while verifying token',
+        },
+        HttpStatus.UNAUTHORIZED,
+      );
+    }
+  }
 }

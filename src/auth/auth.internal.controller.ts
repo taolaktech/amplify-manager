@@ -12,7 +12,7 @@ export class InternalAuthController {
 
   @Post('verify-token')
   async verifyToken(@Body() dto: VerifyTokenDto) {
-    const user = await this.authService.verifyToken(dto);
+    const user = await this.authService.verifyTokenV2(dto);
 
     return {
       message: 'Token verified successfully',

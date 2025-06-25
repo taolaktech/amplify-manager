@@ -3,9 +3,7 @@ import {
   CanActivate,
   ExecutionContext,
   Logger,
-  UnauthorizedException,
 } from '@nestjs/common';
-import { Observable } from 'rxjs';
 // import { AuthService } from '../../modules/auth/auth.service';
 
 @Injectable()
