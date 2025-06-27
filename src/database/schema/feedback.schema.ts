@@ -69,4 +69,3 @@ export const FeedbackSchema = SchemaFactory.createForClass(Feedback);
 // Add compound indexes for better query performance
 FeedbackSchema.index({ belongsTo: 1, createdAt: -1 });
 FeedbackSchema.index({ rating: 1, improvementCategory: 1 });
-FeedbackSchema.index({ isResolved: 1, createdAt: -1 });
