@@ -10,6 +10,7 @@ import { APP_GUARD } from '@nestjs/core';
 import { ShopifyModule } from './shopify/shopify.module';
 import { BusinessDetailsModule } from './business-details/business-details.module';
 import { WaitlistModule } from './waitlist/waitlist.module';
+import { FeedbackModule } from './feedback/feedback.module';
 
 @Module({
   imports: [
@@ -20,6 +21,7 @@ import { WaitlistModule } from './waitlist/waitlist.module';
     ShopifyModule,
     BusinessDetailsModule,
     WaitlistModule,
+    FeedbackModule,
   ],
   controllers: [AppController],
   providers: [
