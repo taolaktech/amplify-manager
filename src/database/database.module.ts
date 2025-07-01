@@ -9,6 +9,7 @@ import {
   BusinessDetailsSchema,
   WaitlistSchema,
 } from './schema';
+import { FeedbackSchema } from './schema/feedback.schema';
 
 @Global()
 @Module({
@@ -28,6 +29,7 @@ import {
       { name: 'users', schema: UserSchema },
       { name: 'shopify-accounts', schema: ShopifySchema },
       { name: 'business-details', schema: BusinessDetailsSchema },
+      { name: 'feedbacks', schema: FeedbackSchema },
     ]),
   ],
   exports: [MongooseModule],

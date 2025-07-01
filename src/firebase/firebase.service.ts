@@ -34,6 +34,10 @@ export class FirebaseService {
       const decodedToken = await firebaseAdmin.auth().verifyIdToken(idToken);
       return decodedToken;
     } catch (error: any) {
+      this.logger.error(
+        `::: verifying ID token fails ${error} :::`,
+        error.stack,
+      );
       if (error.code === 'auth/id-token-expired') {
         throw new UnauthorizedException(error.message);
       }
