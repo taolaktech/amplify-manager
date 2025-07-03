@@ -7,6 +7,15 @@ export type WaitlistDoc = HydratedDocument<Waitlist>;
 export class Waitlist {
   @Prop()
   email: string;
+
+  @Prop()
+  name: string;
+
+  @Prop()
+  shopifyUrl: string;
+
+  @Prop()
+  salesLocations: string[];
 }
 
 export const WaitlistSchema = SchemaFactory.createForClass(Waitlist);

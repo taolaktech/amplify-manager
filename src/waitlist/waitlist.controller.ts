@@ -10,7 +10,7 @@ export class WaitlistController {
   @Public()
   @Post('/')
   async addToWaitlist(@Body() dto: AddToWaitlistDto) {
-    await this.waitlistService.addToWaitlist(dto.email);
+    await this.waitlistService.addToWaitlist(dto);
     return { message: 'success' };
   }
 }
