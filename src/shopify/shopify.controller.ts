@@ -1,12 +1,4 @@
-import {
-  Body,
-  Controller,
-  DefaultValuePipe,
-  Get,
-  ParseIntPipe,
-  Post,
-  Query,
-} from '@nestjs/common';
+import { Body, Controller, Get, Post, Query } from '@nestjs/common';
 import { GetUser } from 'src/auth/decorators';
 import { GetShopifyAuthUrlDto, GetShopifyProductByIdDto } from './dto';
 import { ShopifyService } from './shopify.service';
@@ -35,12 +27,16 @@ export class ShopifyController {
   @Get('/products')
   async getProducts(
     @GetUser() user: UserDoc,
-    @Query('first', new DefaultValuePipe(10), ParseIntPipe) first: number,
+    @Query('first') first: number,
     @Query('after') after: string,
+    @Query('last') last: number,
+    @Query('before') before: string,
   ) {
     const response = await this.shopifyService.getShopifyProducts(user._id, {
       first,
       after,
+      last,
+      before,
     });
 
     return response;

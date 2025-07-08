@@ -7,6 +7,9 @@ export type ShopifyAccountDoc = HydratedDocument<ShopifyAccount>;
 @Schema({ timestamps: true })
 export class ShopifyAccount {
   @Prop()
+  shopId: string;
+
+  @Prop()
   shop: string;
 
   @Prop()
@@ -16,7 +19,10 @@ export class ShopifyAccount {
   scope: string;
 
   @Prop({ type: mongoose.Types.ObjectId, ref: 'users' })
-  belongsTo: mongoose.Types.ObjectId;
+  belongsTo: mongoose.Types.ObjectId | string;
+
+  @Prop()
+  currencyCode: string;
 
   @Prop()
   accountStatus: ShopifyAccountStatus;
@@ -25,4 +31,5 @@ export class ShopifyAccount {
   disconnectedAt: Date;
 }
 
-export const ShopifySchema = SchemaFactory.createForClass(ShopifyAccount);
+export const ShopifyAccountSchema =
+  SchemaFactory.createForClass(ShopifyAccount);

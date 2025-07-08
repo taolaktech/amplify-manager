@@ -55,19 +55,21 @@ export class ShopifyService {
       accessToken: string;
       scope: string;
     },
-    query?: { first?: number; after?: string },
+    query?: { first?: number; after?: string; before?: string; last?: number },
   ) {
     try {
-      const first = query?.first ?? 10;
+      const first = query?.first ?? '';
       const after = query?.after ?? '';
-      const url1 = `/products?first=${first}&after=${after}`;
+      const last = query?.last ?? '';
+      const before = query?.before ?? '';
+      const url = `/products?first=${first}&after=${after}&last=${last}&before=${before}`;
 
       const axios = this.integrationsAxiosInstance();
 
       const res = await axios.post<{
         products: { [key: string]: any };
         shop: { [key: string]: any };
-      }>(url1, {
+      }>(url, {
         shop: params.shop,
         accessToken: params.accessToken,
         scope: params.scope,
@@ -129,15 +131,6 @@ export class ShopifyService {
   }
 
   async getShopifyAccountConnectionUrl(userId: Types.ObjectId, shop: string) {
-    const shopifyAccountAlreadyExists = await this.shopifyAccountModel.findOne({
-      belongsTo: userId,
-      accountStatus: ShopifyAccountStatus.CONNECTED,
-    });
-
-    if (shopifyAccountAlreadyExists) {
-      throw new BadRequestException(ErrorCode.SHOPIFY_ACCOUNT_ALREADY_EXISTS);
-    }
-
     const url = await this.getShopifyConnectionUrlCall(userId.toString(), shop);
 
     return url;
@@ -168,7 +161,7 @@ export class ShopifyService {
       belongsTo: userId,
       accountStatus: ShopifyAccountStatus.CONNECTED,
     });
-    // const acc = { };
+
     return account
       ? { ...account.toObject(), accessToken: undefined, scope: undefined }
       : null;
