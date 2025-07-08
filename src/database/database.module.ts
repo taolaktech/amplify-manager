@@ -6,7 +6,7 @@ import { AppConfigModule } from 'src/config/config.module';
 import {
   UserSchema,
   ShopifySchema,
-  BusinessDetailsSchema,
+  BusinessSchema,
   WaitlistSchema,
 } from './schema';
 import { FeedbackSchema } from './schema/feedback.schema';
@@ -28,7 +28,7 @@ import { FeedbackSchema } from './schema/feedback.schema';
       { name: 'waitlist', schema: WaitlistSchema },
       { name: 'users', schema: UserSchema },
       { name: 'shopify-accounts', schema: ShopifySchema },
-      { name: 'business-details', schema: BusinessDetailsSchema },
+      { name: 'business', schema: BusinessSchema },
       { name: 'feedbacks', schema: FeedbackSchema },
     ]),
   ],

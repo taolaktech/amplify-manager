@@ -8,7 +8,7 @@ import { UtilsModule } from './utils/utils.module';
 import { AuthGuard } from './auth/auth.guard';
 import { APP_GUARD } from '@nestjs/core';
 import { ShopifyModule } from './shopify/shopify.module';
-import { BusinessDetailsModule } from './business-details/business-details.module';
+import { BusinessModule } from './business/business.module';
 import { WaitlistModule } from './waitlist/waitlist.module';
 import { FeedbackModule } from './feedback/feedback.module';
 
@@ -19,7 +19,7 @@ import { FeedbackModule } from './feedback/feedback.module';
     UtilsModule,
     HealthcheckModule,
     ShopifyModule,
-    BusinessDetailsModule,
+    BusinessModule,
     WaitlistModule,
     FeedbackModule,
   ],

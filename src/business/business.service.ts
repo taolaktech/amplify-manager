@@ -1,7 +1,7 @@
 import { Injectable, InternalServerErrorException } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
-import { BusinessDetailsDoc, UserDoc } from 'src/database/schema';
+import { BusinessDoc, UserDoc } from 'src/database/schema';
 import {
   SetBusinessDetailsDto,
   SetBusinessGoalsDto,
@@ -9,15 +9,15 @@ import {
 } from './dto';
 import axios from 'axios';
 import { AppConfigService } from 'src/config/config.service';
-import { GoogleMapsAutoCompleteResponse } from './business-details.types';
+import { GoogleMapsAutoCompleteResponse } from './business.types';
 
 @Injectable()
-export class BusinessDetailsService {
+export class BusinessService {
   constructor(
     @InjectModel('users')
     private usersModel: Model<UserDoc>,
-    @InjectModel('business-details')
-    private businessDetailsModel: Model<BusinessDetailsDoc>,
+    @InjectModel('business')
+    private businessModel: Model<BusinessDoc>,
     private configService: AppConfigService,
   ) {}
 
@@ -36,7 +36,7 @@ export class BusinessDetailsService {
   }
 
   async setBusinessDetails(userId: Types.ObjectId, dto: SetBusinessDetailsDto) {
-    const businessDetails = await this.businessDetailsModel.findOneAndUpdate(
+    const businessDetails = await this.businessModel.findOneAndUpdate(
       { userId },
       {
         userId,
@@ -68,17 +68,25 @@ export class BusinessDetailsService {
     return businessDetails;
   }
 
-  async getBusinessDetails(userId: Types.ObjectId) {
-    const businessDetails = await this.businessDetailsModel.findOne({ userId });
+  async getBusiness(userId: Types.ObjectId) {
+    let business = await this.businessModel
+      .findOne({ userId })
+      .populate('shopifyAccounts', '-accessToken');
 
-    return businessDetails;
+    if (!business) {
+      business = await this.businessModel.create({
+        userId,
+      });
+    }
+
+    return business;
   }
 
   async setShippingLocations(
     userId: Types.ObjectId,
     dto: SetShippingLocationsDto,
   ) {
-    const businessDetails = await this.businessDetailsModel.findOneAndUpdate(
+    const businessDetails = await this.businessModel.findOneAndUpdate(
       { userId },
       {
         shippingLocations: {
@@ -100,7 +108,7 @@ export class BusinessDetailsService {
   }
 
   async setBusinessGoals(userId: Types.ObjectId, dto: SetBusinessGoalsDto) {
-    const businessDetails = await this.businessDetailsModel.findOneAndUpdate(
+    const businessDetails = await this.businessModel.findOneAndUpdate(
       { userId },
       { businessGoals: dto },
       { new: true, upsert: true },
