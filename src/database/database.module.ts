@@ -5,8 +5,8 @@ import { AppConfigService } from 'src/config/config.service';
 import { AppConfigModule } from 'src/config/config.module';
 import {
   UserSchema,
-  ShopifySchema,
-  BusinessDetailsSchema,
+  ShopifyAccountSchema,
+  BusinessSchema,
   WaitlistSchema,
 } from './schema';
 import { FeedbackSchema } from './schema/feedback.schema';
@@ -27,8 +27,8 @@ import { FeedbackSchema } from './schema/feedback.schema';
     MongooseModule.forFeature([
       { name: 'waitlist', schema: WaitlistSchema },
       { name: 'users', schema: UserSchema },
-      { name: 'shopify-accounts', schema: ShopifySchema },
-      { name: 'business-details', schema: BusinessDetailsSchema },
+      { name: 'shopify-accounts', schema: ShopifyAccountSchema },
+      { name: 'business', schema: BusinessSchema },
       { name: 'feedbacks', schema: FeedbackSchema },
     ]),
   ],

@@ -1,7 +1,7 @@
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
 import { HydratedDocument, Types } from 'mongoose';
 
-export type BusinessDetailsDoc = HydratedDocument<BusinessDetails>;
+export type BusinessDoc = HydratedDocument<Business>;
 
 @Schema({ _id: false })
 class Range {
@@ -57,8 +57,17 @@ class ShippingLocations {
   internationalShippingLocations: string[];
 }
 
+@Schema({ _id: false })
+class Colors {
+  @Prop()
+  primary: string[];
+
+  @Prop()
+  secondary: string[];
+}
+
 @Schema({ timestamps: true })
-export class BusinessDetails {
+export class Business {
   @Prop({ type: Types.ObjectId, ref: 'users' })
   userId: Types.ObjectId;
 
@@ -72,6 +81,15 @@ export class BusinessDetails {
   website: string;
 
   @Prop()
+  logo: string;
+
+  @Prop()
+  coverImage: string;
+
+  @Prop()
+  colors: Colors;
+
+  @Prop()
   industry: string;
 
   @Prop()
@@ -79,6 +97,9 @@ export class BusinessDetails {
 
   @Prop()
   teamSize: Range;
+
+  @Prop()
+  currencyCode: string;
 
   @Prop()
   estimatedMonthlyBudget: Price;
@@ -91,7 +112,9 @@ export class BusinessDetails {
 
   @Prop()
   shippingLocations: ShippingLocations;
+
+  @Prop({ ref: 'shopify-accounts', type: [Types.ObjectId], default: [] })
+  shopifyAccounts: Types.ObjectId[];
 }
 
-export const BusinessDetailsSchema =
-  SchemaFactory.createForClass(BusinessDetails);
+export const BusinessSchema = SchemaFactory.createForClass(Business);
