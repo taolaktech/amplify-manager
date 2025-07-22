@@ -1,14 +1,23 @@
-import { Body, Controller, Get, Post } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Get,
+  Post,
+  UploadedFile,
+  UseInterceptors,
+} from '@nestjs/common';
 import { BusinessService } from './business.service';
 import {
   GetCitiesDto,
+  LogoUploadDto,
   SetBusinessDetailsDto,
   SetBusinessGoalsDto,
   SetShippingLocationsDto,
 } from './dto';
 import { Types } from 'mongoose';
 import { GetUser } from 'src/auth/decorators';
-import { ApiBearerAuth, ApiBody } from '@nestjs/swagger';
+import { ApiBearerAuth, ApiBody, ApiConsumes } from '@nestjs/swagger';
+import { FileInterceptor } from '@nestjs/platform-express';
 
 @ApiBearerAuth()
 @Controller('api/business')
@@ -77,5 +86,19 @@ export class BusinessController {
   async getCities(@Body() dto: GetCitiesDto) {
     const predictions = await this.businessService.getCities(dto.input);
     return predictions;
+  }
+
+  @Post('/logo-upload')
+  @UseInterceptors(FileInterceptor('file'))
+  @ApiConsumes('multipart/form-data')
+  @ApiBody({
+    description: 'Logo-Upload',
+    type: LogoUploadDto,
+  })
+  async uploadLogo(
+    @GetUser('_id') userId: Types.ObjectId,
+    @UploadedFile() file: Express.Multer.File,
+  ) {
+    return await this.businessService.uploadLogo(userId, file);
   }
 }

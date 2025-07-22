@@ -10,6 +10,7 @@ import {
 import axios from 'axios';
 import { AppConfigService } from 'src/config/config.service';
 import { GoogleMapsAutoCompleteResponse } from './business.types';
+import { UtilsService } from 'src/utils/utils.service';
 
 @Injectable()
 export class BusinessService {
@@ -19,6 +20,7 @@ export class BusinessService {
     @InjectModel('business')
     private businessModel: Model<BusinessDoc>,
     private configService: AppConfigService,
+    private utilsService: UtilsService,
   ) {}
 
   private async getCitesFromGoogleCall(input: string) {
@@ -130,5 +132,15 @@ export class BusinessService {
   async getCities(input: string) {
     const data = await this.getCitesFromGoogleCall(input);
     return data.predictions;
+  }
+
+  async uploadLogo(userId: Types.ObjectId, file: Express.Multer.File) {
+    const fileName = `logos/${userId.toString()}/image`;
+    try {
+      const { url } = await this.utilsService.uploadFileToS3(fileName, file);
+      return { url };
+    } catch {
+      throw new InternalServerErrorException('Unable to upload logo');
+    }
   }
 }

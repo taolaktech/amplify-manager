@@ -115,3 +115,8 @@ export class GetCitiesDto {
   @IsNotEmpty()
   input: string;
 }
+
+export class LogoUploadDto {
+  @ApiProperty({ type: 'string', format: 'binary' })
+  file: any;
+}
