@@ -2,7 +2,6 @@ import nodemailer from 'nodemailer';
 import { Injectable, Logger } from '@nestjs/common';
 import { AppConfigService } from 'src/config/config.service';
 import { S3Client, PutObjectCommand } from '@aws-sdk/client-s3';
-import { extname } from 'node:path';
 
 type EmailOptions = {
   to: string;
@@ -65,8 +64,6 @@ export class UtilsService {
   async uploadFileToS3(fileName: string, file: Express.Multer.File) {
     const bucket = this.config.get('S3_BUCKET');
     const region = this.config.get('AWS_REGION');
-    const extension = extname(file.originalname);
-    const finalFileName = `${fileName}${extension}`;
 
     const command = new PutObjectCommand({
       Bucket: bucket,
@@ -78,7 +75,7 @@ export class UtilsService {
     try {
       await this.s3.send(command);
 
-      const url = `https://${bucket}.s3.${region}.amazonaws.com/${finalFileName}`;
+      const url = `https://${bucket}.s3.${region}.amazonaws.com/${fileName}`;
       return { url };
     } catch (error) {
       this.logger.error('S3 upload failed:', error);

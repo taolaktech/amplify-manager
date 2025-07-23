@@ -3,6 +3,8 @@ import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
 import { BusinessDoc, UserDoc } from 'src/database/schema';
 import {
+  LogoUploadDto,
+  SetBrandAssetsDto,
   SetBusinessDetailsDto,
   SetBusinessGoalsDto,
   SetShippingLocationsDto,
@@ -134,13 +136,54 @@ export class BusinessService {
     return data.predictions;
   }
 
-  async uploadLogo(userId: Types.ObjectId, file: Express.Multer.File) {
-    const fileName = `logos/${userId.toString()}/image`;
+  async uploadLogo(
+    userId: Types.ObjectId,
+    dto: LogoUploadDto,
+    file: Express.Multer.File,
+  ) {
+    const fileName = `logos/${userId.toString()}/${dto.type}`;
     try {
       const { url } = await this.utilsService.uploadFileToS3(fileName, file);
       return { url };
     } catch {
       throw new InternalServerErrorException('Unable to upload logo');
     }
+  }
+
+  async uploadBrandGuide(userId: Types.ObjectId, file: Express.Multer.File) {
+    const fileName = `brand-guides/${userId.toString()}/${file.filename}`;
+    try {
+      const { url } = await this.utilsService.uploadFileToS3(fileName, file);
+      return { url };
+    } catch {
+      throw new InternalServerErrorException('Unable to upload logo');
+    }
+  }
+
+  async setBrandAssets(userId: Types.ObjectId, dto: SetBrandAssetsDto) {
+    const brandAssets: BusinessDoc['brandAssets'] = {
+      colors: {
+        primary: dto.primaryColor,
+        secondary: dto.secondaryColor,
+      },
+      fonts: {
+        primary: dto.primaryFont,
+        secondary: dto.secondaryFont,
+      },
+      logos: {
+        primary: dto.primaryLogo,
+        secondary: dto.secondaryLogo,
+      },
+      brandGuide: dto.brandGuide,
+      toneOfVoice: dto.toneOfVoice,
+    };
+
+    const businessDetails = await this.businessModel.findOneAndUpdate(
+      { userId },
+      { brandAssets },
+      { new: true, upsert: true },
+    );
+
+    return businessDetails;
   }
 }

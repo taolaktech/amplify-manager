@@ -4,11 +4,14 @@ import {
   ArrayNotEmpty,
   IsArray,
   IsBoolean,
+  IsEnum,
   IsNotEmpty,
   IsNumber,
   IsObject,
+  IsOptional,
   IsPositive,
   IsString,
+  IsUrl,
   ValidateNested,
 } from 'class-validator';
 
@@ -116,7 +119,66 @@ export class GetCitiesDto {
   input: string;
 }
 
+enum LogoType {
+  'PRIMARY' = 'primary',
+  'SECONDARY' = 'secondary',
+}
 export class LogoUploadDto {
   @ApiProperty({ type: 'string', format: 'binary' })
   file: any;
+
+  @ApiProperty()
+  @IsEnum(LogoType)
+  @IsNotEmpty()
+  type: 'primary' | 'secondary';
+}
+
+export class BrandGuideUploadDto {
+  @ApiProperty({ type: 'string', format: 'binary' })
+  file: any;
+}
+
+export class SetBrandAssetsDto {
+  @ApiProperty()
+  @IsString()
+  @IsUrl()
+  @IsOptional()
+  primaryLogo: string;
+
+  @ApiProperty()
+  @IsString()
+  @IsUrl()
+  @IsOptional()
+  secondaryLogo: string;
+
+  @ApiProperty()
+  @IsString()
+  @IsOptional()
+  primaryColor: string;
+
+  @ApiProperty()
+  @IsString()
+  @IsOptional()
+  secondaryColor: string;
+
+  @ApiProperty()
+  @IsString()
+  @IsOptional()
+  primaryFont: string;
+
+  @ApiProperty()
+  @IsString()
+  @IsOptional()
+  secondaryFont: string;
+
+  @ApiProperty()
+  @IsString()
+  @IsUrl()
+  @IsOptional()
+  brandGuide: string;
+
+  @ApiProperty()
+  @IsString()
+  @IsOptional()
+  toneOfVoice: string;
 }
