@@ -83,6 +83,14 @@ export class LocationDto {
 }
 
 export class ProductDto {
+  @ApiProperty({
+    description: 'The Shopify product ID.',
+    example: '1234567890',
+  })
+  @IsString()
+  @IsNotEmpty()
+  shopifyId: string;
+
   @ApiProperty({ description: 'The title of the product.' })
   @IsString()
   @IsNotEmpty()
