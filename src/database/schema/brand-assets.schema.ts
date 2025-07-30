@@ -47,6 +47,12 @@ export class BrandAsset extends Document {
 
   @Prop({
     type: String,
+    required: false, // Changed to false, as it might not be provided
+  })
+  primaryLogoName?: string;
+
+  @Prop({
+    type: String,
     required: false,
   })
   primaryLogoKey?: string;
@@ -65,6 +71,12 @@ export class BrandAsset extends Document {
 
   @Prop({
     type: String,
+    required: false, // Changed to false, as it might not be provided
+  })
+  secondaryLogoName?: string;
+
+  @Prop({
+    type: String,
     required: false,
   })
   secondaryLogoKey?: string;
@@ -74,11 +86,17 @@ export class BrandAsset extends Document {
     required: false,
   })
   secondaryLogoMimeType?: string;
+
   @Prop({
     type: String,
     required: false, // Changed to false, as it might not be provided
   })
   brandGuideUrl?: string;
+  @Prop({
+    type: String,
+    required: false, // Changed to false, as it might not be provided
+  })
+  brandGuideName?: string;
 
   @Prop({
     type: String,

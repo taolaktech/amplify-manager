@@ -3,8 +3,8 @@ import {
   FileValidationPipe,
   LOGO_VALIDATION_OPTIONS,
   BRAND_GUIDE_VALIDATION_OPTIONS,
-} from './file-validation.pipe';
-import { IUploadedFiles } from '../interfaces/file.interface';
+} from '../../common/pipes/file-validation.pipe';
+import { IUploadedFiles } from '../../common/interfaces/file.interface';
 
 @Injectable()
 export class ValidationTransformPipe implements PipeTransform {

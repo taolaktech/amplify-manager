@@ -5,175 +5,87 @@ import {
   Logger,
   NotFoundException,
 } from '@nestjs/common';
-import { ConfigService } from '@nestjs/config';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
 import { Credentials, UploadService } from 'src/common/file-upload';
 import { IUploadedFiles } from 'src/common/interfaces/file.interface';
 import { BrandAsset, BrandAssetDoc } from 'src/database/schema';
-import { CreateBrandDto } from './dto/create-brand-asset.dto';
-import { UpdateBrandAssetDto } from './dto/update-brand-asset.dto';
+import { UpsertBrandAssetDto } from './dto/upsert-brand-asset.dto';
+import { AppConfigService } from 'src/config/config.service';
 
 // Define a type for the upload results
-type UploadResultWithField = {
-  field: 'primaryLogo' | 'secondaryLogo' | 'brandGuide';
-  url: string;
-  key: string;
-  mimeType: string;
-};
 
 @Injectable()
 export class BrandAssetService {
   private readonly logger = new Logger(BrandAssetService.name);
+  private awsCredentials: Credentials;
 
   constructor(
     @InjectModel('brand-assets')
     private readonly brandAssetModel: Model<BrandAssetDoc>,
     private readonly uploadService: UploadService,
-    private readonly configService: ConfigService,
-  ) {}
+    private readonly configService: AppConfigService,
+  ) {
+    this.awsCredentials = {
+      accessKeyId: this.configService.get('AWS_ACCESS_KEY_ID'),
+      secretAccessKey: this.configService.get(
+        'AWS_SECRET_ACCESS_KEY',
+      ) as string,
+      region: this.configService.get('AWS_REGION') as string,
+      bucketName: this.configService.get('S3_BUCKET') as string,
+    };
+  }
 
   /**
-   * Creates a new brand asset for a user.
+   * Retrieves the brand asset for a specified user.
    *
-   * This method checks if the user has already created a brand asset. If so, it throws a ConflictException.
-   * It uploads the provided files (primary logo, secondary logo, and brand guide) to AWS S3 and saves the
-   * corresponding URLs and metadata in the database.
+   * @param userId - The unique identifier of the user whose brand asset is to be retrieved.
+   * @returns A promise that resolves to the BrandAsset object associated with the user.
+   * @throws NotFoundException - If no brand asset profile is found for the specified user.
    *
-   * @param createBrandDto - The data transfer object containing brand asset details.
-   * @param files - An object containing uploaded files, including primaryLogo, secondaryLogo, and brandGuide.
-   * @param userId - The ID of the user creating the brand asset.
-   * @returns A Promise that resolves to the newly created BrandAsset object.
-   * @throws ConflictException - If the user already has a brand asset.
-   * @throws InternalServerErrorException - If an error occurs during the creation process.
+   * This method also generates public URLs for the primary logo, secondary logo, and brand guide
+   * if their respective keys are present in the brand asset.
    */
-  async createBrandAsset(
-    createBrandDto: CreateBrandDto,
-    files: IUploadedFiles,
-    userId: Types.ObjectId,
-  ): Promise<BrandAsset> {
-    // check if user has created a brand asset before
-    const existingBrandAsset = await this.brandAssetModel.findOne({
-      belongsTo: userId,
-    });
+  async getBrandAsset(userId: Types.ObjectId): Promise<BrandAsset> {
+    let brandAsset = await this.brandAssetModel.findOne({ belongsTo: userId });
+    if (!brandAsset) {
+      brandAsset = await this.brandAssetModel.create({ belongsTo: userId });
+    }
 
-    if (existingBrandAsset) {
-      throw new ConflictException(
-        'User already has a brand asset, please update using the update  endpoint',
+    // Regenerate URLs only for assets that exist
+    const urlGenerationPromises: Promise<void>[] = [];
+
+    if (brandAsset.primaryLogoKey) {
+      urlGenerationPromises.push(
+        this.uploadService
+          .getPublicUrl(brandAsset.primaryLogoKey, this.awsCredentials)
+          .then((url) => {
+            brandAsset.primaryLogoUrl = url;
+          }),
+      );
+    }
+    if (brandAsset.secondaryLogoKey) {
+      urlGenerationPromises.push(
+        this.uploadService
+          .getPublicUrl(brandAsset.secondaryLogoKey, this.awsCredentials)
+          .then((url) => {
+            brandAsset.secondaryLogoUrl = url;
+          }),
+      );
+    }
+    if (brandAsset.brandGuideKey) {
+      urlGenerationPromises.push(
+        this.uploadService
+          .getPublicUrl(brandAsset.brandGuideKey, this.awsCredentials)
+          .then((url) => {
+            brandAsset.brandGuideUrl = url;
+          }),
       );
     }
 
-    const uploadedKeys: string[] = [];
-    const awsCredentials: Credentials = {
-      accessKeyId: this.configService.get('aws.accessKeyId') as string,
-      secretAccessKey: this.configService.get('aws.secretAccessKey') as string,
-      region: this.configService.get('aws.region') as string,
-      bucketName: this.configService.get('aws.bucket') as string,
-      awsUrl: this.configService.get('aws.url') as string,
-    };
+    await Promise.all(urlGenerationPromises);
 
-    try {
-      const uploadPromises: Promise<UploadResultWithField>[] = [];
-
-      if (files.primaryLogo?.[0]) {
-        const file = files.primaryLogo[0];
-        uploadPromises.push(
-          this.uploadService
-            .uploadFile(
-              file,
-              userId.toHexString(),
-              'logo',
-              awsCredentials,
-              'brand-assets',
-            )
-            .then((result) => ({ field: 'primaryLogo', ...result })),
-        );
-      }
-
-      if (files.secondaryLogo?.[0]) {
-        const file = files.secondaryLogo[0];
-        uploadPromises.push(
-          this.uploadService
-            .uploadFile(
-              file,
-              userId.toHexString(),
-              'logo',
-              awsCredentials,
-              'brand-assets',
-            )
-            .then((result) => ({ field: 'secondaryLogo', ...result })),
-        );
-      }
-
-      if (files.brandGuide?.[0]) {
-        const file = files.brandGuide[0];
-        uploadPromises.push(
-          this.uploadService
-            .uploadFile(
-              file,
-              userId.toHexString(),
-              'brand-guide',
-              awsCredentials,
-              'brand-assets',
-            )
-            .then((result) => ({ field: 'brandGuide', ...result })),
-        );
-      }
-
-      const uploadResults = await Promise.all(uploadPromises);
-
-      // Prepare data for MongoDB document
-      const brandAssetData: Partial<BrandAsset> = {
-        ...createBrandDto,
-        belongsTo: userId,
-      };
-
-      for (const result of uploadResults) {
-        uploadedKeys.push(result.key); // Collect all keys for potential rollback
-
-        switch (result.field) {
-          case 'primaryLogo':
-            brandAssetData.primaryLogoUrl = result.url;
-            brandAssetData.primaryLogoKey = result.key;
-            brandAssetData.primaryLogoMimeType = result.mimeType;
-            break;
-          case 'secondaryLogo':
-            brandAssetData.secondaryLogoUrl = result.url;
-            brandAssetData.secondaryLogoKey = result.key;
-            brandAssetData.secondaryLogoMimeType = result.mimeType;
-            break;
-          case 'brandGuide':
-            brandAssetData.brandGuideUrl = result.url;
-            brandAssetData.brandGuideKey = result.key;
-            brandAssetData.brandGuideMimeType = result.mimeType;
-            break;
-        }
-      }
-
-      // Create and save the final database record
-      const newBrandAsset = new this.brandAssetModel(brandAssetData);
-      await newBrandAsset.save();
-
-      return newBrandAsset;
-    } catch (error) {
-      const message =
-        error?.message ||
-        'Could not create brand asset due to an internal error. Please try again.';
-
-      this.logger.error(
-        `Failed to create brand asset for user ${userId.toString()}. Rolling back ${uploadedKeys.length} uploads. Error: ${error.message}`,
-      );
-
-      // If any error occurs, attempt to delete all files that were just uploaded
-      if (uploadedKeys.length > 0) {
-        const deletePromises = uploadedKeys.map((key) =>
-          this.uploadService.deleteObject(key, awsCredentials),
-        );
-        await Promise.allSettled(deletePromises); // Use allSettled to ensure all deletions are attempted
-      }
-
-      throw new InternalServerErrorException(message);
-    }
+    return brandAsset;
   }
 
   /**
@@ -190,187 +102,120 @@ export class BrandAssetService {
    * and the cleanup of old assets in AWS S3. It also manages rollback in case of errors
    * during the update process.
    */
-  async updateBrandAsset(
-    updateDto: UpdateBrandAssetDto,
-    files: IUploadedFiles,
+  async upsertBrandAsset(
     userId: Types.ObjectId,
+    upsertDto: UpsertBrandAssetDto,
+    files: IUploadedFiles,
   ): Promise<BrandAsset> {
-    const brandAsset = await this.brandAssetModel.findOne({
-      belongsTo: userId,
-    });
+    // 1. Find the existing document OR instantiate a new one if it doesn't exist.
+    let brandAsset = await this.brandAssetModel.findOne({ belongsTo: userId });
     if (!brandAsset) {
-      throw new NotFoundException(
-        'Brand asset profile not found for this user.',
+      this.logger.log(
+        `No existing brand asset for user ${userId}. Creating new profile.`,
       );
+      brandAsset = new this.brandAssetModel({ belongsTo: userId });
     }
 
-    const awsCredentials: Credentials = {
-      accessKeyId: this.configService.get('aws.accessKeyId') as string,
-      secretAccessKey: this.configService.get('aws.secretAccessKey') as string,
-      region: this.configService.get('aws.region') as string,
-      bucketName: this.configService.get('aws.bucket') as string,
-      awsUrl: this.configService.get('aws.url') as string,
-    };
-
-    // track old keys to delete after updating new assets successfully
+    // keys to delete if remove flag is set
     const oldKeysToDelete: string[] = [];
-    /*
-     * variable to track the new keys of the assets
-     * in case the overall process fails to complete
-     * which we will use to delete the assets
-     */
+    // keys to delete if failure occurs
     const newKeysToRollback: string[] = [];
 
     try {
-      // Handle File Replacements and Removals
-
-      // Helper function to manage asset logic
       const processAsset = async (
         assetName: 'primaryLogo' | 'secondaryLogo' | 'brandGuide',
         assetType: 'logo' | 'brand-guide',
       ) => {
         const file = files[assetName]?.[0];
-        const removeFlag =
-          updateDto[
-            `remove${assetName.charAt(0).toUpperCase() + assetName.slice(1)}`
-          ]; // get the boolean value of the remove flag of the asset e.g removePrimaryLogo
-        const urlField = `${assetName}Url`; // e.g primaryLogoUrl
-        const keyField = `${assetName}Key`; // e.g primaryLogoKey
-        const mimeTypeField = `${assetName}MimeType`; // e.g primaryLogoMimeType
+        const removeFlag: boolean =
+          upsertDto[
+            `remove${assetName.charAt(0).toUpperCase() + assetName.slice(1)}` // eg removePrimaryLogo
+          ] || false;
+        const urlField = `${assetName}Url`;
+        const keyField = `${assetName}Key`;
+        const mimeTypeField = `${assetName}MimeType`;
+        const nameField = `${assetName}Name`;
 
         if (file) {
-          // Case 1: New file uploaded (Replace or Add)
+          console.log('idodoaoa');
+          // Case: New file uploaded (Handles both add and replace)
           if (brandAsset[keyField]) {
-            // Add the old key to the list of keys to delete e.g primaryLogoKey from the DB
             oldKeysToDelete.push(brandAsset[keyField]);
           }
           const result = await this.uploadService.uploadFile(
             file,
             userId.toHexString(),
             assetType,
-            awsCredentials,
+            this.awsCredentials,
             'brand-assets',
           );
-          newKeysToRollback.push(result.key);
+          newKeysToRollback.push(result.key); // Track for rollback
           brandAsset[urlField] = result.url;
           brandAsset[keyField] = result.key;
           brandAsset[mimeTypeField] = result.mimeType;
+          brandAsset[nameField] = file.originalname; // Store the original file name
         } else if (removeFlag) {
-          // Case 2: Asset removal signaled
+          // Case: Asset removal signaled
           if (brandAsset[keyField]) {
             oldKeysToDelete.push(brandAsset[keyField]);
           }
           brandAsset[urlField] = undefined;
           brandAsset[keyField] = undefined;
           brandAsset[mimeTypeField] = undefined;
+          brandAsset[nameField] = undefined; // Store the original file name
         }
       };
-
-      // Process all assets concurrently
       await Promise.all([
         processAsset('primaryLogo', 'logo'),
         processAsset('secondaryLogo', 'logo'),
         processAsset('brandGuide', 'brand-guide'),
       ]);
 
-      // assign updated DTO fields to brandAsset object
-      Object.assign(brandAsset, updateDto);
+      // Apply DTO field updates (colors, fonts, etc.)
 
-      const updatedBrandAsset = await brandAsset.save();
+      brandAsset.set({
+        primaryColor: upsertDto.primaryColor,
+        secondaryColor: upsertDto.secondaryColor,
+        primaryFont: upsertDto.primaryFont,
+        secondaryFont: upsertDto.secondaryFont,
+        toneOfVoice: upsertDto.toneOfVoice,
+      } as Partial<BrandAsset>);
 
-      // cleanup old S3 objects if any exists
+      await brandAsset.validate(); // Validate the document before saving
+
+      // Save the document
+      await brandAsset.save();
+
+      // Post-Save Cleanup: Delete old files from S3 only after successful save
       if (oldKeysToDelete.length > 0) {
-        this.logger.log(
-          `Cleaning up ${oldKeysToDelete.length} old S3 objects.`,
-        );
         const deletePromises = oldKeysToDelete.map((key) =>
-          this.uploadService.deleteObject(key, awsCredentials),
+          this.uploadService.deleteObject(key, this.awsCredentials),
         );
-        await Promise.allSettled(deletePromises);
+        // Fire and forget
+        Promise.allSettled(deletePromises).catch((err) =>
+          this.logger.error(`Failed to delete old S3 objects: ${err.message}`),
+        );
       }
 
-      return updatedBrandAsset;
+      return brandAsset;
     } catch (error) {
+      // Rollback: Delete any NEW files that were uploaded during this failed attempt
       this.logger.error(
-        `Failed to update brand asset for user ${userId.toString()}. Rolling back ${newKeysToRollback.length} new uploads. Error: ${error.message}`,
+        `Failed to upsert brand asset for user ${userId}. Rolling back ${newKeysToRollback.length} new uploads. Error: ${error.message}`,
       );
-
-      // Rollback any new files that were uploaded before the error
       if (newKeysToRollback.length > 0) {
         const deletePromises = newKeysToRollback.map((key) =>
-          this.uploadService.deleteObject(key, awsCredentials),
+          this.uploadService.deleteObject(key, this.awsCredentials),
         );
-        await Promise.allSettled(deletePromises);
+        Promise.allSettled(deletePromises).catch((err) =>
+          this.logger.error(
+            `Failed to rollback new S3 uploads: ${err.message}`,
+          ),
+        );
       }
-
       throw new InternalServerErrorException(
-        'Could not update brand asset. Please try again.',
+        'Could not save brand asset. Please try again.',
       );
     }
-  }
-
-  /**
-   * Retrieves the brand asset for a specified user.
-   *
-   * @param userId - The unique identifier of the user whose brand asset is to be retrieved.
-   * @returns A promise that resolves to the BrandAsset object associated with the user.
-   * @throws NotFoundException - If no brand asset profile is found for the specified user.
-   *
-   * This method also generates public URLs for the primary logo, secondary logo, and brand guide
-   * if their respective keys are present in the brand asset.
-   */
-  async getBrandAsset(userId: Types.ObjectId): Promise<BrandAsset> {
-    const brandAsset = await this.brandAssetModel
-      .findOne({ belongsTo: userId })
-      .lean();
-
-    if (!brandAsset) {
-      throw new NotFoundException(
-        'Brand asset profile not found for this user.',
-      );
-    }
-
-    const awsCredentials: Credentials = {
-      accessKeyId: this.configService.get('aws.accessKeyId') as string,
-      secretAccessKey: this.configService.get('aws.secretAccessKey') as string,
-      region: this.configService.get('aws.region') as string,
-      bucketName: this.configService.get('aws.bucket') as string,
-      awsUrl: this.configService.get('aws.url') as string,
-    };
-
-    // Regenerate URLs only for assets that exist
-    const urlGenerationPromises: Promise<void>[] = [];
-
-    if (brandAsset.primaryLogoKey) {
-      urlGenerationPromises.push(
-        this.uploadService
-          .getPublicUrl(brandAsset.primaryLogoKey, awsCredentials)
-          .then((url) => {
-            brandAsset.primaryLogoUrl = url;
-          }),
-      );
-    }
-    if (brandAsset.secondaryLogoKey) {
-      urlGenerationPromises.push(
-        this.uploadService
-          .getPublicUrl(brandAsset.secondaryLogoKey, awsCredentials)
-          .then((url) => {
-            brandAsset.secondaryLogoUrl = url;
-          }),
-      );
-    }
-    if (brandAsset.brandGuideKey) {
-      urlGenerationPromises.push(
-        this.uploadService
-          .getPublicUrl(brandAsset.brandGuideKey, awsCredentials)
-          .then((url) => {
-            brandAsset.brandGuideUrl = url;
-          }),
-      );
-    }
-
-    await Promise.all(urlGenerationPromises);
-
-    return brandAsset;
   }
 }

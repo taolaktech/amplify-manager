@@ -29,7 +29,6 @@ export interface Credentials {
   /**
    * Base URL to AWS resource
    */
-  awsUrl: string;
   accessKeyId: string;
   secretAccessKey: string;
   region: string;
@@ -155,7 +154,9 @@ export class UploadService {
       file.originalname,
     );
     const folderPath = topLevelFolders[topLevelFolder]; // e.g., 'brand-assets'
-    const fullKey = path.normalize(`${folderPath}/${generatedKey}`);
+    let fullKey = path.normalize(`${folderPath}/${generatedKey}`);
+    // replace all backslashes with forward slashes
+    fullKey = fullKey.replace(/\\/g, '/');
 
     const upload = new Upload({
       client: this.client,
