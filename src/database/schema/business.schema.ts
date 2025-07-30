@@ -1,5 +1,5 @@
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
-import { HydratedDocument, Types } from 'mongoose';
+import mongoose, { HydratedDocument, Types } from 'mongoose';
 
 export type BusinessDoc = HydratedDocument<Business>;
 
@@ -57,15 +57,6 @@ class ShippingLocations {
   internationalShippingLocations: string[];
 }
 
-@Schema({ _id: false })
-class Colors {
-  @Prop()
-  primary: string[];
-
-  @Prop()
-  secondary: string[];
-}
-
 @Schema({ timestamps: true })
 export class Business {
   @Prop({ type: Types.ObjectId, ref: 'users' })
@@ -81,19 +72,22 @@ export class Business {
   website: string;
 
   @Prop()
-  logo: string;
+  logo?: string;
 
   @Prop()
-  coverImage: string;
-
-  @Prop()
-  colors: Colors;
+  logoKey?: string;
 
   @Prop()
   industry: string;
 
   @Prop()
   companyRole: string;
+
+  @Prop()
+  contactEmail: string;
+
+  @Prop()
+  contactPhone: string;
 
   @Prop()
   teamSize: Range;
@@ -109,6 +103,9 @@ export class Business {
 
   @Prop()
   businessGoals: BusinessGoal;
+
+  @Prop({ type: mongoose.Schema.Types.Mixed })
+  shopifyBrandAssets: { [k: string]: any };
 
   @Prop()
   shippingLocations: ShippingLocations;

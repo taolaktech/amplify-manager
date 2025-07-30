@@ -1,14 +1,25 @@
-import { Body, Controller, Get, Post } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Get,
+  Patch,
+  Post,
+  UploadedFile,
+  UseInterceptors,
+} from '@nestjs/common';
 import { BusinessService } from './business.service';
 import {
   GetCitiesDto,
   SetBusinessDetailsDto,
   SetBusinessGoalsDto,
   SetShippingLocationsDto,
+  UpdateBusinessLogo,
 } from './dto';
 import { Types } from 'mongoose';
 import { GetUser } from 'src/auth/decorators';
-import { ApiBearerAuth, ApiBody } from '@nestjs/swagger';
+import { ApiBearerAuth, ApiBody, ApiConsumes } from '@nestjs/swagger';
+import { FileInterceptor } from '@nestjs/platform-express';
+import { createMulterOptions } from 'src/common/create-multer-options';
 
 @ApiBearerAuth()
 @Controller('api/business')
@@ -77,5 +88,34 @@ export class BusinessController {
   async getCities(@Body() dto: GetCitiesDto) {
     const predictions = await this.businessService.getCities(dto.input);
     return predictions;
+  }
+
+  @ApiConsumes('multipart/form-data')
+  @ApiBody({
+    description: 'Upload business logo',
+    type: UpdateBusinessLogo,
+  })
+  @UseInterceptors(
+    FileInterceptor(
+      'businessLogo',
+      createMulterOptions(5 * 1024 * 1024, [
+        'image/png',
+        'image/jpeg',
+        'image/svg+xml',
+      ]),
+    ),
+  )
+  @Patch('/update-logo')
+  async updateBusinessLogo(
+    @GetUser('_id') userId: Types.ObjectId,
+    @Body() dto: UpdateBusinessLogo,
+    @UploadedFile() file: Express.Multer.File,
+  ) {
+    const business = await this.businessService.updateBusinessLogo(
+      userId,
+      dto,
+      file,
+    );
+    return { business };
   }
 }
