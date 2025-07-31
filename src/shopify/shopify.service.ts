@@ -41,6 +41,7 @@ export class ShopifyService {
       );
       return res.data.url;
     } catch (error: unknown) {
+        console.log(error);
       if (error instanceof AxiosError) {
         console.log(error.response);
         console.log(error.response?.data);
