@@ -42,7 +42,7 @@ export class ShopifyService {
       return res.data.url;
     } catch (error: unknown) {
       if (error instanceof AxiosError) {
-        console.log(error?.response || error?.message || error?.response?.data);
+        console.log(error?.response?.data || error?.message || error?.response || error);
       }
       throw new InternalServerErrorException(ErrorCode.INTERNAL_SERVER_ERROR);
     }
