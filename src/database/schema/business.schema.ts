@@ -107,6 +107,9 @@ export class Business {
   @Prop({ type: mongoose.Schema.Types.Mixed })
   shopifyBrandAssets: { [k: string]: any };
 
+  @Prop({ ref: 'brand-assets', type: [Types.ObjectId] })
+  brandAssets: Types.ObjectId[];
+
   @Prop()
   shippingLocations: ShippingLocations;
 

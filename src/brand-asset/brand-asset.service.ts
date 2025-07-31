@@ -7,7 +7,7 @@ import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
 import { Credentials, UploadService } from 'src/common/file-upload';
 import { IUploadedFiles } from 'src/common/interfaces/file.interface';
-import { BrandAsset, BrandAssetDoc } from 'src/database/schema';
+import { BrandAsset, BrandAssetDoc, BusinessDoc } from 'src/database/schema';
 import { UpsertBrandAssetDto } from './dto/upsert-brand-asset.dto';
 import { AppConfigService } from 'src/config/config.service';
 
@@ -19,6 +19,8 @@ export class BrandAssetService {
   private awsCredentials: Credentials;
 
   constructor(
+    @InjectModel('business')
+    private readonly businessModel: Model<BusinessDoc>,
     @InjectModel('brand-assets')
     private readonly brandAssetModel: Model<BrandAssetDoc>,
     private readonly uploadService: UploadService,
@@ -26,11 +28,9 @@ export class BrandAssetService {
   ) {
     this.awsCredentials = {
       accessKeyId: this.configService.get('AWS_ACCESS_KEY_ID'),
-      secretAccessKey: this.configService.get(
-        'AWS_SECRET_ACCESS_KEY',
-      ) as string,
-      region: this.configService.get('AWS_REGION') as string,
-      bucketName: this.configService.get('S3_BUCKET') as string,
+      secretAccessKey: this.configService.get('AWS_SECRET_ACCESS_KEY'),
+      region: this.configService.get('AWS_REGION'),
+      bucketName: this.configService.get('S3_BUCKET'),
     };
   }
 
@@ -45,9 +45,19 @@ export class BrandAssetService {
    * if their respective keys are present in the brand asset.
    */
   async getBrandAsset(userId: Types.ObjectId): Promise<BrandAsset> {
+    const business = await this.businessModel.findOne({ userId });
+    if (!business) {
+      throw new InternalServerErrorException(
+        'Business not found for this user.',
+      );
+    }
     let brandAsset = await this.brandAssetModel.findOne({ belongsTo: userId });
     if (!brandAsset) {
-      brandAsset = await this.brandAssetModel.create({ belongsTo: userId });
+      brandAsset = await this.brandAssetModel.create({
+        belongsTo: userId,
+      });
+      business.brandAssets = [brandAsset._id as Types.ObjectId];
+      await business.save();
     }
 
     // Regenerate URLs only for assets that exist
@@ -82,6 +92,7 @@ export class BrandAssetService {
     }
 
     await Promise.all(urlGenerationPromises);
+    await brandAsset.save();
 
     return brandAsset;
   }
@@ -106,12 +117,20 @@ export class BrandAssetService {
     files: IUploadedFiles,
   ): Promise<BrandAsset> {
     // 1. Find the existing document OR instantiate a new one if it doesn't exist.
+    const business = await this.businessModel.findOne({ userId });
+    if (!business) {
+      throw new InternalServerErrorException(
+        'Business not found for this user.',
+      );
+    }
     let brandAsset = await this.brandAssetModel.findOne({ belongsTo: userId });
     if (!brandAsset) {
       this.logger.log(
-        `No existing brand asset for user ${userId}. Creating new profile.`,
+        `No existing brand asset for user ${userId.toString()}. Creating new profile.`,
       );
-      brandAsset = new this.brandAssetModel({ belongsTo: userId });
+      brandAsset = await this.brandAssetModel.create({ belongsTo: userId });
+      business.brandAssets = [brandAsset._id as Types.ObjectId];
+      await business.save();
     }
 
     // keys to delete if remove flag is set
@@ -199,7 +218,7 @@ export class BrandAssetService {
     } catch (error) {
       // Rollback: Delete any NEW files that were uploaded during this failed attempt
       this.logger.error(
-        `Failed to upsert brand asset for user ${userId}. Rolling back ${newKeysToRollback.length} new uploads. Error: ${error.message}`,
+        `Failed to upsert brand asset for user ${userId.toString()}. Rolling back ${newKeysToRollback.length} new uploads. Error: ${error.message}`,
       );
       if (newKeysToRollback.length > 0) {
         const deletePromises = newKeysToRollback.map((key) =>

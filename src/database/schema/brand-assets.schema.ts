@@ -17,25 +17,21 @@ export class BrandAsset extends Document {
 
   @Prop({
     type: String,
-    required: true,
   })
   primaryColor: string;
 
   @Prop({
     type: String,
-    required: true,
   })
   secondaryColor: string;
 
   @Prop({
     type: String,
-    required: true,
   })
   primaryFont: string;
 
   @Prop({
     type: String,
-    required: true,
   })
   secondaryFont: string;
 

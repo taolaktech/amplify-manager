@@ -31,11 +31,9 @@ export class BusinessService {
   ) {
     this.awsCredentials = {
       accessKeyId: this.configService.get('AWS_ACCESS_KEY_ID'),
-      secretAccessKey: this.configService.get(
-        'AWS_SECRET_ACCESS_KEY',
-      ) as string,
-      region: this.configService.get('AWS_REGION') as string,
-      bucketName: this.configService.get('S3_BUCKET') as string,
+      secretAccessKey: this.configService.get('AWS_SECRET_ACCESS_KEY'),
+      region: this.configService.get('AWS_REGION'),
+      bucketName: this.configService.get('S3_BUCKET'),
     };
   }
 
@@ -192,7 +190,7 @@ export class BusinessService {
           this.uploadService
             .deleteObject(business.logoKey, this.awsCredentials)
             .then()
-            .catch((err) =>
+            .catch(() =>
               this.logger.error(
                 `Error deleting logo file: ${business.logoKey}`,
               ),

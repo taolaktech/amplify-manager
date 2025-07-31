@@ -2,6 +2,7 @@ import {
   BadRequestException,
   Injectable,
   InternalServerErrorException,
+  Logger,
 } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
@@ -13,6 +14,7 @@ import { ErrorCode } from 'src/enums';
 
 @Injectable()
 export class ShopifyService {
+  private readonly logger = new Logger(ShopifyService.name);
   constructor(
     private configService: AppConfigService,
     @InjectModel('shopify-accounts')
@@ -76,9 +78,8 @@ export class ShopifyService {
       });
       return res.data;
     } catch (error: unknown) {
-      console.log(error);
       if (error instanceof AxiosError) {
-        console.log(error.response);
+        this.logger.error(error.response);
         throw new BadRequestException(error.response?.data);
       }
       throw new InternalServerErrorException(ErrorCode.INTERNAL_SERVER_ERROR);

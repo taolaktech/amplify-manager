@@ -85,42 +85,6 @@ export class UploadService {
     return `${assetType}/${userId}/${uniqueId}${extension}`;
   }
 
-  // async uploadStream(
-  //   stream: Readable,
-  //   key: string,
-  //   contentType: ContentTypes,
-  //   credentials: Credentials,
-  //   topLevelFolder: TopLevelFolder, // Strongly typed top-level folder
-  // ): Promise<Record<string, any>> {
-  //   if (!this.client) {
-  //     this.logger.log('Initializing S3 Client.....');
-  //     this.initializeClient(credentials);
-  //   }
-
-  //   const folderPath = topLevelFolders[topLevelFolder];
-  //   const fullKey = path.normalize(`${this.basePath}/${folderPath}/${key}`);
-
-  //   const uploadResult = new Upload({
-  //     client: this.client,
-  //     params: {
-  //       Bucket: this.bucketName,
-  //       Key: fullKey,
-  //       Body: stream,
-  //       ContentType: contentType,
-  //     },
-  //     queueSize: 4, // how many uploads can happen at once
-  //     partSize: 1024 * 1024 * 5, // how much of the file to upload per request (5 MB)
-  //     leavePartsOnError: false, // optionally handle S3 errors when uploading the parts
-  //   });
-
-  //   const response = await uploadResult.done();
-  //   this.logger.log(
-  //     `::: completed file upload ${JSON.stringify(response)} :::`,
-  //   );
-
-  //   return await this.getPresignedSignedUrl(fullKey);
-  // }
-
   /**
    * Uploads a file to an S3 bucket.
    *
@@ -171,10 +135,8 @@ export class UploadService {
       leavePartsOnError: false,
     });
 
-    const response = await upload.done();
-    this.logger.log(
-      `::: completed file upload ${JSON.stringify(response)} :::`,
-    );
+    await upload.done();
+    this.logger.log(`::: completed file upload :::`);
 
     const url = await this.getPresignedSignedUrl(fullKey);
     return {
