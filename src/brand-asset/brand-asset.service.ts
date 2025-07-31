@@ -132,7 +132,7 @@ export class BrandAssetService {
     });
     if (!brandAsset) {
       this.logger.log(
-        `No existing brand asset for user ${userId.toString()}. Creating new profile.`,
+        `No existing brand asset for business ${business._id.toString()}. Creating new profile.`,
       );
       brandAsset = await this.brandAssetModel.create({
         belongsTo: business._id,
