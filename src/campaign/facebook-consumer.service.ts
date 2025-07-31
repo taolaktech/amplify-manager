@@ -38,8 +38,9 @@ export class FacebookConsumerService implements OnModuleInit {
   }
 
   onModuleInit() {
+    // -- USE THIS WHEN YOU WANT TO TEST CONSUMING FACEBOOK CAMPAIGNS FROM THE QUEUE --
     // This starts the polling process as soon as the module is initialized.
-    this.startPolling();
+    // this.startPolling();
   }
 
   async startPolling() {
