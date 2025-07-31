@@ -54,7 +54,7 @@ export class BrandAssetService {
     let brandAsset = await this.brandAssetModel.findOne({ belongsTo: userId });
     if (!brandAsset) {
       brandAsset = await this.brandAssetModel.create({
-        belongsTo: userId,
+        belongsTo: business._id,
       });
       business.brandAssets = [brandAsset._id as Types.ObjectId];
       await business.save();
@@ -123,12 +123,16 @@ export class BrandAssetService {
         'Business not found for this user.',
       );
     }
-    let brandAsset = await this.brandAssetModel.findOne({ belongsTo: userId });
+    let brandAsset = await this.brandAssetModel.findOne({
+      belongsTo: business._id,
+    });
     if (!brandAsset) {
       this.logger.log(
         `No existing brand asset for user ${userId.toString()}. Creating new profile.`,
       );
-      brandAsset = await this.brandAssetModel.create({ belongsTo: userId });
+      brandAsset = await this.brandAssetModel.create({
+        belongsTo: business._id,
+      });
       business.brandAssets = [brandAsset._id as Types.ObjectId];
       await business.save();
     }
@@ -161,7 +165,7 @@ export class BrandAssetService {
           }
           const result = await this.uploadService.uploadFile(
             file,
-            userId.toHexString(),
+            business._id.toHexString(),
             assetType,
             this.awsCredentials,
             'brand-assets',

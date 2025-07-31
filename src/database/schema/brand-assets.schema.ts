@@ -10,7 +10,7 @@ export class BrandAsset extends Document {
   @Prop({
     type: mongoose.Types.ObjectId,
     required: true,
-    ref: 'users',
+    ref: 'business',
     index: true,
   })
   belongsTo!: mongoose.Types.ObjectId;

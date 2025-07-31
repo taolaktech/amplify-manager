@@ -75,14 +75,14 @@ export class UploadService {
   }
 
   private generateS3Key(
-    userId: string,
+    businessId: string,
     assetType: 'logo' | 'brand-guide',
     originalFilename: string,
   ): string {
     const uniqueId = uuidv4();
     const extension = path.extname(originalFilename);
     // e.g., logos/user_123/d1b2c3d4-e5f6-a7b8-c9d0-e1f2a3b4c5d6.png
-    return `${assetType}/${userId}/${uniqueId}${extension}`;
+    return `${assetType}/${businessId}/${uniqueId}${extension}`;
   }
 
   /**
@@ -99,7 +99,7 @@ export class UploadService {
    */
   async uploadFile(
     file: Express.Multer.File,
-    userId: string,
+    businessId: string,
     assetType: 'logo' | 'brand-guide',
     credentials: Credentials,
     topLevelFolder: TopLevelFolder,
@@ -113,7 +113,7 @@ export class UploadService {
     const stream = Readable.from(file.buffer);
     // Generate key
     const generatedKey = this.generateS3Key(
-      userId,
+      businessId,
       assetType,
       file.originalname,
     );

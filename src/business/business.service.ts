@@ -170,14 +170,14 @@ export class BusinessService {
         .populate('shopifyAccounts', '-accessToken');
 
       if (!business) {
-        business = new this.businessModel({
+        business = await this.businessModel.create({
           userId,
         });
       }
       if (file) {
         const { url, key } = await this.uploadService.uploadFile(
           file,
-          userId.toHexString(),
+          business._id.toHexString(),
           'logo',
           this.awsCredentials,
           'brand-assets',
