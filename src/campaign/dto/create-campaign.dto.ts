@@ -39,7 +39,7 @@ export class CreativeDto {
     minimum: 0,
   })
   @IsNumber({}, { message: 'Budget must be a number.' })
-  @Min(0, { message: 'Budget cannot be negative.' })
+  @Min(1, { message: 'Budget cannot be negative.' })
   budget: number;
 
   @ApiProperty({
@@ -108,12 +108,10 @@ export class ProductDto {
 
   @ApiProperty({ description: 'The target audience for the product.' })
   @IsString()
-  @IsNotEmpty()
   audience: string;
 
   @ApiProperty({ description: 'The occasion this product is suitable for.' })
   @IsString()
-  @IsNotEmpty()
   occasion: string;
 
   @ApiProperty({ type: [String], description: 'Key features of the product.' })
@@ -159,6 +157,7 @@ export class CreateCampaignDto {
     example: CampaignType.PRODUCT_LAUNCH,
   })
   @IsEnum(CampaignType, { message: 'A valid campaign type must be provided.' })
+  @IsNotEmpty()
   type: CampaignType;
 
   @ApiProperty({
@@ -182,7 +181,6 @@ export class CreateCampaignDto {
     example: '#3b5998',
   })
   @IsString()
-  @IsNotEmpty()
   brandColor: string;
 
   @ApiProperty({
@@ -190,7 +188,6 @@ export class CreateCampaignDto {
     example: '#3b5998',
   })
   @IsString()
-  @IsNotEmpty()
   accentColor: string;
 
   @ApiProperty({
@@ -198,7 +195,6 @@ export class CreateCampaignDto {
     example: 'Playful and energetic',
   })
   @IsString()
-  @IsNotEmpty()
   tone: string;
 
   @ApiProperty({
@@ -206,6 +202,7 @@ export class CreateCampaignDto {
     example: '2024-10-01T09:00:00Z',
   })
   @IsDateString({}, { message: 'A valid start date must be provided.' })
+  @IsNotEmpty()
   startDate: string;
 
   @ApiProperty({
@@ -213,6 +210,7 @@ export class CreateCampaignDto {
     example: '2024-10-31T23:59:59Z',
   })
   @IsDateString({}, { message: 'A valid end date must be provided.' })
+  @IsNotEmpty()
   endDate: string;
 
   @ApiProperty({

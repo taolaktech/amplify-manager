@@ -24,7 +24,6 @@ export class Creative {
   channel: string;
 
   @ApiProperty({ example: 100, description: 'The budget for the creative.' })
-  @Prop({ required: true })
   budget: number;
 
   @ApiProperty({
@@ -87,11 +86,9 @@ export class Product {
     example: 'Serious runners',
     description: 'Target audience for the product.',
   })
-  @Prop({ required: true })
   audience: string;
 
   @ApiProperty({ example: 'Race day', description: 'Suitable occasion.' })
-  @Prop({ required: true })
   occasion: string;
 
   @ApiProperty({
@@ -162,18 +159,15 @@ export class Campaign {
   type: CampaignType;
 
   @ApiProperty({ example: '#3b5998', description: 'Primary campaign color.' })
-  @Prop({ required: true })
   brandColor: string;
 
   @ApiProperty({ example: '#3b5998', description: 'Primary campaign color.' })
-  @Prop({ required: true })
   accentColor: string;
 
   @ApiProperty({
     example: 'Playful and energetic',
     description: 'Tone of voice for ad copy.',
   })
-  @Prop({ required: true })
   tone: string;
 
   @ApiProperty({

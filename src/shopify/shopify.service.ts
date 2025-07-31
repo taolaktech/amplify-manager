@@ -41,10 +41,8 @@ export class ShopifyService {
       );
       return res.data.url;
     } catch (error: unknown) {
-        console.log(error);
       if (error instanceof AxiosError) {
-        console.log(error.response);
-        console.log(error.response?.data);
+        console.log(error?.response || error?.message || error?.response?.data);
       }
       throw new InternalServerErrorException(ErrorCode.INTERNAL_SERVER_ERROR);
     }
