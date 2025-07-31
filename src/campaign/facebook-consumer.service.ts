@@ -7,6 +7,7 @@ import {
   Message,
 } from '@aws-sdk/client-sqs';
 import { CampaignWorkerService } from './campaign-worker.service';
+import { getQueueUrlForPlatform } from 'src/common/get-queue-url';
 
 @Injectable()
 export class FacebookConsumerService implements OnModuleInit {
@@ -32,13 +33,13 @@ export class FacebookConsumerService implements OnModuleInit {
       region,
       credentials: { accessKeyId, secretAccessKey },
     });
-    this.queueUrl =
-      'https://sqs.us-east-2.amazonaws.com/835677831313/facebook-campaign-queue';
+    this.queueUrl = getQueueUrlForPlatform('facebook');
+    // 'https://sqs.us-east-2.amazonaws.com/835677831313/facebook-campaign-queue';
   }
 
   onModuleInit() {
     // This starts the polling process as soon as the module is initialized.
-    // this.startPolling();
+    this.startPolling();
   }
 
   async startPolling() {

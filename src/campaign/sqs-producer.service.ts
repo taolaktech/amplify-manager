@@ -34,7 +34,7 @@ export class SqsProducerService implements OnModuleInit {
   }
 
   async sendMessage(campaign: CampaignDocument, platform: string) {
-    const queueUrl = this.getQueueUrlForPlatform(platform);
+    const queueUrl = this.getQueueUrlForPlatform(platform.toLowerCase());
     if (!queueUrl) {
       this.logger.error(`No SQS queue URL found for platform: ${platform}`);
       return;
@@ -65,15 +65,16 @@ export class SqsProducerService implements OnModuleInit {
     }
   }
 
-  private getQueueUrlForPlatform(platform: string): string | undefined {
-    const queueUrls = {
-      facebook:
-        'https://sqs.us-east-2.amazonaws.com/835677831313/facebook-campaign-queue',
-      google:
-        'https://sqs.us-east-2.amazonaws.com/835677831313/google-campaign-queue',
-      instagram:
-        'https://sqs.us-east-2.amazonaws.com/835677831313/instagram-campaign-queue',
-    };
-    return queueUrls[platform.toLowerCase()];
+  private getQueueUrlForPlatform(platform: string): string {
+    const env = process.env.NODE_ENV || 'development'; // 'production' or 'development'
+    const suffix = env === 'production' ? '' : 'dev-';
+
+    const queueName = `${suffix}${platform.toLowerCase()}-campaign-queue`;
+
+    // construct the full URL based on region and account ID from config
+    const region = this.configService.get('AWS_REGION');
+    const accountId = this.configService.get('AWS_ACCOUNT_ID');
+
+    return `https://sqs.${region}.amazonaws.com/${accountId}/${queueName}`;
   }
 }
