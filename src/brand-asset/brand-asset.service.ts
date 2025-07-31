@@ -51,7 +51,11 @@ export class BrandAssetService {
         'Business not found for this user.',
       );
     }
-    let brandAsset = await this.brandAssetModel.findOne({ belongsTo: userId });
+
+    let brandAsset = await this.brandAssetModel.findOne({
+      belongsTo: business._id,
+    });
+
     if (!brandAsset) {
       brandAsset = await this.brandAssetModel.create({
         belongsTo: business._id,
