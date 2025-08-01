@@ -53,12 +53,12 @@ export class BrandAssetService {
     }
 
     let brandAsset = await this.brandAssetModel.findOne({
-      belongsTo: business._id,
+      businessId: business._id,
     });
 
     if (!brandAsset) {
       brandAsset = await this.brandAssetModel.create({
-        belongsTo: business._id,
+        businessId: business._id,
       });
       business.brandAssets = [brandAsset._id as Types.ObjectId];
       await business.save();
@@ -128,14 +128,14 @@ export class BrandAssetService {
       );
     }
     let brandAsset = await this.brandAssetModel.findOne({
-      belongsTo: business._id,
+      businessId: business._id,
     });
     if (!brandAsset) {
       this.logger.log(
         `No existing brand asset for business ${business._id.toString()}. Creating new profile.`,
       );
       brandAsset = await this.brandAssetModel.create({
-        belongsTo: business._id,
+        businessId: business._id,
       });
       business.brandAssets = [brandAsset._id as Types.ObjectId];
       await business.save();

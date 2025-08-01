@@ -13,7 +13,7 @@ export class BrandAsset extends Document {
     ref: 'business',
     index: true,
   })
-  belongsTo!: mongoose.Types.ObjectId;
+  businessId!: mongoose.Types.ObjectId;
 
   @Prop({
     type: String,
