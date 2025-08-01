@@ -24,6 +24,8 @@ export class ShopifyController {
 
   @ApiQuery({ name: 'first', required: false, type: Number })
   @ApiQuery({ name: 'after', required: false, type: String })
+  @ApiQuery({ name: 'last', required: false, type: Number })
+  @ApiQuery({ name: 'before', required: false, type: String })
   @Get('/products')
   async getProducts(
     @GetUser() user: UserDoc,

@@ -37,6 +37,12 @@ export const configSchema = z.object({
 
   // google maps/places
   GOOGLE_MAPS_API_KEY: z.string(),
+
+  // AWS S3
+  AWS_ACCESS_KEY_ID: z.string(),
+  AWS_SECRET_ACCESS_KEY: z.string(),
+  AWS_REGION: z.string(),
+  S3_BUCKET: z.string(),
 });
 
 export type AppConfig = z.infer<typeof configSchema>;
