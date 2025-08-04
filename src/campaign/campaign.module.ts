@@ -11,7 +11,7 @@ import { JwtService } from '@nestjs/jwt';
     CampaignService,
     SqsProducerService,
     CampaignWorkerService,
-    FacebookConsumerService,
+    // FacebookConsumerService,
     JwtService,
   ],
   controllers: [CampaignController],
