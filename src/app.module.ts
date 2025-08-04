@@ -11,6 +11,7 @@ import { ShopifyModule } from './shopify/shopify.module';
 import { BusinessModule } from './business/business.module';
 import { WaitlistModule } from './waitlist/waitlist.module';
 import { FeedbackModule } from './feedback/feedback.module';
+import { BrandAssetModule } from './brand-asset/brand-asset.module';
 import { CampaignModule } from './campaign/campaign.module';
 
 @Module({
@@ -23,6 +24,7 @@ import { CampaignModule } from './campaign/campaign.module';
     BusinessModule,
     WaitlistModule,
     FeedbackModule,
+    BrandAssetModule,
     CampaignModule,
   ],
   controllers: [AppController],

@@ -1,12 +1,15 @@
-import { ApiProperty } from '@nestjs/swagger';
-import { Type } from 'class-transformer';
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import { Transform, Type } from 'class-transformer';
 import {
   ArrayNotEmpty,
   IsArray,
   IsBoolean,
+  IsEmail,
   IsNotEmpty,
   IsNumber,
   IsObject,
+  IsOptional,
+  IsPhoneNumber,
   IsPositive,
   IsString,
   ValidateNested,
@@ -45,6 +48,19 @@ export class SetBusinessDetailsDto {
   @IsString()
   @IsNotEmpty()
   companyRole: string;
+
+  @ApiPropertyOptional()
+  @IsString()
+  @IsEmail()
+  @IsOptional()
+  contactEmail: string;
+
+  @ApiPropertyOptional()
+  @ApiProperty()
+  @IsString()
+  @IsPhoneNumber()
+  @IsOptional()
+  contactPhone: string;
 
   @ApiProperty()
   @IsObject()
@@ -114,4 +130,21 @@ export class GetCitiesDto {
   @IsString()
   @IsNotEmpty()
   input: string;
+}
+
+export class UpdateBusinessLogo {
+  @ApiPropertyOptional({
+    description:
+      'Set to true to remove the existing logo. This is ignored if a new logo file is uploaded in the same request.',
+    default: false,
+  })
+  @IsBoolean()
+  @IsOptional()
+  @Transform(({ value }) => value === 'true' || value === true)
+  removeLogo?: boolean;
+
+  /*  */
+  @ApiPropertyOptional({ type: 'string', format: 'binary' })
+  @IsOptional()
+  businessLogo?: Express.Multer.File;
 }

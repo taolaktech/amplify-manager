@@ -8,6 +8,7 @@ import {
   ShopifyAccountSchema,
   BusinessSchema,
   WaitlistSchema,
+  BrandAssetSchema,
   CampaignSchema,
 } from './schema';
 import { FeedbackSchema } from './schema/feedback.schema';
@@ -31,6 +32,7 @@ import { FeedbackSchema } from './schema/feedback.schema';
       { name: 'shopify-accounts', schema: ShopifyAccountSchema },
       { name: 'business', schema: BusinessSchema },
       { name: 'feedbacks', schema: FeedbackSchema },
+      { name: 'brand-assets', schema: BrandAssetSchema },
       { name: 'campaigns', schema: CampaignSchema },
     ]),
   ],
