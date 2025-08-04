@@ -5,11 +5,11 @@ import {
 } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
-import { Credentials, UploadService } from 'src/common/file-upload';
+import { Credentials, UploadService } from '../common/file-upload';
 import { IUploadedFiles } from 'src/common/interfaces/file.interface';
 import { BrandAsset, BrandAssetDoc, BusinessDoc } from 'src/database/schema';
 import { UpsertBrandAssetDto } from './dto/upsert-brand-asset.dto';
-import { AppConfigService } from 'src/config/config.service';
+import { AppConfigService } from '../config/config.service';
 
 // Define a type for the upload results
 
@@ -162,7 +162,6 @@ export class BrandAssetService {
         const nameField = `${assetName}Name`;
 
         if (file) {
-          console.log('idodoaoa');
           // Case: New file uploaded (Handles both add and replace)
           if (brandAsset[keyField]) {
             oldKeysToDelete.push(brandAsset[keyField]);
