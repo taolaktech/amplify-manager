@@ -57,6 +57,54 @@ class ShippingLocations {
   internationalShippingLocations: string[];
 }
 
+@Schema({ _id: false })
+class ShopifyIntegration {
+  @Prop({ type: Types.ObjectId, ref: 'shopify-accounts' })
+  shopifyAccount: Types.ObjectId;
+}
+
+@Schema({ _id: false })
+class GoogleAdsConversionAction {
+  @Prop()
+  resourceName: string;
+
+  @Prop()
+  id: string;
+
+  @Prop()
+  tag?: string;
+
+  @Prop()
+  label?: string;
+
+  @Prop({ type: mongoose.Schema.Types.Mixed })
+  tagSnippets: any[];
+}
+
+@Schema({ _id: false })
+class GoogleAdsIntegration {
+  @Prop()
+  customerId: string;
+
+  @Prop()
+  customerName: string;
+
+  @Prop()
+  customerResourceName: string;
+
+  @Prop()
+  conversionAction: GoogleAdsConversionAction;
+}
+
+@Schema({ _id: false })
+class Integrations {
+  @Prop()
+  shopify: ShopifyIntegration;
+
+  @Prop()
+  googleAds: GoogleAdsIntegration;
+}
+
 @Schema({ timestamps: true })
 export class Business {
   @Prop({ type: Types.ObjectId, ref: 'users' })
@@ -115,6 +163,9 @@ export class Business {
 
   @Prop({ ref: 'shopify-accounts', type: [Types.ObjectId], default: [] })
   shopifyAccounts: Types.ObjectId[];
+
+  @Prop()
+  integrations: Integrations;
 }
 
 export const BusinessSchema = SchemaFactory.createForClass(Business);
