@@ -30,7 +30,13 @@ export class AuthGuard implements CanActivate {
     if (isPublic) {
       return true;
     }
-    const request = context.switchToHttp().getRequest();
+    const request = context.switchToHttp().getRequest<Request>();
+
+    // skip requests for the endpoints not for client
+    if (request.url.startsWith('/internal')) {
+      return true; // skip JWT for internal routes
+    }
+
     const token = this.extractTokenFromHeader(request);
     if (!token) {
       throw new UnauthorizedException('no token');

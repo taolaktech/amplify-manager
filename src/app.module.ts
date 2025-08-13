@@ -13,6 +13,7 @@ import { WaitlistModule } from './waitlist/waitlist.module';
 import { FeedbackModule } from './feedback/feedback.module';
 import { BrandAssetModule } from './brand-asset/brand-asset.module';
 import { CampaignModule } from './campaign/campaign.module';
+import { InternalModule } from './internal/internal.module';
 
 @Module({
   imports: [
@@ -26,6 +27,7 @@ import { CampaignModule } from './campaign/campaign.module';
     FeedbackModule,
     BrandAssetModule,
     CampaignModule,
+    InternalModule,
   ],
   controllers: [AppController],
   providers: [

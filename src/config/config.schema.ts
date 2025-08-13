@@ -11,6 +11,8 @@ export const configSchema = z.object({
     .default('3333'),
   API_URL: z.string().url(),
 
+  API_KEY: z.string(), // for internal endpoints
+
   //DB
   MONGO_URI: z.string(),
   DB_NAME: z.string(),
