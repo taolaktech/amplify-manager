@@ -4,3 +4,4 @@ export * from './business.schema';
 export * from './waitlist.schema';
 export * from './brand-assets.schema';
 export * from './campaign.schema';
+export * from './wallet.schema';
