@@ -32,7 +32,7 @@ export class AuthGuard implements CanActivate {
     }
     const request = context.switchToHttp().getRequest<Request>();
 
-    // skip requests for the endpoints not for client
+    // skip requests for the endpoints not for client(browser)
     if (request.url.startsWith('/internal')) {
       return true; // skip JWT for internal routes
     }

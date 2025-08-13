@@ -1,4 +1,4 @@
-import { IsNotEmpty, IsString } from 'class-validator';
+import { IsNotEmpty, IsOptional, IsString } from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
 
 export class GetShopifyProductByIdDto {
@@ -9,8 +9,19 @@ export class GetShopifyProductByIdDto {
 }
 
 export class GetShopifyAuthUrlDto {
-  @ApiProperty()
+  @ApiProperty({
+    description: 'myshopifyDomain of the store',
+    example: '(https://)akinola-stor.myshopify.com',
+  })
   @IsString()
   @IsNotEmpty()
   shop: string;
+
+  @ApiProperty({
+    description: 'the route to redirect to after successful authentication',
+    example: '/setup?linked=true',
+  })
+  @IsString()
+  @IsOptional()
+  redirect?: string;
 }

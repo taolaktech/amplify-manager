@@ -14,6 +14,7 @@ import { FeedbackModule } from './feedback/feedback.module';
 import { BrandAssetModule } from './brand-asset/brand-asset.module';
 import { CampaignModule } from './campaign/campaign.module';
 import { InternalModule } from './internal/internal.module';
+import { ApiKeyGuard } from './internal/auth/api-key.guard';
 
 @Module({
   imports: [
@@ -35,6 +36,10 @@ import { InternalModule } from './internal/internal.module';
     {
       provide: APP_GUARD,
       useClass: AuthGuard,
+    },
+    {
+      provide: APP_GUARD,
+      useClass: ApiKeyGuard,
     },
   ],
 })

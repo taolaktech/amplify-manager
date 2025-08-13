@@ -89,7 +89,7 @@ export class BusinessService {
   async getBusiness(userId: Types.ObjectId) {
     let business = await this.businessModel
       .findOne({ userId })
-      .populate('shopifyAccounts', '-accessToken');
+      .populate('integrations.shopify.shopifyAccount');
 
     if (!business) {
       business = new this.businessModel({
@@ -165,9 +165,7 @@ export class BusinessService {
     file: Express.Multer.File,
   ) {
     try {
-      let business = await this.businessModel
-        .findOne({ userId })
-        .populate('shopifyAccounts', '-accessToken');
+      let business = await this.businessModel.findOne({ userId });
 
       if (!business) {
         business = await this.businessModel.create({

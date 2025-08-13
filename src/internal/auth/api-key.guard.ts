@@ -15,6 +15,11 @@ export class ApiKeyGuard implements CanActivate {
 
     const apiKey = this.configService.get('API_KEY');
 
+    // skip requests from client(browser)
+    if (!request.url.startsWith('/internal')) {
+      return true; // skip JWT for internal routes
+    }
+
     if (apiKey !== request.headers['x-api-key']) {
       throw new ForbiddenException('FORBIDDEN');
     }
