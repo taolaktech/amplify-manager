@@ -209,10 +209,13 @@ export class BusinessService {
     }
   }
 
-  async calculateRoas(userId: Types.ObjectId, dto: CalculateTargetRoasDto) {
+  async calculateTargetRoas(
+    userId: Types.ObjectId,
+    dto: CalculateTargetRoasDto,
+  ) {
     const business = await this.businessModel.findOne({ userId });
 
-    if (!business) {
+    if (!business || !business.industry) {
       throw new NotFoundException(`business for this user not found`);
     }
     const budget = dto.budget / dto.platforms.length;

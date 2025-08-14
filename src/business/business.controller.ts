@@ -9,6 +9,7 @@ import {
 } from '@nestjs/common';
 import { BusinessService } from './business.service';
 import {
+  CalculateTargetRoasDto,
   GetCitiesDto,
   SetBusinessDetailsDto,
   SetBusinessGoalsDto,
@@ -117,5 +118,13 @@ export class BusinessController {
       file,
     );
     return { business };
+  }
+
+  @Post('/calculate-target-roas')
+  async calculateTargetRoas(
+    @GetUser('_id') userId: Types.ObjectId,
+    @Body() dto: CalculateTargetRoasDto,
+  ) {
+    return await this.businessService.calculateTargetRoas(userId, dto);
   }
 }
