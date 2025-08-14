@@ -9,7 +9,7 @@ import { Model } from 'mongoose';
 import { BusinessDoc } from 'src/database/schema';
 
 @Injectable()
-export class BusinessService {
+export class InternalBusinessService {
   constructor(
     @InjectModel('business')
     private businessModel: Model<BusinessDoc>,

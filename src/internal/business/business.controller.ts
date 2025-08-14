@@ -1,16 +1,18 @@
 import { Body, Controller, Get, Param, Patch } from '@nestjs/common';
-import { BusinessService } from './business.service';
+import { InternalBusinessService } from './business.service';
 import { ApiOperation, ApiResponse, ApiSecurity } from '@nestjs/swagger';
 import { SaveGoogleAdsCustomerDataDto } from './dto/save-googleads-data.dto';
 
 @ApiSecurity('x-api-key')
 @Controller('internal/business')
-export class BusinessController {
-  constructor(private readonly businessService: BusinessService) {}
+export class InternalBusinessController {
+  constructor(
+    private readonly internalbusinessService: InternalBusinessService,
+  ) {}
 
   @Get('/:businessId')
   async findOne(@Param('businessId') id: string) {
-    const business = await this.businessService.getBusinessById(id);
+    const business = await this.internalbusinessService.getBusinessById(id);
     return { business };
   }
 
@@ -28,10 +30,11 @@ export class BusinessController {
     @Param('businessId') businessId: string,
     @Body() dto: SaveGoogleAdsCustomerDataDto,
   ) {
-    const business = await this.businessService.saveGoogleAdsCustomerData(
-      businessId,
-      dto,
-    );
+    const business =
+      await this.internalbusinessService.saveGoogleAdsCustomerData(
+        businessId,
+        dto,
+      );
 
     return business;
   }

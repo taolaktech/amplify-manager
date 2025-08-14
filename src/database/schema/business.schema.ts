@@ -1,5 +1,6 @@
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
 import mongoose, { HydratedDocument, Types } from 'mongoose';
+import { Industry } from 'src/enums/industry';
 
 export type BusinessDoc = HydratedDocument<Business>;
 
@@ -126,7 +127,7 @@ export class Business {
   logoKey?: string;
 
   @Prop()
-  industry: string;
+  industry: Industry;
 
   @Prop()
   companyRole: string;

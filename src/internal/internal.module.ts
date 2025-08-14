@@ -1,8 +1,9 @@
 import { Module } from '@nestjs/common';
-import { BusinessModule } from './business/business.module';
+import { InternalBusinessModule } from './business/business.module';
+import { InternalCampaignModule } from './campaign/campaign.module';
 
 @Module({
-  imports: [BusinessModule],
+  imports: [InternalBusinessModule, InternalCampaignModule],
   providers: [],
 })
 export class InternalModule {}
