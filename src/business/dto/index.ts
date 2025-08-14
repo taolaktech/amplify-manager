@@ -5,6 +5,7 @@ import {
   IsArray,
   IsBoolean,
   IsEmail,
+  IsEnum,
   IsNotEmpty,
   IsNumber,
   IsObject,
@@ -14,6 +15,7 @@ import {
   IsString,
   ValidateNested,
 } from 'class-validator';
+import { Industry } from 'src/enums/industry';
 
 class TeamSize {
   @ApiProperty()
@@ -41,8 +43,9 @@ export class SetBusinessDetailsDto {
 
   @ApiProperty()
   @IsString()
+  @IsEnum(Industry)
   @IsNotEmpty()
-  industry: string;
+  industry: Industry;
 
   @ApiProperty()
   @IsString()
@@ -147,4 +150,30 @@ export class UpdateBusinessLogo {
   @ApiPropertyOptional({ type: 'string', format: 'binary' })
   @IsOptional()
   businessLogo?: Express.Multer.File;
+}
+
+export enum Platform {
+  Facebook = 'facebook',
+  GoogleSearch = 'googleSearch',
+  Instagram = 'instagram',
+}
+
+export class CalculateTargetRoasDto {
+  @ApiProperty()
+  @IsNumber()
+  @IsPositive()
+  budget: number;
+
+  @ApiProperty({
+    type: [String],
+    enum: Platform,
+    example: Object.values(Platform),
+  })
+  @IsArray()
+  @ArrayNotEmpty()
+  @IsEnum(Platform, { each: true })
+  @Transform(({ value }) =>
+    Array.isArray(value) ? [...new Set(value.map((v) => String(v)))] : value,
+  )
+  platforms: Platform[];
 }

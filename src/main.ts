@@ -25,6 +25,7 @@ async function bootstrap() {
     .setDescription('Interfaces with the Amplify Web Dashboard')
     .setVersion('1.0')
     .addBearerAuth()
+    .addApiKey({ type: 'apiKey', in: 'header' }, 'x-api-key')
     .build();
   const documentFactory = () => SwaggerModule.createDocument(app, config);
   SwaggerModule.setup('docs', app, documentFactory);

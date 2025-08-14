@@ -9,7 +9,7 @@ import {
 } from '@nestjs/common';
 import { CampaignService } from './campaign.service';
 import { CreateCampaignDto } from './dto/create-campaign.dto';
-import { GetUser, Public } from 'src/auth/decorators';
+import { GetUser } from 'src/auth/decorators';
 import {
   ApiBearerAuth,
   ApiOperation,
@@ -166,7 +166,6 @@ export class CampaignController {
     };
   }
 
-  @Public()
   @Get(':id')
   @ApiOperation({
     summary: 'Get a single campaign by ID',

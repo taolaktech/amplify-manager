@@ -17,7 +17,7 @@ export class ShopifyController {
   ) {
     const url = await this.shopifyService.getShopifyAccountConnectionUrl(
       user._id,
-      dto.shop,
+      dto,
     );
     return { url };
   }

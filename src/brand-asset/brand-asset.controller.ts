@@ -2,8 +2,6 @@ import {
   Body,
   Controller,
   Get,
-  Patch,
-  Post,
   Put,
   UploadedFiles,
   UseInterceptors,
@@ -18,7 +16,6 @@ import { BrandAsset, UserDoc } from 'src/database/schema';
 import { BrandAssetService } from './brand-asset.service';
 import {
   ApiBearerAuth,
-  ApiBody,
   ApiConsumes,
   ApiOperation,
   ApiProperty,

@@ -13,6 +13,8 @@ import { WaitlistModule } from './waitlist/waitlist.module';
 import { FeedbackModule } from './feedback/feedback.module';
 import { BrandAssetModule } from './brand-asset/brand-asset.module';
 import { CampaignModule } from './campaign/campaign.module';
+import { InternalModule } from './internal/internal.module';
+import { ApiKeyGuard } from './internal/auth/api-key.guard';
 
 @Module({
   imports: [
@@ -26,6 +28,7 @@ import { CampaignModule } from './campaign/campaign.module';
     FeedbackModule,
     BrandAssetModule,
     CampaignModule,
+    InternalModule,
   ],
   controllers: [AppController],
   providers: [
@@ -33,6 +36,10 @@ import { CampaignModule } from './campaign/campaign.module';
     {
       provide: APP_GUARD,
       useClass: AuthGuard,
+    },
+    {
+      provide: APP_GUARD,
+      useClass: ApiKeyGuard,
     },
   ],
 })

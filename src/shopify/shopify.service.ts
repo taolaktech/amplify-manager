@@ -3,14 +3,16 @@ import {
   Injectable,
   InternalServerErrorException,
   Logger,
+  NotFoundException,
 } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
-import { ShopifyAccountDoc } from 'src/database/schema';
+import { BusinessDoc, ShopifyAccountDoc } from 'src/database/schema';
 import { ShopifyAccountStatus } from 'src/enums/shopify-account-status';
 import axios, { AxiosError } from 'axios';
 import { AppConfigService } from 'src/config/config.service';
 import { ErrorCode } from 'src/enums';
+import { GetShopifyAuthUrlDto } from './dto';
 
 @Injectable()
 export class ShopifyService {
@@ -19,6 +21,8 @@ export class ShopifyService {
     private configService: AppConfigService,
     @InjectModel('shopify-accounts')
     private shopifyAccountModel: Model<ShopifyAccountDoc>,
+    @InjectModel('business')
+    private businessModel: Model<BusinessDoc>,
   ) {}
 
   private integrationsAxiosInstance() {
@@ -32,19 +36,24 @@ export class ShopifyService {
     return axiosInstance;
   }
 
-  private async getShopifyConnectionUrlCall(userId: string, shop: string) {
+  private async getShopifyConnectionUrlCall(
+    userId: string,
+    params: { shop: string; redirect?: string },
+  ) {
     try {
       const res = await this.integrationsAxiosInstance().post<{ url: string }>(
         '/auth/url',
         {
-          shop,
+          ...params,
           userId,
         },
       );
       return res.data.url;
     } catch (error: unknown) {
       if (error instanceof AxiosError) {
-        console.log(error?.response?.data || error?.message || error?.response || error);
+        console.log(
+          error?.response?.data || error?.message || error?.response || error,
+        );
       }
       throw new InternalServerErrorException(ErrorCode.INTERNAL_SERVER_ERROR);
     }
@@ -109,10 +118,19 @@ export class ShopifyService {
   }
 
   async getShopifyProducts(userId: Types.ObjectId, query: any) {
-    const shopifyAccount = await this.shopifyAccountModel.findOne({
-      belongsTo: userId,
-      accountStatus: ShopifyAccountStatus.CONNECTED,
-    });
+    const business = await this.businessModel.findOne({ userId });
+
+    if (!business) {
+      throw new NotFoundException(`not business found for this user`);
+    }
+
+    if (!business.integrations?.shopify?.shopifyAccount) {
+      throw new BadRequestException('No shopify account linked yet');
+    }
+
+    const shopifyAccount = await this.shopifyAccountModel.findById(
+      business.integrations.shopify.shopifyAccount,
+    );
 
     if (!shopifyAccount) {
       throw new BadRequestException(ErrorCode.SHOPIFY_ACCOUNT_NOT_FOUND);
@@ -130,17 +148,29 @@ export class ShopifyService {
     return productsRes;
   }
 
-  async getShopifyAccountConnectionUrl(userId: Types.ObjectId, shop: string) {
-    const url = await this.getShopifyConnectionUrlCall(userId.toString(), shop);
+  async getShopifyAccountConnectionUrl(
+    userId: Types.ObjectId,
+    dto: GetShopifyAuthUrlDto,
+  ) {
+    const url = await this.getShopifyConnectionUrlCall(userId.toString(), dto);
 
     return url;
   }
 
   async getShopifyProductById(userId: Types.ObjectId, productId: string) {
-    const shopifyAccount = await this.shopifyAccountModel.findOne({
-      belongsTo: userId,
-      accountStatus: ShopifyAccountStatus.CONNECTED,
-    });
+    const business = await this.businessModel.findOne({ userId });
+
+    if (!business) {
+      throw new NotFoundException(`not business found for this user`);
+    }
+
+    if (!business.integrations?.shopify?.shopifyAccount) {
+      throw new BadRequestException('No shopify account linked yet');
+    }
+
+    const shopifyAccount = await this.shopifyAccountModel.findById(
+      business.integrations.shopify.shopifyAccount,
+    );
 
     if (!shopifyAccount) {
       throw new BadRequestException(ErrorCode.SHOPIFY_ACCOUNT_NOT_FOUND);

@@ -2,11 +2,14 @@ import {
   Injectable,
   InternalServerErrorException,
   Logger,
+  NotFoundException,
 } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
 import { BusinessDoc, UserDoc } from 'src/database/schema';
 import {
+  CalculateTargetRoasDto,
+  Platform,
   SetBusinessDetailsDto,
   SetBusinessGoalsDto,
   SetShippingLocationsDto,
@@ -16,6 +19,7 @@ import axios from 'axios';
 import { AppConfigService } from 'src/config/config.service';
 import { GoogleMapsAutoCompleteResponse } from './business.types';
 import { Credentials, UploadService } from 'src/common/file-upload';
+import { IndustryRoasBenchMark } from './industry-roas-benchmark';
 
 @Injectable()
 export class BusinessService {
@@ -89,7 +93,7 @@ export class BusinessService {
   async getBusiness(userId: Types.ObjectId) {
     let business = await this.businessModel
       .findOne({ userId })
-      .populate('shopifyAccounts', '-accessToken');
+      .populate('integrations.shopify.shopifyAccount');
 
     if (!business) {
       business = new this.businessModel({
@@ -165,9 +169,7 @@ export class BusinessService {
     file: Express.Multer.File,
   ) {
     try {
-      let business = await this.businessModel
-        .findOne({ userId })
-        .populate('shopifyAccounts', '-accessToken');
+      let business = await this.businessModel.findOne({ userId });
 
       if (!business) {
         business = await this.businessModel.create({
@@ -205,5 +207,47 @@ export class BusinessService {
     } catch {
       throw new InternalServerErrorException('Unable to upload logo');
     }
+  }
+
+  async calculateTargetRoas(
+    userId: Types.ObjectId,
+    dto: CalculateTargetRoasDto,
+  ) {
+    const business = await this.businessModel.findOne({ userId });
+
+    if (!business || !business.industry) {
+      throw new NotFoundException(`business for this user not found`);
+    }
+    const budget = dto.budget / dto.platforms.length;
+
+    const industryRoasBenchMark = IndustryRoasBenchMark[business.industry];
+
+    const estimatedClicks = {
+      [Platform.Facebook]: industryRoasBenchMark['Facebook'].maxCpc / budget,
+      [Platform.Instagram]: industryRoasBenchMark['Instagram'].maxCpc / budget,
+      [Platform.GoogleSearch]:
+        industryRoasBenchMark['Google Search'].maxCpc / budget,
+    };
+
+    const estimatedConversions = {
+      [Platform.Facebook]:
+        estimatedClicks[Platform.Facebook] *
+        industryRoasBenchMark['Facebook'].conversionRate,
+      [Platform.Instagram]:
+        estimatedClicks[Platform.Instagram] *
+        industryRoasBenchMark['Instagram'].conversionRate,
+      [Platform.GoogleSearch]:
+        estimatedClicks[Platform.GoogleSearch] *
+        industryRoasBenchMark['Google Search'].conversionRate,
+    };
+
+    const targetRoas = {
+      [Platform.Facebook]: budget / estimatedConversions[Platform.Facebook],
+      [Platform.Instagram]: budget / estimatedConversions[Platform.Instagram],
+      [Platform.GoogleSearch]:
+        budget / estimatedConversions[Platform.GoogleSearch],
+    };
+
+    return { budget, targetRoas, estimatedClicks, estimatedConversions };
   }
 }
