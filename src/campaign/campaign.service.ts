@@ -1,5 +1,6 @@
 import {
   BadRequestException,
+  ForbiddenException,
   HttpException,
   Injectable,
   InternalServerErrorException,
@@ -13,6 +14,7 @@ import { CreateCampaignDto } from './dto/create-campaign.dto';
 import { UpdateCampaignDto } from './dto/update-campaign.dto';
 import { SqsProducerService } from './sqs-producer.service';
 import { ListCampaignsDto } from './dto/list-campaigns.dto';
+import { AmplifyWalletService } from './services/wallet.service';
 
 @Injectable()
 export class CampaignService {
@@ -21,6 +23,7 @@ export class CampaignService {
   constructor(
     @InjectModel('campaigns') private campaignModel: Model<CampaignDocument>,
     private readonly sqsProducer: SqsProducerService,
+    private readonly walletService: AmplifyWalletService,
   ) {}
 
   async create(
@@ -28,10 +31,51 @@ export class CampaignService {
     userId: string,
   ): Promise<CampaignDocument> {
     try {
+      const campaignId = new Types.ObjectId();
+
+      // get user planTier and campaign limit and make sure
+      // user doesnt or hasnt exceeded  their limit
+      const userPlanAndLimit =
+        await this.walletService.getSubscriptionDetails(userId);
+      this.logger.log(
+        `::: User ${userId} has ${JSON.stringify(userPlanAndLimit)} Subscription :::`,
+      );
+
+      // count the number of campaigns the user has created
+      const campaignCount = await this.campaignModel.countDocuments({
+        createdBy: userId,
+      });
+
+      this.logger.log(
+        `::: User ${userId} has created ${campaignCount} Campaigns`,
+      );
+
+      // check if user has exceeded their campaign limit
+      if (campaignCount >= userPlanAndLimit.campaignLimit) {
+        this.logger.debug(
+          `::: User ${userId} has reached their campaign limit :::`,
+        );
+        throw new ForbiddenException(
+          'Campaign limit exceeded, please upgrade your account',
+        );
+      }
+
+      // debit the user wallet for campaign creation
+      await this.walletService.debitForCampaign({
+        userId: userId,
+        campaignId: campaignId.toString(),
+        amountInCents: createCampaignDto.totalBudget * 100,
+      });
+
+      this.logger.log(
+        `::: User ${userId} wallet has been debited ($${createCampaignDto.totalBudget}) for campaign ${campaignId.toString()}`,
+      );
+
       // 1. Save the campaign to the database
       const newCampaign = await this.campaignModel.create({
         ...createCampaignDto,
         createdBy: new Types.ObjectId(userId),
+        _id: campaignId,
       });
 
       const messagePromises = newCampaign.platforms.map((platform) => {
@@ -57,6 +101,9 @@ export class CampaignService {
       return newCampaign;
     } catch (error) {
       this.logger.error(`Error creating campaign: ${error.message}`);
+      if (error instanceof HttpException) {
+        throw error;
+      }
       throw new BadRequestException(
         `Error creating campaign: ${error.message}`,
       );

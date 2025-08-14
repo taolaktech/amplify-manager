@@ -70,6 +70,7 @@ export class AuthService {
             otpExpiryDate,
             photoUrl: firebaseUser.photoURL,
             signUpMethod: 'password',
+            planTier: 'free',
           },
         ],
         { session },
