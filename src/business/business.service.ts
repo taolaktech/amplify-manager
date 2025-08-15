@@ -222,23 +222,33 @@ export class BusinessService {
 
     const industryRoasBenchMark = IndustryRoasBenchMark[business.industry];
 
+    console.log(budget, industryRoasBenchMark['Facebook'].maxCpc);
     const estimatedClicks = {
-      [Platform.Facebook]: industryRoasBenchMark['Facebook'].maxCpc / budget,
-      [Platform.Instagram]: industryRoasBenchMark['Instagram'].maxCpc / budget,
+      [Platform.Facebook]: budget / industryRoasBenchMark['Facebook'].maxCpc,
+      [Platform.Instagram]: budget / industryRoasBenchMark['Instagram'].maxCpc,
       [Platform.GoogleSearch]:
-        industryRoasBenchMark['Google Search'].maxCpc / budget,
+        budget / industryRoasBenchMark['Google Search'].maxCpc,
     };
 
     const estimatedConversions = {
       [Platform.Facebook]:
         estimatedClicks[Platform.Facebook] *
-        industryRoasBenchMark['Facebook'].conversionRate,
+        (industryRoasBenchMark['Facebook'].conversionRate / 100),
       [Platform.Instagram]:
         estimatedClicks[Platform.Instagram] *
-        industryRoasBenchMark['Instagram'].conversionRate,
+        (industryRoasBenchMark['Instagram'].conversionRate / 100),
       [Platform.GoogleSearch]:
         estimatedClicks[Platform.GoogleSearch] *
-        industryRoasBenchMark['Google Search'].conversionRate,
+        (industryRoasBenchMark['Google Search'].conversionRate / 100),
+    };
+
+    const AOV = 60;
+
+    const conversionValues = {
+      [Platform.Facebook]: estimatedConversions[Platform.Facebook] * AOV,
+      [Platform.Instagram]: estimatedConversions[Platform.Instagram] * AOV,
+      [Platform.GoogleSearch]:
+        estimatedConversions[Platform.GoogleSearch] * AOV,
     };
 
     const targetRoas = {
@@ -248,6 +258,12 @@ export class BusinessService {
         budget / estimatedConversions[Platform.GoogleSearch],
     };
 
-    return { budget, targetRoas, estimatedClicks, estimatedConversions };
+    return {
+      budget,
+      targetRoas,
+      estimatedClicks,
+      estimatedConversions,
+      conversionValues,
+    };
   }
 }
