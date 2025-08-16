@@ -16,9 +16,9 @@ import {
   VerifyTokenDto,
 } from './dto';
 import { FirebaseService } from 'src/firebase/firebase.service';
-import { InjectModel } from '@nestjs/mongoose';
-import { Model } from 'mongoose';
-import { UserDoc } from 'src/database/schema';
+import { InjectConnection, InjectModel } from '@nestjs/mongoose';
+import mongoose, { Model } from 'mongoose';
+import { UserDoc, WalletDocument } from 'src/database/schema';
 import { DateTime } from 'luxon';
 import { UtilsService } from 'src/utils/utils.service';
 import { JwtService } from '@nestjs/jwt';
@@ -32,6 +32,8 @@ export class AuthService {
     private firebaseService: FirebaseService,
     private config: AppConfigService,
     @InjectModel('users') private userModel: Model<UserDoc>,
+    @InjectModel('wallets') private walletModel: Model<WalletDocument>,
+    @InjectConnection() private readonly connection: mongoose.Connection,
     private jwtService: JwtService,
     private util: UtilsService,
   ) {}
@@ -51,17 +53,54 @@ export class AuthService {
     );
 
     const { otp, otpExpiryDate } = this.generateOtp();
-    const user = this.userModel.create({
-      email: dto.email,
-      firebaseUserId: firebaseUser.uid,
-      firstName: dto.firstName,
-      lastName: dto.lastName,
-      name: dto.firstName + ' ' + dto.lastName,
-      otp,
-      otpExpiryDate,
-      photoUrl: firebaseUser.photoURL,
-      signUpMethod: 'password',
-    });
+    // start a mongoose session
+    const session = await this.connection.startSession();
+    let user;
+    try {
+      session.startTransaction();
+      [user] = await this.userModel.create(
+        [
+          {
+            email: dto.email,
+            firebaseUserId: firebaseUser.uid,
+            firstName: dto.firstName,
+            lastName: dto.lastName,
+            name: dto.firstName + ' ' + dto.lastName,
+            otp,
+            otpExpiryDate,
+            photoUrl: firebaseUser.photoURL,
+            signUpMethod: 'password',
+            planTier: 'free',
+          },
+        ],
+        { session },
+      );
+
+      // create a new wallet for the user
+      const [newWallet] = await this.walletModel.create(
+        [
+          {
+            userId: user._id,
+            balance: 0,
+          },
+        ],
+        { session },
+      );
+
+      // update the user with the new wallet id
+      await this.userModel.findOneAndUpdate(
+        { _id: user._id },
+        { $set: { walletId: newWallet._id } },
+        { session },
+      );
+
+      await session.commitTransaction();
+    } catch (error) {
+      await session.abortTransaction();
+      throw error;
+    } finally {
+      await session.endSession();
+    }
 
     this.sendOtpToEmail(dto.email, otp).catch(() => undefined);
 

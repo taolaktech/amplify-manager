@@ -36,7 +36,7 @@ export class CreativeDto {
   @ApiProperty({
     description: 'The budget allocated specifically to this creative.',
     example: 500,
-    minimum: 0,
+    minimum: 1,
   })
   @IsNumber({}, { message: 'Budget must be a number.' })
   @Min(1, { message: 'Budget cannot be negative.' })

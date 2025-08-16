@@ -1,5 +1,5 @@
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
-import { HydratedDocument } from 'mongoose';
+import { HydratedDocument, Types } from 'mongoose';
 
 export type UserDoc = HydratedDocument<User>;
 
@@ -80,6 +80,12 @@ export class User {
 
   @Prop({ enum: ['active', 'past_due', 'canceled', 'none'], default: 'none' })
   paymentStatus?: string;
+
+  @Prop({ enum: ['free', 'starter', 'grow', 'scale'], default: 'free' })
+  planTier: string;
+
+  @Prop({ type: Types.ObjectId, ref: 'wallets', required: false })
+  walletId?: string;
 }
 
 export const UserSchema = SchemaFactory.createForClass(User);
