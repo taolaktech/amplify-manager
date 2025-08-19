@@ -32,11 +32,11 @@ export const configSchema = z.object({
   FIREBASE_SERVICE_ACCOUNT_JSON: z.string(),
 
   // amplify integration
-  // INTEGRATION_API_URL: z.string(),
-  // INTEGRATION_API_KEY: z.string(),
+  INTEGRATION_API_URL: z.string(),
+  INTEGRATION_API_KEY: z.string(),
 
   // google maps/places
-  // GOOGLE_MAPS_API_KEY: z.string(),
+  GOOGLE_MAPS_API_KEY: z.string(),
 
   // AWS S3
   AWS_ACCESS_KEY_ID: z.string(),
