@@ -23,9 +23,9 @@ export class ShopifyService {
 
   private integrationsAxiosInstance() {
     const axiosInstance = axios.create({
-      baseURL: `${this.configService.get('INTEGRATION_API_URL')}/api/shopify`,
+      baseURL: '', //`${this.configService.get('INTEGRATION_API_URL')}/api/shopify`,
       headers: {
-        'x-api-key': this.configService.get('INTEGRATION_API_KEY'),
+        // 'x-api-key': this.configService.get('INTEGRATION_API_KEY'),
       },
     });
 

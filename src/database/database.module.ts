@@ -11,6 +11,7 @@ import {
   BrandAssetSchema,
   CampaignSchema,
   WalletSchema,
+  CampaignTopUpRequestSchema,
 } from './schema';
 import { FeedbackSchema } from './schema/feedback.schema';
 
@@ -36,6 +37,7 @@ import { FeedbackSchema } from './schema/feedback.schema';
       { name: 'brand-assets', schema: BrandAssetSchema },
       { name: 'campaigns', schema: CampaignSchema },
       { name: 'wallets', schema: WalletSchema },
+      { name: 'campaign-top-up-requests', schema: CampaignTopUpRequestSchema },
     ]),
   ],
   exports: [MongooseModule],

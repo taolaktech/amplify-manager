@@ -20,6 +20,7 @@ import {
 import { Campaign, UserDoc } from 'src/database/schema';
 import { UpdateCampaignDto } from './dto/update-campaign.dto';
 import { ListCampaignsDto } from './dto/list-campaigns.dto';
+import { CampaignToUpDto } from './dto/campaign-top-up.dto';
 
 class PaginationMeta {
   @ApiProperty()
@@ -167,7 +168,7 @@ export class CampaignController {
   }
 
   @Public()
-  @Get(':id')
+  @Get(':campaignId')
   @ApiOperation({
     summary: 'Get a single campaign by ID',
     description:
@@ -187,12 +188,31 @@ export class CampaignController {
     description:
       'Internal Server Error. An unexpected error occurred on the server.',
   })
-  async findOne(@Param('id') id: string) {
+  async findOne(@Param('campaignId') id: string) {
     const campaign = await this.campaignService.findOne(id);
 
     return {
       data: campaign,
       message: 'Campaign found successfully',
+      success: true,
+    };
+  }
+
+  @Post(':campaignId/top-up')
+  async topUpCampaignBudget(
+    @GetUser() user: UserDoc,
+    @Param('campaignId') id: string,
+    @Body() topUpBody: CampaignToUpDto,
+  ) {
+    const topUpResponse = await this.campaignService.topUpCampaignBudget(
+      user._id.toString(),
+      id,
+      topUpBody,
+    );
+
+    return {
+      data: topUpResponse,
+      message: `Successfully topped up campaign budget with $${topUpBody.amount}`,
       success: true,
     };
   }
