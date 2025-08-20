@@ -223,6 +223,12 @@ export class CampaignService {
     campaignId: string,
     topUpRequestBody: CampaignToUpDto,
   ) {
+    // check if campaign exists first
+    const campaign = await this.campaignModel.findById(campaignId);
+    if (!campaign) {
+      throw new NotFoundException('Campaign not found');
+    }
+
     // create nw CampaignTopUpRequest with status of PENDING
     const topUpRequestId = new Types.ObjectId();
     try {

@@ -63,6 +63,14 @@ class CampaignResponse {
   data: Campaign;
 }
 
+class TopUpCampaignResponse {
+  @ApiProperty({ example: true })
+  success: boolean;
+
+  @ApiProperty({ example: 'Campaign created successfully' })
+  message: string;
+}
+
 @ApiTags('Campaigns')
 @ApiBearerAuth()
 @Controller('campaign')
@@ -198,19 +206,40 @@ export class CampaignController {
   }
 
   @Post(':campaignId/top-up')
+  @ApiOperation({
+    summary: 'Top up a campaign budget',
+    description: 'Increases the budget of a campaign by a specified amount.',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'The campaign budget was successfully topped up.',
+    type: TopUpCampaignResponse,
+  })
+  @ApiResponse({
+    status: 400,
+    description: 'Bad Request. Invalid input data.',
+  })
+  @ApiResponse({
+    status: 404,
+    description: 'Not Found. No campaign with the specified ID exists.',
+  })
+  @ApiResponse({
+    status: 500,
+    description:
+      'Internal Server Error. An unexpected error occurred on the server.',
+  })
   async topUpCampaignBudget(
     @GetUser() user: UserDoc,
     @Param('campaignId') id: string,
     @Body() topUpBody: CampaignToUpDto,
   ) {
-    const topUpResponse = await this.campaignService.topUpCampaignBudget(
+    await this.campaignService.topUpCampaignBudget(
       user._id.toString(),
       id,
       topUpBody,
     );
 
     return {
-      data: topUpResponse,
       message: `Successfully topped up campaign budget with $${topUpBody.amount}`,
       success: true,
     };
