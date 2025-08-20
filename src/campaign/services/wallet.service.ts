@@ -45,7 +45,7 @@ export class AmplifyWalletService {
   async debitForCampaign(payload: {
     userId: string;
     amountInCents: number;
-    campaignId: string;
+    idempotencyKey: string;
   }) {
     try {
       // make a request to wallet service to debit the user's wallet
@@ -59,7 +59,7 @@ export class AmplifyWalletService {
           },
           {
             headers: {
-              'idempotency-key': payload.campaignId,
+              'idempotency-key': payload.idempotencyKey,
             },
           },
         );
