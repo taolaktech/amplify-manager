@@ -105,6 +105,9 @@ export class BrandAsset extends Document {
     required: false,
   })
   brandGuideMimeType?: string;
+
+  @Prop({ type: String })
+  toneOfVoice?: string;
 }
 
 export const BrandAssetSchema = SchemaFactory.createForClass(BrandAsset);
