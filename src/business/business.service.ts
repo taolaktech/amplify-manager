@@ -9,7 +9,6 @@ import { Model, Types } from 'mongoose';
 import { BusinessDoc, UserDoc } from 'src/database/schema';
 import {
   CalculateTargetRoasDto,
-  Platform,
   SetBusinessDetailsDto,
   SetBusinessGoalsDto,
   SetShippingLocationsDto,
@@ -19,7 +18,7 @@ import axios from 'axios';
 import { AppConfigService } from 'src/config/config.service';
 import { GoogleMapsAutoCompleteResponse } from './business.types';
 import { Credentials, UploadService } from 'src/common/file-upload';
-import { IndustryRoasBenchMark } from './industry-roas-benchmark';
+import { UtilsService } from 'src/utils/utils.service';
 
 @Injectable()
 export class BusinessService {
@@ -32,6 +31,7 @@ export class BusinessService {
     private businessModel: Model<BusinessDoc>,
     private configService: AppConfigService,
     private readonly uploadService: UploadService,
+    private readonly utilsService: UtilsService,
   ) {
     this.awsCredentials = {
       accessKeyId: this.configService.get('AWS_ACCESS_KEY_ID'),
@@ -220,50 +220,12 @@ export class BusinessService {
     }
     const budget = dto.budget / dto.platforms.length;
 
-    const industryRoasBenchMark = IndustryRoasBenchMark[business.industry];
+    const aov = 60;
 
-    console.log(budget, industryRoasBenchMark['Facebook'].maxCpc);
-    const estimatedClicks = {
-      [Platform.Facebook]: budget / industryRoasBenchMark['Facebook'].maxCpc,
-      [Platform.Instagram]: budget / industryRoasBenchMark['Instagram'].maxCpc,
-      [Platform.GoogleSearch]:
-        budget / industryRoasBenchMark['Google Search'].maxCpc,
-    };
-
-    const estimatedConversions = {
-      [Platform.Facebook]:
-        estimatedClicks[Platform.Facebook] *
-        (industryRoasBenchMark['Facebook'].conversionRate / 100),
-      [Platform.Instagram]:
-        estimatedClicks[Platform.Instagram] *
-        (industryRoasBenchMark['Instagram'].conversionRate / 100),
-      [Platform.GoogleSearch]:
-        estimatedClicks[Platform.GoogleSearch] *
-        (industryRoasBenchMark['Google Search'].conversionRate / 100),
-    };
-
-    const AOV = 60;
-
-    const conversionValues = {
-      [Platform.Facebook]: estimatedConversions[Platform.Facebook] * AOV,
-      [Platform.Instagram]: estimatedConversions[Platform.Instagram] * AOV,
-      [Platform.GoogleSearch]:
-        estimatedConversions[Platform.GoogleSearch] * AOV,
-    };
-
-    const targetRoas = {
-      [Platform.Facebook]: budget / estimatedConversions[Platform.Facebook],
-      [Platform.Instagram]: budget / estimatedConversions[Platform.Instagram],
-      [Platform.GoogleSearch]:
-        budget / estimatedConversions[Platform.GoogleSearch],
-    };
-
-    return {
+    return this.utilsService.calculateTargetRoas({
       budget,
-      targetRoas,
-      estimatedClicks,
-      estimatedConversions,
-      conversionValues,
-    };
+      industry: business.industry,
+      AOV: aov,
+    });
   }
 }

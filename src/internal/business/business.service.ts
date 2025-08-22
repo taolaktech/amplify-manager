@@ -7,12 +7,15 @@ import { SaveGoogleAdsCustomerDataDto } from './dto/save-googleads-data.dto';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
 import { BusinessDoc } from 'src/database/schema';
+import { UtilsService } from 'src/utils/utils.service';
+import { CalculateTargetRoasDto } from './dto/calculate-target-roas.dto';
 
 @Injectable()
 export class InternalBusinessService {
   constructor(
     @InjectModel('business')
     private businessModel: Model<BusinessDoc>,
+    private utilService: UtilsService,
   ) {}
 
   async getBusinessById(businessId: string) {
@@ -59,5 +62,19 @@ export class InternalBusinessService {
 
     await business.save();
     return business;
+  }
+
+  async calculateTargetRoas(businessId: string, dto: CalculateTargetRoasDto) {
+    const { budget } = dto;
+    const business = await this.businessModel.findById(businessId);
+    if (!business) {
+      throw new NotFoundException(`business with id ${businessId} not found`);
+    }
+
+    return this.utilService.calculateTargetRoas({
+      budget,
+      industry: business.industry,
+      AOV: 60,
+    });
   }
 }
