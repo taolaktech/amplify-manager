@@ -20,6 +20,7 @@ import {
 import { Campaign, UserDoc } from 'src/database/schema';
 import { UpdateCampaignDto } from './dto/update-campaign.dto';
 import { ListCampaignsDto } from './dto/list-campaigns.dto';
+import { CampaignToUpDto } from './dto/campaign-top-up.dto';
 
 class PaginationMeta {
   @ApiProperty()
@@ -60,6 +61,14 @@ class CampaignResponse {
   // can automatically generate a detailed model of the returned data.
   @ApiProperty({ type: Campaign })
   data: Campaign;
+}
+
+class TopUpCampaignResponse {
+  @ApiProperty({ example: true })
+  success: boolean;
+
+  @ApiProperty({ example: 'Campaign created successfully' })
+  message: string;
 }
 
 @ApiTags('Campaigns')
@@ -166,7 +175,7 @@ export class CampaignController {
     };
   }
 
-  @Get(':id')
+  @Get(':campaignId')
   @ApiOperation({
     summary: 'Get a single campaign by ID',
     description:
@@ -186,12 +195,52 @@ export class CampaignController {
     description:
       'Internal Server Error. An unexpected error occurred on the server.',
   })
-  async findOne(@Param('id') id: string) {
+  async findOne(@Param('campaignId') id: string) {
     const campaign = await this.campaignService.findOne(id);
 
     return {
       data: campaign,
       message: 'Campaign found successfully',
+      success: true,
+    };
+  }
+
+  @Post(':campaignId/top-up')
+  @ApiOperation({
+    summary: 'Top up a campaign budget',
+    description: 'Increases the budget of a campaign by a specified amount.',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'The campaign budget was successfully topped up.',
+    type: TopUpCampaignResponse,
+  })
+  @ApiResponse({
+    status: 400,
+    description: 'Bad Request. Invalid input data.',
+  })
+  @ApiResponse({
+    status: 404,
+    description: 'Not Found. No campaign with the specified ID exists.',
+  })
+  @ApiResponse({
+    status: 500,
+    description:
+      'Internal Server Error. An unexpected error occurred on the server.',
+  })
+  async topUpCampaignBudget(
+    @GetUser() user: UserDoc,
+    @Param('campaignId') id: string,
+    @Body() topUpBody: CampaignToUpDto,
+  ) {
+    await this.campaignService.topUpCampaignBudget(
+      user._id.toString(),
+      id,
+      topUpBody,
+    );
+
+    return {
+      message: `Successfully topped up campaign budget with $${topUpBody.amount}`,
       success: true,
     };
   }
