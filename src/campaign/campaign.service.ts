@@ -1,5 +1,6 @@
 import {
   BadRequestException,
+  ForbiddenException,
   HttpException,
   Injectable,
   InternalServerErrorException,
@@ -8,11 +9,13 @@ import {
 } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { FilterQuery, Model, SortOrder, Types } from 'mongoose';
-import { CampaignDocument } from 'src/database/schema';
+import { CampaignDocument, CampaignTopUpRequestDoc } from 'src/database/schema';
 import { CreateCampaignDto } from './dto/create-campaign.dto';
 import { UpdateCampaignDto } from './dto/update-campaign.dto';
 import { SqsProducerService } from './sqs-producer.service';
 import { ListCampaignsDto } from './dto/list-campaigns.dto';
+import { AmplifyWalletService } from './services/wallet.service';
+import { CampaignToUpDto } from './dto/campaign-top-up.dto';
 
 @Injectable()
 export class CampaignService {
@@ -20,7 +23,10 @@ export class CampaignService {
 
   constructor(
     @InjectModel('campaigns') private campaignModel: Model<CampaignDocument>,
+    @InjectModel('campaign-top-up-requests')
+    private topUpRequestModel: Model<CampaignTopUpRequestDoc>,
     private readonly sqsProducer: SqsProducerService,
+    private readonly walletService: AmplifyWalletService,
   ) {}
 
   async create(
@@ -28,10 +34,51 @@ export class CampaignService {
     userId: string,
   ): Promise<CampaignDocument> {
     try {
+      const campaignId = new Types.ObjectId();
+
+      // get user planTier and campaign limit and make sure
+      // user doesnt or hasnt exceeded  their limit
+      const userPlanAndLimit =
+        await this.walletService.getSubscriptionDetails(userId);
+      this.logger.log(
+        `::: User ${userId} has ${JSON.stringify(userPlanAndLimit)} Subscription :::`,
+      );
+
+      // count the number of campaigns the user has created
+      const campaignCount = await this.campaignModel.countDocuments({
+        createdBy: userId,
+      });
+
+      this.logger.log(
+        `::: User ${userId} has created ${campaignCount} Campaigns`,
+      );
+
+      // check if user has exceeded their campaign limit
+      if (campaignCount >= userPlanAndLimit.campaignLimit) {
+        this.logger.debug(
+          `::: User ${userId} has reached their campaign limit :::`,
+        );
+        throw new ForbiddenException(
+          'Campaign limit exceeded, please upgrade your account',
+        );
+      }
+
+      // debit the user wallet for campaign creation
+      await this.walletService.debitForCampaign({
+        userId: userId,
+        idempotencyKey: campaignId.toString(),
+        amountInCents: createCampaignDto.totalBudget * 100,
+      });
+
+      this.logger.log(
+        `::: User ${userId} wallet has been debited ($${createCampaignDto.totalBudget}) for campaign ${campaignId.toString()}`,
+      );
+
       // 1. Save the campaign to the database
       const newCampaign = await this.campaignModel.create({
         ...createCampaignDto,
         createdBy: new Types.ObjectId(userId),
+        _id: campaignId,
       });
 
       const messagePromises = newCampaign.platforms.map((platform) => {
@@ -57,6 +104,9 @@ export class CampaignService {
       return newCampaign;
     } catch (error) {
       this.logger.error(`Error creating campaign: ${error.message}`);
+      if (error instanceof HttpException) {
+        throw error;
+      }
       throw new BadRequestException(
         `Error creating campaign: ${error.message}`,
       );
@@ -166,5 +216,79 @@ export class CampaignService {
         hasPrevPage: page > 1,
       },
     };
+  }
+
+  async topUpCampaignBudget(
+    userId: string,
+    campaignId: string,
+    topUpRequestBody: CampaignToUpDto,
+  ) {
+    // check if campaign exists first
+    const campaign = await this.campaignModel.findById(campaignId);
+    if (!campaign) {
+      throw new NotFoundException('Campaign not found');
+    }
+
+    // create nw CampaignTopUpRequest with status of PENDING
+    const topUpRequestId = new Types.ObjectId();
+    try {
+      const newCampaignTopRequest = new this.topUpRequestModel({
+        _id: topUpRequestId,
+        userId,
+        campaignId,
+        amountInCents: topUpRequestBody.amount * 100,
+        status: 'PENDING',
+      });
+
+      await newCampaignTopRequest.save();
+
+      try {
+        const response = await this.walletService.debitForCampaign({
+          userId: userId,
+          idempotencyKey: topUpRequestId.toString(),
+          amountInCents: topUpRequestBody.amount * 100,
+        });
+
+        if (response?.success) {
+          await this.campaignModel.findByIdAndUpdate(campaignId, {
+            $inc: {
+              totalBudget: topUpRequestBody.amount,
+            },
+          });
+
+          // update topup request record
+          await this.topUpRequestModel.findByIdAndUpdate(topUpRequestId, {
+            $set: {
+              status: 'COMPLETED',
+            },
+          });
+        }
+      } catch (error) {
+        // throw an error here so we can update the status of the request to
+        // FAILED in one place
+        this.logger.error(
+          `::: Error from wallet service while topping up campaign budget => ${JSON.stringify(error)} :::`,
+        );
+        throw error;
+      }
+    } catch (error) {
+      // update status of top up request to FAILED
+      await this.topUpRequestModel.findByIdAndUpdate(topUpRequestId, {
+        $set: {
+          status: 'FAILED',
+        },
+      });
+
+      this.logger.error(
+        `::: Error occured while topping up campaign budget ${JSON.stringify(error)} :::`,
+      );
+      const message = error?.message ?? 'Error handling top-up';
+
+      if (error instanceof HttpException) {
+        throw error;
+      }
+
+      throw new BadRequestException(message);
+    }
   }
 }
