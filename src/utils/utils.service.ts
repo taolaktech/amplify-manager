@@ -60,7 +60,6 @@ export class UtilsService {
     const { budget, industry, AOV } = params;
     const industryRoasBenchMark = IndustryRoasBenchMark[industry];
 
-    console.log(budget, industryRoasBenchMark['Facebook'].maxCpc);
     const estimatedClicks = {
       [Platform.Facebook]: budget / industryRoasBenchMark['Facebook'].maxCpc,
       [Platform.Instagram]: budget / industryRoasBenchMark['Instagram'].maxCpc,
@@ -96,6 +95,7 @@ export class UtilsService {
 
     return {
       budget,
+      AOV,
       targetRoas,
       estimatedClicks,
       estimatedConversions,

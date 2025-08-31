@@ -10,6 +10,7 @@ import {
   WaitlistSchema,
   BrandAssetSchema,
   CampaignSchema,
+  GoogleAdsCampaignSchema,
 } from './schema';
 import { FeedbackSchema } from './schema/feedback.schema';
 
@@ -34,6 +35,7 @@ import { FeedbackSchema } from './schema/feedback.schema';
       { name: 'feedbacks', schema: FeedbackSchema },
       { name: 'brand-assets', schema: BrandAssetSchema },
       { name: 'campaigns', schema: CampaignSchema },
+      { name: 'google-ads-campaigns', schema: GoogleAdsCampaignSchema },
     ]),
   ],
   exports: [MongooseModule],

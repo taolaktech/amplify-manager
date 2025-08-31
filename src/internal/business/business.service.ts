@@ -8,7 +8,7 @@ import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
 import { BusinessDoc } from 'src/database/schema';
 import { UtilsService } from 'src/utils/utils.service';
-import { CalculateTargetRoasDto } from './dto/calculate-target-roas.dto';
+import { CalcTargetRoasDto } from './dto/calculate-target-roas.dto';
 
 @Injectable()
 export class InternalBusinessService {
@@ -64,7 +64,7 @@ export class InternalBusinessService {
     return business;
   }
 
-  async calculateTargetRoas(businessId: string, dto: CalculateTargetRoasDto) {
+  async calculateTargetRoas(businessId: string, dto: CalcTargetRoasDto) {
     const { budget } = dto;
     const business = await this.businessModel.findById(businessId);
     if (!business) {

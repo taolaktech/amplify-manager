@@ -11,6 +11,7 @@ import {
   Min,
   ArrayMinSize,
   IsUrl,
+  IsOptional,
 } from 'class-validator';
 import { Type } from 'class-transformer';
 import { CampaignPlatform, CampaignType } from 'src/enums/campaign';
@@ -38,22 +39,40 @@ export class CreativeDto {
     example: 500,
     minimum: 0,
   })
+  @IsOptional()
   @IsNumber({}, { message: 'Budget must be a number.' })
   @Min(1, { message: 'Budget cannot be negative.' })
-  budget: number;
+  budget?: number;
 
   @ApiProperty({
     description:
       'An array of data for the creative, such as image URLs or ad copy text.',
     example: ['https://example.com/image1.jpg', 'Summer Sale!'],
   })
+  @IsOptional()
   @IsArray({ message: 'Creative data must be an array.' })
   @ArrayMinSize(1, { message: 'Creative data must contain at least one item.' })
   @IsString({
     each: true,
     message: 'Each item in creative data must be a string.',
   })
-  data: string[];
+  data?: string[];
+
+  @ApiProperty({
+    description: 'The headline for the creative ad.',
+    example: 'Best shoes in the world',
+  })
+  @IsString({ message: 'Headline must be a string.' })
+  @IsOptional()
+  headline?: string;
+
+  @ApiProperty({
+    description: 'The headline for the creative ad.',
+    example: 'Best shoes in the world',
+  })
+  @IsString({ message: 'Headline must be a string.' })
+  @IsOptional()
+  description?: string;
 }
 
 export class LocationDto {
