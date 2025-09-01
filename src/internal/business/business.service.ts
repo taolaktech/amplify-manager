@@ -9,6 +9,7 @@ import { Model } from 'mongoose';
 import { BusinessDoc } from 'src/database/schema';
 import { UtilsService } from 'src/utils/utils.service';
 import { CalcTargetRoasDto } from './dto/calculate-target-roas.dto';
+import { ShopifyService } from 'src/shopify/shopify.service';
 
 @Injectable()
 export class InternalBusinessService {
@@ -16,6 +17,7 @@ export class InternalBusinessService {
     @InjectModel('business')
     private businessModel: Model<BusinessDoc>,
     private utilService: UtilsService,
+    private shopifyService: ShopifyService,
   ) {}
 
   async getBusinessById(businessId: string) {
@@ -71,10 +73,12 @@ export class InternalBusinessService {
       throw new NotFoundException(`business with id ${businessId} not found`);
     }
 
+    const aov = await this.shopifyService.calculateAOV(business.userId);
+
     return this.utilService.calculateTargetRoas({
       budget,
       industry: business.industry,
-      AOV: 60,
+      AOV: aov,
     });
   }
 }

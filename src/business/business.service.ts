@@ -19,6 +19,7 @@ import { AppConfigService } from 'src/config/config.service';
 import { GoogleMapsAutoCompleteResponse } from './business.types';
 import { Credentials, UploadService } from 'src/common/file-upload';
 import { UtilsService } from 'src/utils/utils.service';
+import { ShopifyService } from 'src/shopify/shopify.service';
 
 @Injectable()
 export class BusinessService {
@@ -32,6 +33,7 @@ export class BusinessService {
     private configService: AppConfigService,
     private readonly uploadService: UploadService,
     private readonly utilsService: UtilsService,
+    private readonly shopifyService: ShopifyService,
   ) {
     this.awsCredentials = {
       accessKeyId: this.configService.get('AWS_ACCESS_KEY_ID'),
@@ -220,12 +222,37 @@ export class BusinessService {
     }
     const budget = dto.budget / dto.platforms.length;
 
-    const aov = 60;
+    const aov = await this.shopifyService.calculateAOV(userId);
 
-    return this.utilsService.calculateTargetRoas({
+    const res = this.utilsService.calculateTargetRoas({
       budget,
       industry: business.industry,
       AOV: aov,
     });
+
+    // format res to only include selected platforms
+    const formatedResponse = dto.platforms.reduce(
+      (acc, platform) => {
+        acc.targetRoas[platform] = res.targetRoas[platform];
+        acc.estimatedClicks[platform] = res.estimatedClicks[platform];
+        acc.estimatedConversions[platform] = res.estimatedConversions[platform];
+        acc.conversionValues[platform] = res.conversionValues[platform];
+        return acc;
+      },
+      {
+        targetRoas: {},
+        estimatedClicks: {},
+        estimatedConversions: {},
+        conversionValues: {},
+      } as Pick<
+        typeof res,
+        | 'targetRoas'
+        | 'estimatedClicks'
+        | 'estimatedConversions'
+        | 'conversionValues'
+      >,
+    );
+
+    return { ...res, ...formatedResponse };
   }
 }
