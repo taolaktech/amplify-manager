@@ -240,20 +240,21 @@ export class BusinessService {
         acc.targetRoas[platform] = res.targetRoas[platform];
         acc.estimatedClicks[platform] = res.estimatedClicks[platform];
         acc.estimatedConversions[platform] = res.estimatedConversions[platform];
-        acc.conversionValues[platform] = res.conversionValues[platform];
+        acc.estimatedConversionValues[platform] =
+          res.estimatedConversionValues[platform];
         return acc;
       },
       {
         targetRoas: {},
         estimatedClicks: {},
         estimatedConversions: {},
-        conversionValues: {},
+        estimatedConversionValues: {},
       } as Pick<
         typeof res,
         | 'targetRoas'
         | 'estimatedClicks'
         | 'estimatedConversions'
-        | 'conversionValues'
+        | 'estimatedConversionValues'
       >,
     );
 

@@ -62,10 +62,10 @@ export class UtilsService {
     const industryRoasBenchMark = IndustryRoasBenchMark[industry];
 
     const estimatedClicks = {
-      [Platform.Facebook]: budget / industryRoasBenchMark['Facebook'].maxCpc,
-      [Platform.Instagram]: budget / industryRoasBenchMark['Instagram'].maxCpc,
+      [Platform.Facebook]: industryRoasBenchMark['Facebook'].maxCpc / budget,
+      [Platform.Instagram]: industryRoasBenchMark['Instagram'].maxCpc / budget,
       [Platform.GoogleSearch]:
-        budget / industryRoasBenchMark['Google Search'].maxCpc,
+        industryRoasBenchMark['Google Search'].maxCpc / budget,
     };
 
     const estimatedConversions = {
@@ -80,7 +80,7 @@ export class UtilsService {
         (industryRoasBenchMark['Google Search'].conversionRate / 100),
     };
 
-    const conversionValues = {
+    const estimatedConversionValues = {
       [Platform.Facebook]: estimatedConversions[Platform.Facebook] * AOV,
       [Platform.Instagram]: estimatedConversions[Platform.Instagram] * AOV,
       [Platform.GoogleSearch]:
@@ -88,10 +88,12 @@ export class UtilsService {
     };
 
     const targetRoas = {
-      [Platform.Facebook]: budget / estimatedConversions[Platform.Facebook],
-      [Platform.Instagram]: budget / estimatedConversions[Platform.Instagram],
+      [Platform.Facebook]:
+        budget / estimatedConversionValues[Platform.Facebook],
+      [Platform.Instagram]:
+        budget / estimatedConversionValues[Platform.Instagram],
       [Platform.GoogleSearch]:
-        budget / estimatedConversions[Platform.GoogleSearch],
+        budget / estimatedConversionValues[Platform.GoogleSearch],
     };
 
     return {
@@ -100,7 +102,7 @@ export class UtilsService {
       targetRoas,
       estimatedClicks,
       estimatedConversions,
-      conversionValues,
+      estimatedConversionValues,
     };
   }
 }
