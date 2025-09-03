@@ -75,6 +75,10 @@ export class InternalBusinessService {
 
     const aov = await this.shopifyService.calculateAOV(business.userId);
 
+    if (!business.industry) {
+      throw new NotFoundException(`Business industry not set`);
+    }
+
     return this.utilService.calculateTargetRoas({
       budget,
       industry: business.industry,

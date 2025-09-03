@@ -58,6 +58,7 @@ export class UtilsService {
     AOV: number;
   }) {
     const { budget, industry, AOV } = params;
+
     const industryRoasBenchMark = IndustryRoasBenchMark[industry];
 
     const estimatedClicks = {

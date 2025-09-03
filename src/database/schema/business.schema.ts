@@ -127,7 +127,7 @@ export class Business {
   logoKey?: string;
 
   @Prop()
-  industry: Industry;
+  industry?: Industry;
 
   @Prop()
   companyRole: string;
