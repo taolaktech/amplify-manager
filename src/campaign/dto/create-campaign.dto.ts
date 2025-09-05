@@ -17,10 +17,11 @@ import { Type } from 'class-transformer';
 import { CampaignPlatform, CampaignType } from 'src/enums/campaign';
 
 export class CreativeDto {
+  @IsOptional()
   @IsString({
     message: 'ID must be a string.',
   })
-  id: string;
+  id?: string;
 
   @ApiProperty({
     description:
@@ -122,9 +123,11 @@ export class ProductDto {
   @IsNotEmpty()
   description: string;
 
+  
   @ApiProperty({ description: 'The target audience for the product.' })
+  @IsOptional()
   @IsString()
-  audience: string;
+  audience?: string;
 
   @ApiProperty({ description: 'The occasion this product is suitable for.' })
   @IsString()

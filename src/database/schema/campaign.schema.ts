@@ -16,8 +16,8 @@ export class Creative {
     example: '1234567890',
     description: 'Unique identifier for the creative.',
   })
-  @Prop({ required: true })
-  id: string;
+  @Prop()
+  id?: string;
 
   @ApiProperty({ example: 'facebook', description: 'The advertising channel.' })
   @Prop({ required: true })
@@ -97,7 +97,8 @@ export class Product {
     example: 'Serious runners',
     description: 'Target audience for the product.',
   })
-  audience: string;
+  @Prop()
+  audience?: string;
 
   @ApiProperty({ example: 'Race day', description: 'Suitable occasion.' })
   occasion: string;
