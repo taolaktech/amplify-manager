@@ -17,9 +17,6 @@ import { Type } from 'class-transformer';
 import { CampaignPlatform, CampaignType } from 'src/enums/campaign';
 
 export class CreativeDto {
-  @IsNotEmpty({
-    message: 'ID cannot be empty.',
-  })
   @IsString({
     message: 'ID must be a string.',
   })
