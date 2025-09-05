@@ -10,6 +10,7 @@ import {
   WaitlistSchema,
   BrandAssetSchema,
   CampaignSchema,
+  GoogleAdsCampaignSchema,
   WalletSchema,
   CampaignTopUpRequestSchema,
 } from './schema';
@@ -36,6 +37,7 @@ import { FeedbackSchema } from './schema/feedback.schema';
       { name: 'feedbacks', schema: FeedbackSchema },
       { name: 'brand-assets', schema: BrandAssetSchema },
       { name: 'campaigns', schema: CampaignSchema },
+      { name: 'google-ads-campaigns', schema: GoogleAdsCampaignSchema },
       { name: 'wallets', schema: WalletSchema },
       { name: 'campaign-top-up-requests', schema: CampaignTopUpRequestSchema },
     ]),

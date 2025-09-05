@@ -8,11 +8,17 @@ import {
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
 import { BusinessDoc, ShopifyAccountDoc } from 'src/database/schema';
-import { ShopifyAccountStatus } from 'src/enums/shopify-account-status';
 import axios, { AxiosError } from 'axios';
 import { AppConfigService } from 'src/config/config.service';
 import { ErrorCode } from 'src/enums';
 import { GetShopifyAuthUrlDto } from './dto';
+import {
+  GetShopifyOrdersQuery,
+  GetShopifyOrdersResponse,
+  GetShopifyProductsQuery,
+  GetShopifyProductsResponse,
+} from './types';
+import { DateTime } from 'luxon';
 
 @Injectable()
 export class ShopifyService {
@@ -65,7 +71,7 @@ export class ShopifyService {
       accessToken: string;
       scope: string;
     },
-    query?: { first?: number; after?: string; before?: string; last?: number },
+    query?: GetShopifyProductsQuery,
   ) {
     try {
       const first = query?.first ?? '';
@@ -76,10 +82,7 @@ export class ShopifyService {
 
       const axios = this.integrationsAxiosInstance();
 
-      const res = await axios.post<{
-        products: { [key: string]: any };
-        shop: { [key: string]: any };
-      }>(url, {
+      const res = await axios.post<GetShopifyProductsResponse>(url, {
         shop: params.shop,
         accessToken: params.accessToken,
         scope: params.scope,
@@ -117,11 +120,47 @@ export class ShopifyService {
     }
   }
 
-  async getShopifyProducts(userId: Types.ObjectId, query: any) {
+  private async getOrdersCall(
+    params: {
+      shop: string;
+      accessToken: string;
+      scope: string;
+    },
+    query?: GetShopifyOrdersQuery,
+  ) {
+    try {
+      const first = query?.first ?? '';
+      const after = query?.after ?? '';
+      const last = query?.last ?? '';
+      const before = query?.before ?? '';
+      const searchQuery = query?.query ?? '';
+      const url = `/orders?first=${first}&after=${after}&last=${last}&before=${before}&query=${searchQuery}`;
+
+      const axios = this.integrationsAxiosInstance();
+
+      const res = await axios.post<GetShopifyOrdersResponse>(url, {
+        shop: params.shop,
+        accessToken: params.accessToken,
+        scope: params.scope,
+      });
+      return res.data;
+    } catch (error: unknown) {
+      if (error instanceof AxiosError) {
+        this.logger.error(error.response);
+        throw new BadRequestException(error.response?.data);
+      }
+      throw new InternalServerErrorException(ErrorCode.INTERNAL_SERVER_ERROR);
+    }
+  }
+
+  async getShopifyProducts(
+    userId: Types.ObjectId,
+    query: GetShopifyProductsQuery,
+  ) {
     const business = await this.businessModel.findOne({ userId });
 
     if (!business) {
-      throw new NotFoundException(`not business found for this user`);
+      throw new NotFoundException(`no business found for this user`);
     }
 
     if (!business.integrations?.shopify?.shopifyAccount) {
@@ -186,11 +225,92 @@ export class ShopifyService {
     return productRes;
   }
 
+  private async getShopifyOrders(
+    businessId: Types.ObjectId,
+    query: GetShopifyOrdersQuery,
+  ) {
+    const business = await this.businessModel.findById(businessId);
+
+    if (!business) {
+      throw new NotFoundException(`no business found for this user`);
+    }
+
+    if (!business.integrations?.shopify?.shopifyAccount) {
+      throw new BadRequestException('No shopify account linked yet');
+    }
+
+    const shopifyAccount = await this.shopifyAccountModel.findById(
+      business.integrations.shopify.shopifyAccount,
+    );
+
+    if (!shopifyAccount) {
+      throw new BadRequestException(ErrorCode.SHOPIFY_ACCOUNT_NOT_FOUND);
+    }
+
+    const ordersRes = await this.getOrdersCall(
+      {
+        shop: shopifyAccount.shop,
+        accessToken: shopifyAccount.accessToken,
+        scope: shopifyAccount.scope,
+      },
+      query,
+    );
+
+    return ordersRes;
+  }
+
+  async calculateAOV(userId: Types.ObjectId) {
+    const business = await this.businessModel.findOne({ userId });
+
+    if (!business) {
+      throw new NotFoundException(`no business found for this user`);
+    }
+    const oneMonthAgo = DateTime.now()
+      .minus({ months: 1 })
+      .toISODate()
+      .split('T')[0];
+    let totalOrders = 0;
+    let totalRevenue = 0;
+    let hasNextPage = false;
+    let endCursor = '';
+    let currency = 'USD';
+
+    do {
+      const ordersRes = await this.getShopifyOrders(business._id, {
+        first: 20,
+        after: endCursor,
+        query: `financial_status:paid created_at:>=${oneMonthAgo}`,
+      });
+
+      totalRevenue += ordersRes.orders.edges.reduce((acc, orderEdge) => {
+        return acc + parseFloat(orderEdge.node.totalPriceSet.shopMoney.amount);
+      }, 0);
+      totalOrders += ordersRes.orders.edges.length;
+      hasNextPage = ordersRes.orders.pageInfo.hasNextPage;
+      endCursor = ordersRes.orders.pageInfo.endCursor;
+      currency =
+        ordersRes.orders.edges[0]?.node.totalPriceSet.shopMoney.currencyCode;
+    } while (hasNextPage);
+
+    const aov = totalOrders ? totalRevenue / totalOrders : 1;
+
+    if (currency === 'CAD') {
+      return aov * 0.73; // convert to USD
+    }
+
+    return aov;
+  }
+
   async getConnectedAccount(userId: Types.ObjectId) {
-    const account = await this.shopifyAccountModel.findOne({
-      belongsTo: userId,
-      accountStatus: ShopifyAccountStatus.CONNECTED,
-    });
+    const business = await this.businessModel.findOne({ userId });
+
+    if (!business || !business?.integrations?.shopify?.shopifyAccount) {
+      throw new NotFoundException(`No shopify account linked yet`);
+    }
+
+    const account = await this.shopifyAccountModel.findById(
+      business?.integrations?.shopify?.shopifyAccount,
+    );
 
     return account
       ? { ...account.toObject(), accessToken: undefined, scope: undefined }

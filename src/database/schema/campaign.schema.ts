@@ -32,6 +32,17 @@ export class Creative {
   })
   @Prop({ type: [String], required: true })
   data: string[];
+
+  @ApiProperty({ example: 'Best shoes in the world', description: 'Headline.' })
+  @Prop()
+  headline?: string;
+
+  @ApiProperty({
+    example: 'Crispy shoes for crisping',
+    description: 'desctiption of the creative.',
+  })
+  @Prop()
+  description?: string;
 }
 
 export const CreativeSchema = SchemaFactory.createForClass(Creative);

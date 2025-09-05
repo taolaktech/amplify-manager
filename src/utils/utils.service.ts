@@ -1,6 +1,9 @@
 import nodemailer from 'nodemailer';
 import { Injectable } from '@nestjs/common';
 import { AppConfigService } from 'src/config/config.service';
+import { Industry } from 'src/enums/industry';
+import { IndustryRoasBenchMark } from './industry-roas-benchmark';
+import { Platform } from './platform';
 
 type EmailOptions = {
   to: string;
@@ -47,5 +50,59 @@ export class UtilsService {
     } catch (error: any) {
       console.error({ error });
     }
+  }
+
+  calculateTargetRoas(params: {
+    budget: number;
+    industry: Industry;
+    AOV: number;
+  }) {
+    const { budget, industry, AOV } = params;
+
+    const industryRoasBenchMark = IndustryRoasBenchMark[industry];
+
+    const estimatedClicks = {
+      [Platform.Facebook]: industryRoasBenchMark['Facebook'].maxCpc / budget,
+      [Platform.Instagram]: industryRoasBenchMark['Instagram'].maxCpc / budget,
+      [Platform.GoogleSearch]:
+        industryRoasBenchMark['Google Search'].maxCpc / budget,
+    };
+
+    const estimatedConversions = {
+      [Platform.Facebook]:
+        estimatedClicks[Platform.Facebook] *
+        (industryRoasBenchMark['Facebook'].conversionRate / 100),
+      [Platform.Instagram]:
+        estimatedClicks[Platform.Instagram] *
+        (industryRoasBenchMark['Instagram'].conversionRate / 100),
+      [Platform.GoogleSearch]:
+        estimatedClicks[Platform.GoogleSearch] *
+        (industryRoasBenchMark['Google Search'].conversionRate / 100),
+    };
+
+    const estimatedConversionValues = {
+      [Platform.Facebook]: estimatedConversions[Platform.Facebook] * AOV,
+      [Platform.Instagram]: estimatedConversions[Platform.Instagram] * AOV,
+      [Platform.GoogleSearch]:
+        estimatedConversions[Platform.GoogleSearch] * AOV,
+    };
+
+    const targetRoas = {
+      [Platform.Facebook]:
+        budget / estimatedConversionValues[Platform.Facebook],
+      [Platform.Instagram]:
+        budget / estimatedConversionValues[Platform.Instagram],
+      [Platform.GoogleSearch]:
+        budget / estimatedConversionValues[Platform.GoogleSearch],
+    };
+
+    return {
+      budget,
+      AOV,
+      targetRoas,
+      estimatedClicks,
+      estimatedConversions,
+      estimatedConversionValues,
+    };
   }
 }

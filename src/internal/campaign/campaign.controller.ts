@@ -1,6 +1,8 @@
-import { Controller, Get, Param } from '@nestjs/common';
+import { Body, Controller, Get, Param, Patch } from '@nestjs/common';
 import { InternalCampaignService } from './campaign.service';
 import { ApiOperation, ApiResponse, ApiSecurity } from '@nestjs/swagger';
+
+import { SaveGoogleAdsCampaignDataDto } from './dto/save-googleads-campaign.dto';
 
 @ApiSecurity('x-api-key')
 @Controller('internal/campaign')
@@ -33,6 +35,22 @@ export class InternalCampaignController {
     return {
       data: campaign,
       message: 'Campaign found successfully',
+      success: true,
+    };
+  }
+
+  @Patch('/:campaignId/google-ads/save-data')
+  async saveGoogleAdsCampaignState(
+    @Param('campaignId') campaignId: string,
+    @Body() dto: SaveGoogleAdsCampaignDataDto,
+  ) {
+    const result = await this.internalCampaignService.saveGoogleAdsCampaignData(
+      campaignId,
+      dto,
+    );
+    return {
+      data: result,
+      message: 'Google Ads campaign state saved successfully',
       success: true,
     };
   }

@@ -1,7 +1,8 @@
-import { Body, Controller, Get, Param, Patch } from '@nestjs/common';
+import { Body, Controller, Get, Param, Patch, Post } from '@nestjs/common';
 import { InternalBusinessService } from './business.service';
 import { ApiOperation, ApiResponse, ApiSecurity } from '@nestjs/swagger';
 import { SaveGoogleAdsCustomerDataDto } from './dto/save-googleads-data.dto';
+import { CalcTargetRoasDto } from './dto/calculate-target-roas.dto';
 
 @ApiSecurity('x-api-key')
 @Controller('internal/business')
@@ -37,5 +38,13 @@ export class InternalBusinessController {
       );
 
     return business;
+  }
+
+  @Post('/:businessId/calculate-target-roas')
+  async calculateTargetRoas(
+    @Param('businessId') id: string,
+    @Body() dto: CalcTargetRoasDto,
+  ) {
+    return await this.internalbusinessService.calculateTargetRoas(id, dto);
   }
 }

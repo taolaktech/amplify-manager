@@ -9,7 +9,6 @@ import { Model, Types } from 'mongoose';
 import { BusinessDoc, UserDoc } from 'src/database/schema';
 import {
   CalculateTargetRoasDto,
-  Platform,
   SetBusinessDetailsDto,
   SetBusinessGoalsDto,
   SetShippingLocationsDto,
@@ -19,7 +18,8 @@ import axios from 'axios';
 import { AppConfigService } from 'src/config/config.service';
 import { GoogleMapsAutoCompleteResponse } from './business.types';
 import { Credentials, UploadService } from 'src/common/file-upload';
-import { IndustryRoasBenchMark } from './industry-roas-benchmark';
+import { UtilsService } from 'src/utils/utils.service';
+import { ShopifyService } from 'src/shopify/shopify.service';
 
 @Injectable()
 export class BusinessService {
@@ -32,6 +32,8 @@ export class BusinessService {
     private businessModel: Model<BusinessDoc>,
     private configService: AppConfigService,
     private readonly uploadService: UploadService,
+    private readonly utilsService: UtilsService,
+    private readonly shopifyService: ShopifyService,
   ) {
     this.awsCredentials = {
       accessKeyId: this.configService.get('AWS_ACCESS_KEY_ID'),
@@ -220,34 +222,42 @@ export class BusinessService {
     }
     const budget = dto.budget / dto.platforms.length;
 
-    const industryRoasBenchMark = IndustryRoasBenchMark[business.industry];
+    const aov = await this.shopifyService.calculateAOV(userId);
 
-    const estimatedClicks = {
-      [Platform.Facebook]: industryRoasBenchMark['Facebook'].maxCpc / budget,
-      [Platform.Instagram]: industryRoasBenchMark['Instagram'].maxCpc / budget,
-      [Platform.GoogleSearch]:
-        industryRoasBenchMark['Google Search'].maxCpc / budget,
-    };
+    if (!business.industry) {
+      throw new InternalServerErrorException('Business industry not set');
+    }
 
-    const estimatedConversions = {
-      [Platform.Facebook]:
-        estimatedClicks[Platform.Facebook] *
-        industryRoasBenchMark['Facebook'].conversionRate,
-      [Platform.Instagram]:
-        estimatedClicks[Platform.Instagram] *
-        industryRoasBenchMark['Instagram'].conversionRate,
-      [Platform.GoogleSearch]:
-        estimatedClicks[Platform.GoogleSearch] *
-        industryRoasBenchMark['Google Search'].conversionRate,
-    };
+    const res = this.utilsService.calculateTargetRoas({
+      budget,
+      industry: business.industry,
+      AOV: aov,
+    });
 
-    const targetRoas = {
-      [Platform.Facebook]: budget / estimatedConversions[Platform.Facebook],
-      [Platform.Instagram]: budget / estimatedConversions[Platform.Instagram],
-      [Platform.GoogleSearch]:
-        budget / estimatedConversions[Platform.GoogleSearch],
-    };
+    // format res to only include selected platforms
+    const formatedResponse = dto.platforms.reduce(
+      (acc, platform) => {
+        acc.targetRoas[platform] = res.targetRoas[platform];
+        acc.estimatedClicks[platform] = res.estimatedClicks[platform];
+        acc.estimatedConversions[platform] = res.estimatedConversions[platform];
+        acc.estimatedConversionValues[platform] =
+          res.estimatedConversionValues[platform];
+        return acc;
+      },
+      {
+        targetRoas: {},
+        estimatedClicks: {},
+        estimatedConversions: {},
+        estimatedConversionValues: {},
+      } as Pick<
+        typeof res,
+        | 'targetRoas'
+        | 'estimatedClicks'
+        | 'estimatedConversions'
+        | 'estimatedConversionValues'
+      >,
+    );
 
-    return { budget, targetRoas, estimatedClicks, estimatedConversions };
+    return { ...res, ...formatedResponse };
   }
 }

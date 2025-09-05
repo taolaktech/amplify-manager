@@ -108,7 +108,6 @@ export class BrandAssetService {
    * @param files - An object containing the uploaded files associated with the brand asset.
    * @param userId - The unique identifier of the user to whom the brand asset belongs.
    * @returns A promise that resolves to the updated BrandAsset object.
-   * @throws NotFoundException if the brand asset profile is not found for the user.
    * @throws InternalServerErrorException if there is an error during the update process.
    *
    * This method handles the uploading of new assets, the removal of existing assets,

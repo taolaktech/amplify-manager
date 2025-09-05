@@ -16,6 +16,7 @@ import {
   ValidateNested,
 } from 'class-validator';
 import { Industry } from 'src/enums/industry';
+import { Platform } from 'src/utils/platform';
 
 class TeamSize {
   @ApiProperty()
@@ -150,12 +151,6 @@ export class UpdateBusinessLogo {
   @ApiPropertyOptional({ type: 'string', format: 'binary' })
   @IsOptional()
   businessLogo?: Express.Multer.File;
-}
-
-export enum Platform {
-  Facebook = 'facebook',
-  GoogleSearch = 'googleSearch',
-  Instagram = 'instagram',
 }
 
 export class CalculateTargetRoasDto {
