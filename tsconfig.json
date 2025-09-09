@@ -20,5 +20,6 @@
 
     "moduleResolution": "Node",
     "esModuleInterop": true
-  }
+  },
+  "exclude": ["lambdas/**"]
 }

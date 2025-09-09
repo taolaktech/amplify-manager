@@ -57,3 +57,11 @@ report.[0-9]*.[0-9]*.[0-9]*.[0-9]*.json
 
 # secrets
 /secrets
+
+# lamdas ignore
+/lambdas/**/node_modules
+/lambdas/**/dist
+/lambdas/**/.env
+/lambdas/**/.temp
+/lambdas/**/*.zip
+/lambdas/**/*.zip
