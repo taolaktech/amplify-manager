@@ -37,14 +37,13 @@ export class CreativeDto {
       'An array of data for the creative, such as image URLs or ad copy text.',
     example: ['https://example.com/image1.jpg', 'Summer Sale!'],
   })
-  @IsOptional()
   @IsArray({ message: 'Creative data must be an array.' })
   @ArrayMinSize(1, { message: 'Creative data must contain at least one item.' })
   @IsString({
     each: true,
     message: 'Each item in creative data must be a string.',
   })
-  data?: string[];
+  data: string[];
 }
 
 export class LocationDto {
@@ -97,7 +96,6 @@ export class ProductDto {
   @IsNotEmpty()
   description: string;
 
-  
   @ApiProperty({ description: 'The target audience for the product.' })
   @IsOptional()
   @IsString()

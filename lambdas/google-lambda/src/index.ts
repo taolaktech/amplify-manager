@@ -8,7 +8,9 @@ export const handler = async (event: any) => {
 
       if (!campaignId) throw new Error('No campaignId provided');
       await processCampaign(campaignId);
+      console.log(`\nCOMPLETED SUCCESSFULLY for- ${campaignId}`);
     } catch (err) {
+      console.log({ BODY: JSON.stringify(event.Records) });
       console.error('Error processing record:');
       if (err instanceof Error) {
         console.error(err.message);

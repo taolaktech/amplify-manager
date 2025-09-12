@@ -539,7 +539,7 @@ export const processCampaign = async (campaignId: string) => {
     SHOPIFY_URL,
   });
 
-  console.log(`adding geo targeting to campaign....`);
+  console.log(`\nadding geo targeting to campaign....`);
   await handleGeoTargeting({
     campaignInfo,
     campaignResourceName: CAMPAIGN_RESOURCE_NAME,

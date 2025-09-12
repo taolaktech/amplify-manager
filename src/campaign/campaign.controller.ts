@@ -102,7 +102,7 @@ export class CampaignController {
     @GetUser() user: UserDoc,
     @Body() createCampaignDto: CreateCampaignDto,
   ) {
-    const userId = user._id.toString(); // ?? '680690b4b7fe560e4582cf2f';
+    const userId = user._id;
 
     const createdCampaign = await this.campaignService.create(
       createCampaignDto,

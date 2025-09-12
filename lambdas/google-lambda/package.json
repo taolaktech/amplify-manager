@@ -8,7 +8,7 @@
   "main": "index.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
-    "start": "ts-node src/local.ts",
+    "start-local":"node --loader ts-node/esm src/local.ts",
     "build": "tsc -p tsconfig.build.json",
     "package-win": "npm run build && npm run copy-files-win && cd dist && zip -r ../google-lambda.zip .",
     "copy-files-win": "xcopy .\\package.json dist\\ /Y && xcopy .\\package-lock.json dist\\ /Y && xcopy .\\node_modules dist\\node_modules /E /I /Y",
@@ -20,7 +20,7 @@
     "dotenv": "^17.2.2"
   },
   "devDependencies": {
-    "@types/node": "^24.3.1",
+    "@types/node": "^24.3.-1",
     "ts-node": "^10.9.2",
     "typescript": "^5.9.2"
   }
