@@ -11,7 +11,7 @@ export const handler = async (event: any) => {
       console.log(`\nCOMPLETED SUCCESSFULLY for- ${campaignId}`);
     } catch (err) {
       console.log({ BODY: JSON.stringify(event.Records) });
-      console.error('Error processing record:');
+      console.error('ERROR PROCESSING RECORD...');
       if (err instanceof Error) {
         console.error(err.message);
       }
