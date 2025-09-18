@@ -236,14 +236,18 @@ export class BusinessService {
       AOV: aov,
     });
 
-    // format res to only include selected platforms
-    const formatedResponse = dto.platforms.reduce(
+    let totalRevenue = 0;
+
+    // format res to only include selected platforms and calculate totalRevenue while doing this
+    const formattedResponse = dto.platforms.reduce(
       (acc, platform) => {
         acc.targetRoas[platform] = res.targetRoas[platform];
         acc.estimatedClicks[platform] = res.estimatedClicks[platform];
         acc.estimatedConversions[platform] = res.estimatedConversions[platform];
         acc.estimatedConversionValues[platform] =
           res.estimatedConversionValues[platform];
+
+        totalRevenue += res.estimatedConversionValues[platform] ?? 0;
         return acc;
       },
       {
@@ -260,6 +264,14 @@ export class BusinessService {
       >,
     );
 
-    return { ...res, ...formatedResponse };
+    const totalTargetRoasRatio = dto.budget / totalRevenue;
+    const totalPercentageRoas = totalTargetRoasRatio * 100;
+
+    return {
+      totalTargetRoasRatio: Number(totalTargetRoasRatio.toFixed(4)),
+      totalPercentageRoas: Number(totalPercentageRoas.toFixed(4)),
+      ...res,
+      ...formattedResponse,
+    };
   }
 }
