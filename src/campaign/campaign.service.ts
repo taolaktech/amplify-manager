@@ -9,13 +9,31 @@ import {
 } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { FilterQuery, Model, SortOrder, Types } from 'mongoose';
-import { CampaignDocument, CampaignTopUpRequestDoc } from 'src/database/schema';
+import {
+  BusinessDoc,
+  CampaignDocument,
+  CampaignTopUpRequestDoc,
+} from 'src/database/schema';
 import { CreateCampaignDto } from './dto/create-campaign.dto';
 import { UpdateCampaignDto } from './dto/update-campaign.dto';
 import { SqsProducerService } from './sqs-producer.service';
 import { ListCampaignsDto } from './dto/list-campaigns.dto';
 import { AmplifyWalletService } from './services/wallet.service';
 import { CampaignToUpDto } from './dto/campaign-top-up.dto';
+import { CampaignPlatform, CampaignStatus } from 'src/enums/campaign';
+
+type CampaignValidationStatus =
+  | 'ready_to_launch'
+  | 'validation_failed'
+  | 'pending_assets'
+  | 'pending_payment'
+  | 'awaiting_ad_account'
+  | 'insufficient_plan'
+  | 'launching'
+  | 'live'
+  | 'paused'
+  | 'failed_to_launch'
+  | 'error';
 
 @Injectable()
 export class CampaignService {
@@ -23,60 +41,113 @@ export class CampaignService {
 
   constructor(
     @InjectModel('campaigns') private campaignModel: Model<CampaignDocument>,
+    @InjectModel('business') private businessModel: Model<BusinessDoc>,
     @InjectModel('campaign-top-up-requests')
     private topUpRequestModel: Model<CampaignTopUpRequestDoc>,
     private readonly sqsProducer: SqsProducerService,
     private readonly walletService: AmplifyWalletService,
   ) {}
 
+  private async campaignValidation(params: {
+    createCampaignDto: CreateCampaignDto;
+    userId: string;
+  }) {
+    const { createCampaignDto, userId } = params;
+    const validation: { message: string; status: CampaignValidationStatus } = {
+      status: 'ready_to_launch',
+      message: 'Ready to Launch',
+    };
+
+    const business = await this.businessModel.findById(
+      createCampaignDto.businessId,
+    );
+
+    if (!business || business.userId.toString() !== userId.toString()) {
+      validation.status = 'validation_failed';
+      validation.message = 'Invalid business provided!!';
+
+      return validation;
+    }
+
+    // get user planTier and campaign limit and make sure
+    // user doesnt or hasnt exceeded  their limit
+    const userPlanAndLimit =
+      await this.walletService.getSubscriptionDetails(userId);
+    this.logger.log(
+      `::: User ${userId} has ${JSON.stringify(userPlanAndLimit)} Subscription :::`,
+    );
+
+    // count the number of campaigns the user has created
+    const campaignCount = await this.campaignModel.countDocuments({
+      createdBy: userId,
+    });
+
+    this.logger.log(
+      `::: User ${userId} has created ${campaignCount} Campaigns`,
+    );
+
+    // check if user has exceeded their campaign limit
+    if (campaignCount >= userPlanAndLimit.campaignLimit) {
+      this.logger.debug(
+        `::: User ${userId} has reached their campaign limit :::`,
+      );
+      validation.status = 'insufficient_plan';
+      validation.message = 'Plan limits exceeded';
+      return validation;
+    }
+
+    let googleCreativesCount = 0;
+    createCampaignDto.products.forEach((product) => {
+      product.creatives.forEach((creative) => {
+        if (creative.channel === 'google') {
+          googleCreativesCount += creative.data?.length;
+        }
+      });
+    });
+
+    if (
+      createCampaignDto.platforms.includes(CampaignPlatform.GOOGLE) &&
+      googleCreativesCount < 6
+    ) {
+      validation.status = 'pending_assets';
+      validation.message = `Asset Generation Error Too few assets-Platform- ${CampaignPlatform.GOOGLE}`;
+      this.logger.debug(
+        `::: User ${userId}. Insufficient assets generated for ${CampaignPlatform.GOOGLE} :::`,
+      );
+      return validation;
+    }
+    return validation;
+  }
+
   async create(
     createCampaignDto: CreateCampaignDto,
-    userId: string,
+    userId: Types.ObjectId,
   ): Promise<CampaignDocument> {
     try {
-      const campaignId = new Types.ObjectId();
-
-      // get user planTier and campaign limit and make sure
-      // user doesnt or hasnt exceeded  their limit
-      const userPlanAndLimit =
-        await this.walletService.getSubscriptionDetails(userId);
-      this.logger.log(
-        `::: User ${userId} has ${JSON.stringify(userPlanAndLimit)} Subscription :::`,
-      );
-
-      // count the number of campaigns the user has created
-      const campaignCount = await this.campaignModel.countDocuments({
-        createdBy: userId,
+      const validation = await this.campaignValidation({
+        createCampaignDto,
+        userId: userId.toString(),
       });
 
-      this.logger.log(
-        `::: User ${userId} has created ${campaignCount} Campaigns`,
-      );
-
-      // check if user has exceeded their campaign limit
-      if (campaignCount >= userPlanAndLimit.campaignLimit) {
-        this.logger.debug(
-          `::: User ${userId} has reached their campaign limit :::`,
-        );
-        throw new ForbiddenException(
-          'Campaign limit exceeded, please upgrade your account',
-        );
+      if (validation.status !== 'ready_to_launch') {
+        throw new ForbiddenException(validation);
       }
 
+      const campaignId = new Types.ObjectId();
       // debit the user wallet for campaign creation
       await this.walletService.debitForCampaign({
-        userId: userId,
+        userId: userId.toString(),
         idempotencyKey: campaignId.toString(),
         amountInCents: createCampaignDto.totalBudget * 100,
       });
-
       this.logger.log(
-        `::: User ${userId} wallet has been debited ($${createCampaignDto.totalBudget}) for campaign ${campaignId.toString()}`,
+        `::: User ${userId.toString()} wallet has been debited ($${createCampaignDto.totalBudget}) for campaign ${campaignId.toString()}`,
       );
 
       // 1. Save the campaign to the database
       const newCampaign = await this.campaignModel.create({
         ...createCampaignDto,
+        status: CampaignStatus.READY_TO_LAUNCH,
         createdBy: new Types.ObjectId(userId),
         _id: campaignId,
       });
@@ -89,6 +160,8 @@ export class CampaignService {
       //
       try {
         await Promise.all(messagePromises);
+        newCampaign.status = CampaignStatus.LAUNCHING;
+        await newCampaign.save();
         this.logger.log(
           `All messages for campaign ${newCampaign._id.toString()} were successfully accepted by SQS.`,
         );

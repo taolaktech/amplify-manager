@@ -78,6 +78,8 @@ export class BusinessService {
           currency: 'USD',
           amount: dto.estimatedAnnualRevenue,
         },
+        ...(dto.contactEmail ? { contactEmail: dto.contactEmail } : {}),
+        ...(dto.contactPhone ? { contactPhone: dto.contactPhone } : {}),
       },
       { new: true, upsert: true },
     );

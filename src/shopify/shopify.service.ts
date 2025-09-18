@@ -292,13 +292,68 @@ export class ShopifyService {
         ordersRes.orders.edges[0]?.node.totalPriceSet.shopMoney.currencyCode;
     } while (hasNextPage);
 
-    const aov = totalOrders ? totalRevenue / totalOrders : 1;
+    const aov = totalOrders
+      ? totalRevenue / totalOrders
+      : await this.calculateAverageProductPrice(business._id);
 
     if (currency === 'CAD') {
       return aov * 0.73; // convert to USD
     }
 
     return aov;
+  }
+
+  private async calculateAverageProductPrice(businessId: Types.ObjectId) {
+    const business = await this.businessModel.findById(businessId);
+
+    if (!business) {
+      throw new NotFoundException(`no business found for this user`);
+    }
+
+    if (!business.integrations?.shopify?.shopifyAccount) {
+      throw new BadRequestException('No shopify account linked yet');
+    }
+
+    const shopifyAccount = await this.shopifyAccountModel.findById(
+      business.integrations.shopify.shopifyAccount,
+    );
+
+    if (!shopifyAccount) {
+      throw new BadRequestException(ErrorCode.SHOPIFY_ACCOUNT_NOT_FOUND);
+    }
+
+    const productsRes = await this.getProductsCall(
+      {
+        shop: shopifyAccount.shop,
+        accessToken: shopifyAccount.accessToken,
+        scope: shopifyAccount.scope,
+      },
+      { first: 30 },
+    );
+
+    let currency = 'USD';
+
+    const totalProductPrice = productsRes.products.edges.reduce((acc, edge) => {
+      acc += Number(edge.node.priceRangeV2.minVariantPrice.amount);
+      currency = edge.node.priceRangeV2.minVariantPrice.currencyCode;
+
+      return acc;
+    }, 0);
+
+    if (!productsRes.products.edges.length) {
+      throw new BadRequestException(
+        'No products found in connected shopify store',
+      );
+    }
+
+    const avProductPrice =
+      totalProductPrice / productsRes.products.edges.length;
+
+    if (currency === 'CAD') {
+      return avProductPrice * 0.73; // converting to USD
+    }
+
+    return avProductPrice;
   }
 
   async getConnectedAccount(userId: Types.ObjectId) {
