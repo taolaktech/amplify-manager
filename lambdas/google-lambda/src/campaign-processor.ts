@@ -544,4 +544,8 @@ export const processCampaign = async (campaignId: string) => {
     campaignInfo,
     campaignResourceName: CAMPAIGN_RESOURCE_NAME,
   });
+
+  await saveGoogleAdsCampaignData(campaignInfo._id, {
+    allStepsCompleted: true,
+  });
 };
