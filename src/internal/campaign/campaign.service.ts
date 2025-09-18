@@ -42,7 +42,7 @@ export class InternalCampaignService {
         { new: true, upsert: true },
       );
 
-    if (dto.allStepsCompleted) {
+    if (googleAdsCampaign.allStepsCompleted) {
       await this.updateCampaignLaunchState(campaign);
     }
 
@@ -71,11 +71,9 @@ export class InternalCampaignService {
       launchedOnAllPlatforms &&= false;
     }
 
-    campaign.status =
-      launchedOnAllPlatforms === true
-        ? CampaignStatus.LIVE
-        : CampaignStatus.FAILED_TO_LAUNCH;
-
-    await campaign.save();
+    if (launchedOnAllPlatforms) {
+      campaign.status = CampaignStatus.LIVE;
+      await campaign.save();
+    }
   }
 }
