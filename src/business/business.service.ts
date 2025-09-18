@@ -222,7 +222,7 @@ export class BusinessService {
     if (!business || !business.industry) {
       throw new NotFoundException(`business for this user not found`);
     }
-    const budget = dto.budget / dto.platforms.length;
+    const budgetPerPlatform = dto.budget / dto.platforms.length;
 
     const aov = await this.shopifyService.calculateAOV(userId);
 
@@ -231,7 +231,7 @@ export class BusinessService {
     }
 
     const res = this.utilsService.calculateTargetRoas({
-      budget,
+      budget: budgetPerPlatform,
       industry: business.industry,
       AOV: aov,
     });
@@ -268,10 +268,15 @@ export class BusinessService {
     const totalPercentageRoas = totalTargetRoasRatio * 100;
 
     return {
+      message: `ROAS is ${Math.round(totalTargetRoasRatio * dto.budget)}x of campaign spend`,
+      roasInMultiple: Math.round(totalTargetRoasRatio * dto.budget),
+      totalBudget: dto.budget,
+      budgetPerPlatform,
       totalTargetRoasRatio: Number(totalTargetRoasRatio.toFixed(4)),
       totalPercentageRoas: Number(totalPercentageRoas.toFixed(4)),
       ...res,
       ...formattedResponse,
+      budget: undefined,
     };
   }
 }
