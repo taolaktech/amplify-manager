@@ -75,6 +75,9 @@ export class GoogleAdsCampaign extends Document {
 
   @Prop({ default: false })
   geotargetingAddedToCampaign: boolean;
+
+  @Prop({ default: false })
+  allStepsCompleted: boolean;
 }
 
 export const GoogleAdsCampaignSchema =

@@ -56,28 +56,35 @@ export class UtilsService {
     budget: number;
     industry: Industry;
     AOV: number;
+    precision?: number;
   }) {
-    const { budget, industry, AOV } = params;
+    const { budget, industry, AOV, precision = 4 } = params;
+
+    const round = (n: number) =>
+      Number(Number.isFinite(n) ? n.toFixed(precision) : n);
 
     const industryRoasBenchMark = IndustryRoasBenchMark[industry];
 
     const estimatedClicks = {
-      [Platform.Facebook]: industryRoasBenchMark['Facebook'].maxCpc / budget,
-      [Platform.Instagram]: industryRoasBenchMark['Instagram'].maxCpc / budget,
+      [Platform.Facebook]: budget / industryRoasBenchMark['Facebook'].cpc,
+      [Platform.Instagram]: budget / industryRoasBenchMark['Instagram'].cpc,
       [Platform.GoogleSearch]:
-        industryRoasBenchMark['Google Search'].maxCpc / budget,
+        budget / industryRoasBenchMark['Google Search'].cpc,
     };
 
     const estimatedConversions = {
       [Platform.Facebook]:
-        estimatedClicks[Platform.Facebook] *
-        (industryRoasBenchMark['Facebook'].conversionRate / 100),
+        (estimatedClicks[Platform.Facebook] *
+          industryRoasBenchMark['Facebook'].conversionRate) /
+        100,
       [Platform.Instagram]:
-        estimatedClicks[Platform.Instagram] *
-        (industryRoasBenchMark['Instagram'].conversionRate / 100),
+        (estimatedClicks[Platform.Instagram] *
+          industryRoasBenchMark['Instagram'].conversionRate) /
+        100,
       [Platform.GoogleSearch]:
-        estimatedClicks[Platform.GoogleSearch] *
-        (industryRoasBenchMark['Google Search'].conversionRate / 100),
+        (estimatedClicks[Platform.GoogleSearch] *
+          industryRoasBenchMark['Google Search'].conversionRate) /
+        100,
     };
 
     const estimatedConversionValues = {
@@ -88,12 +95,15 @@ export class UtilsService {
     };
 
     const targetRoas = {
-      [Platform.Facebook]:
-        budget / estimatedConversionValues[Platform.Facebook],
-      [Platform.Instagram]:
-        budget / estimatedConversionValues[Platform.Instagram],
-      [Platform.GoogleSearch]:
-        budget / estimatedConversionValues[Platform.GoogleSearch],
+      [Platform.Facebook]: round(
+        (budget / estimatedConversionValues[Platform.Facebook]) * 100,
+      ),
+      [Platform.Instagram]: round(
+        (budget / estimatedConversionValues[Platform.Instagram]) * 100,
+      ),
+      [Platform.GoogleSearch]: round(
+        (budget / estimatedConversionValues[Platform.GoogleSearch]) * 100,
+      ),
     };
 
     return {

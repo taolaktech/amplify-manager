@@ -3,6 +3,7 @@ import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
 import { CampaignDocument, GoogleAdsCampaignDoc } from 'src/database/schema';
 import { SaveGoogleAdsCampaignDataDto } from './dto';
+import { CampaignPlatform, CampaignStatus } from 'src/enums/campaign';
 
 @Injectable()
 export class InternalCampaignService {
@@ -41,6 +42,38 @@ export class InternalCampaignService {
         { new: true, upsert: true },
       );
 
+    if (googleAdsCampaign.allStepsCompleted) {
+      await this.updateCampaignLaunchState(campaign);
+    }
+
     return googleAdsCampaign;
+  }
+
+  private async updateCampaignLaunchState(campaign: CampaignDocument) {
+    let launchedOnAllPlatforms = true;
+
+    if (campaign.platforms.includes(CampaignPlatform.GOOGLE)) {
+      const googleAdsCampaignInfo = await this.googleAdsCampaignModel.findOne({
+        campaign: campaign._id,
+      });
+
+      if (!googleAdsCampaignInfo) {
+        return;
+      }
+      launchedOnAllPlatforms &&= googleAdsCampaignInfo?.allStepsCompleted;
+    }
+
+    if (campaign.platforms.includes(CampaignPlatform.FACEBOOK)) {
+      launchedOnAllPlatforms &&= false;
+    }
+
+    if (campaign.platforms.includes(CampaignPlatform.INSTAGRAM)) {
+      launchedOnAllPlatforms &&= false;
+    }
+
+    if (launchedOnAllPlatforms) {
+      campaign.status = CampaignStatus.LIVE;
+      await campaign.save();
+    }
   }
 }

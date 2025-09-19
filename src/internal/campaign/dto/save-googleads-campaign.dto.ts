@@ -112,4 +112,9 @@ export class SaveGoogleAdsCampaignDataDto {
   @IsOptional()
   @IsBoolean()
   geotargetingAddedToCampaign?: boolean;
+
+  @ApiProperty()
+  @IsOptional()
+  @IsBoolean()
+  allStepsCompleted?: boolean;
 }

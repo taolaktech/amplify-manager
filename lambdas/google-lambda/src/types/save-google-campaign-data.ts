@@ -24,4 +24,5 @@ export type SaveGoogleAdsCampaignData = {
   adGroups?: AdGroup[];
   keywordsAddedToAdGroups?: boolean;
   geotargetingAddedToCampaign?: boolean;
+  allStepsCompleted?: boolean;
 };

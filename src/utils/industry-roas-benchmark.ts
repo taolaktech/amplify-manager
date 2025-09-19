@@ -4,6 +4,55 @@ export const IndustryRoasBenchMark: Record<
   Industry,
   Record<
     'Facebook' | 'Instagram' | 'Google Search',
+    { conversionRate: number; cpc: number }
+  >
+> = {
+  [Industry.FashionAndApparel]: {
+    'Google Search': { conversionRate: 2.5, cpc: 2.72 },
+    Facebook: { conversionRate: 1.2, cpc: 0.5 },
+    Instagram: { conversionRate: 1.0, cpc: 0.5 },
+  },
+  [Industry.BeautyAndCosmetics]: {
+    'Google Search': { conversionRate: 5.7, cpc: 5.16 },
+    Facebook: { conversionRate: 4.0, cpc: 0.46 },
+    Instagram: { conversionRate: 2.0, cpc: 0.51 },
+  },
+  [Industry.ElectronicsAndGadgets]: {
+    'Google Search': { conversionRate: 2.2, cpc: 1.32 },
+    Facebook: { conversionRate: 1.5, cpc: 1.35 },
+    Instagram: { conversionRate: 1.5, cpc: 1.36 },
+  },
+  [Industry.HomeAndFurniture]: {
+    'Google Search': { conversionRate: 2.7, cpc: 2.94 },
+    Facebook: { conversionRate: 2.0, cpc: 1.0 },
+    Instagram: { conversionRate: 1.5, cpc: 1.06 },
+  },
+  [Industry.HealthAndWellness]: {
+    'Google Search': { conversionRate: 3.3, cpc: 2.62 },
+    Facebook: { conversionRate: 2.0, cpc: 0.58 },
+    Instagram: { conversionRate: 2.0, cpc: 0.59 },
+  },
+  [Industry.PetCareAndSupplies]: {
+    'Google Search': { conversionRate: 6.5, cpc: 3.97 },
+    Facebook: { conversionRate: 1.0, cpc: 0.35 },
+    Instagram: { conversionRate: 1.0, cpc: 0.34 },
+  },
+  [Industry.JewelryAndLuxuryGoods]: {
+    'Google Search': { conversionRate: 2.5, cpc: 4.31 },
+    Facebook: { conversionRate: 1.0, cpc: 1.13 },
+    Instagram: { conversionRate: 1.0, cpc: 1.42 },
+  },
+  [Industry.FoodAndBeverage]: {
+    'Google Search': { conversionRate: 1.5, cpc: 2.05 },
+    Facebook: { conversionRate: 0.8, cpc: 0.21 },
+    Instagram: { conversionRate: 0.8, cpc: 0.22 },
+  },
+};
+
+export const IndustryRoasBenchMark2: Record<
+  Industry,
+  Record<
+    'Facebook' | 'Instagram' | 'Google Search',
     { conversionRate: number; maxCpc: number }
   >
 > = {
