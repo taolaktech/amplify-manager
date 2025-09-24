@@ -149,6 +149,13 @@ export class Campaign {
   businessId: Types.ObjectId;
 
   @ApiProperty({
+    example: '65e5d6a8c4b1a8d4b3c9d7b2',
+    description: 'The database ID of the shopify account.',
+  })
+  @Prop({ type: Types.ObjectId, ref: 'shopify-accounts', required: true })
+  shopifyAccountId: Types.ObjectId;
+
+  @ApiProperty({
     enum: CampaignType,
     example: CampaignType.PRODUCT_LAUNCH,
     description: 'The type of campaign.',

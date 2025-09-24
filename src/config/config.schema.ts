@@ -13,6 +13,14 @@ export const configSchema = z.object({
 
   API_KEY: z.string(), // for internal endpoints
 
+  // amplify integration
+  INTEGRATION_API_URL: z.string(),
+  INTEGRATION_API_KEY: z.string(),
+
+  // amplify ai
+  AMPLIFY_AI_API_URL: z.string(),
+  AMPLIFY_AI_API_KEY: z.string(),
+
   //DB
   MONGO_URI: z.string(),
   DB_NAME: z.string(),
@@ -32,10 +40,6 @@ export const configSchema = z.object({
 
   //firebase
   FIREBASE_SERVICE_ACCOUNT_JSON: z.string(),
-
-  // amplify integration
-  INTEGRATION_API_URL: z.string(),
-  INTEGRATION_API_KEY: z.string(),
 
   // google maps/places
   GOOGLE_MAPS_API_KEY: z.string(),

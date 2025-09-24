@@ -131,10 +131,11 @@ export class ProductDto {
     description: 'A list of creatives for this product.',
   })
   @IsArray()
+  @IsOptional()
   @ValidateNested({ each: true })
-  @ArrayMinSize(1)
+  @ArrayMinSize(0)
   @Type(() => CreativeDto)
-  creatives: CreativeDto[];
+  creatives?: CreativeDto[];
 }
 
 export class CreateCampaignDto {

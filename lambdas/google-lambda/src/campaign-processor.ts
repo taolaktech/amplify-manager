@@ -371,26 +371,51 @@ const handleAdGroupAdCreation = async ({
     campaignInfo,
   });
 
-  if (headlines.length < 6) {
+  if (headlines.length < NUMBER_OF_AD_GROUP_ADS_PER_ADGROUP * 3) {
     throw new Error(
       `Not enough headlines for ad creation, need at least 6, got ${headlines.length}`,
     );
   }
-  if (descriptions.length < 6) {
+  if (descriptions.length < NUMBER_OF_AD_GROUP_ADS_PER_ADGROUP * 3) {
     throw new Error(
       `Not enough descriptions for ad creation, need at least 6, got ${descriptions.length}`,
     );
   }
 
-  function getRange(x: number) {
-    if (x <= 0 || !Number.isInteger(x)) {
-      throw new Error('x must be a positive integer');
+  function getRange(i: number, totalAds: number, totalAssets: number) {
+    /*
+      The function divides totalAssets across totalAds.
+      Each ad gets at least 3 assets.
+      Extra assets (from uneven division) are given to the first few ads.
+      For each ad i, it returns the start (a) and end (b) indexes to slice assets from an array.
+
+      i=1; 0, 3 -headlines[0:3]
+      i=2; 3, 6 -headlines[3:6]
+    */
+    if (i <= 0 || !Number.isInteger(i)) {
+      throw new Error('i must be a positive integer');
     }
 
-    const a = 3 * (x - 1);
-    const b = 3 * x;
+    // Divide equally
+    const baseSize = Math.floor(totalAssets / totalAds);
+    const extra = totalAssets % totalAds; // leftover assets to distribute
+    const minSize = 3; // each ad must have at least 3 headlines // description
 
-    return { a, b };
+    // Calculate size for this ad
+    let size = baseSize + (i <= extra ? 1 : 0);
+    if (size < minSize) size = minSize;
+
+    // Start index = sum of all previous sizes
+    let start = 0;
+    for (let j = 1; j < i; j++) {
+      let prevSize = baseSize + (j <= extra ? 1 : 0);
+      if (prevSize < minSize) prevSize = minSize;
+      start += prevSize;
+    }
+
+    const end = start + size;
+
+    return { a: start, b: end };
   }
 
   const adGroupsToSave = [];
@@ -402,17 +427,26 @@ const handleAdGroupAdCreation = async ({
       type: 'SEARCH_STANDARD',
       ads: [] as { resourceName?: string; name?: string; status?: string }[],
     };
-    // 3 headlines and 3 descriptions per adGroup
+    // 3 headlines and 3 descriptions per adGroupAd
     for (let i = 1; i <= NUMBER_OF_AD_GROUP_ADS_PER_ADGROUP; i++) {
       const adGroupAdName = `${adGroup.adGroupName}_adGroupAd_${i}`;
-      const { a, b } = getRange(i);
+      const { a: headlineStart, b: headlineEnd } = getRange(
+        i,
+        NUMBER_OF_AD_GROUP_ADS_PER_ADGROUP,
+        headlines.length,
+      );
+      const { a: descripionStart, b: descriptionEnd } = getRange(
+        i,
+        NUMBER_OF_AD_GROUP_ADS_PER_ADGROUP,
+        descriptions.length,
+      );
       console.log(`\ncreating adGroupAd ${adGroupAdName}...`);
       const adGroupAdRes = await createAdGroupAd({
         adGroupAdName,
         adGroupResourceName: adGroup.adGroupResourceName,
         finalUrls: SHOPIFY_URL ? [SHOPIFY_URL, ...finalUrls] : [...finalUrls],
-        headlines: headlines.slice(a, b),
-        descriptions: descriptions.slice(a, b),
+        headlines: headlines.slice(headlineStart, headlineEnd),
+        descriptions: descriptions.slice(descripionStart, descriptionEnd),
       });
       const adGroupAdResourceName =
         extractResourceNameFromCreateResponse(adGroupAdRes);
