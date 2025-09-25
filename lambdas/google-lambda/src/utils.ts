@@ -35,11 +35,11 @@ export const formatCampaignName = (name: string) => {
     .toLowerCase()
     .replace(/[^a-z0-9]/g, '_');
 
-  // remove leading and trailing hyphens
-  formattedName = formattedName.replace(/^-+|-+$/g, '');
+  // remove leading and trailing underscore
+  formattedName = formattedName.replace(/^_+|_+$/g, '');
 
-  // remove multiple consecutive hyphens
-  formattedName = formattedName.replace(/-+/g, '_');
+  // remove multiple consecutive underscore
+  formattedName = formattedName.replace(/_+/g, '_');
 
   return formattedName;
 };
