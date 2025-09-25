@@ -179,6 +179,14 @@ export class CreateCampaignDto {
   platforms: CampaignPlatform[];
 
   @ApiProperty({
+    description: 'The name of the campaign',
+    example: 'June Spring Campaign',
+  })
+  @IsString()
+  @IsNotEmpty()
+  name: string;
+
+  @ApiProperty({
     description: 'The primary color theme for the campaign creative.',
     example: '#3b5998',
   })

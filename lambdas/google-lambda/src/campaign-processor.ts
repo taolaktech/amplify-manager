@@ -32,6 +32,7 @@ import {
   generateRandomString,
   trimDescription,
   trimHeadline,
+  formatCampaignName,
 } from './utils.js';
 
 const getAdAssetsFromCampaign = ({
@@ -167,7 +168,9 @@ const handleCampaignCreation = async ({
   const START_DATE = campaignInfo.startDate;
   const END_DATE = campaignInfo.endDate;
 
-  const G_CAMPAIGN_NAME = `${campaignInfo._id}`;
+  const G_CAMPAIGN_NAME = formatCampaignName(
+    `${campaignInfo.name ?? ''}_${campaignInfo._id}`,
+  );
   const googleAdsBudgetAmount =
     +campaignInfo.totalBudget / +campaignInfo.platforms.length;
 

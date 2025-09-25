@@ -156,6 +156,13 @@ export class Campaign {
   shopifyAccountId: Types.ObjectId;
 
   @ApiProperty({
+    example: 'June Spring Campaign',
+    description: 'The name of the campaign.',
+  })
+  @Prop()
+  name: string;
+
+  @ApiProperty({
     enum: CampaignType,
     example: CampaignType.PRODUCT_LAUNCH,
     description: 'The type of campaign.',

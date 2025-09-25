@@ -29,6 +29,21 @@ export const floorDollars = (dollars: number) => {
   return Math.floor(dollars * 100) / 100;
 };
 
+export const formatCampaignName = (name: string) => {
+  let formattedName = name
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]/g, '_');
+
+  // remove leading and trailing hyphens
+  formattedName = formattedName.replace(/^-+|-+$/g, '');
+
+  // remove multiple consecutive hyphens
+  formattedName = formattedName.replace(/-+/g, '_');
+
+  return formattedName;
+};
+
 export const countryCodeMap: Record<string, string> = {
   AFG: 'AF',
   ALA: 'AX',
