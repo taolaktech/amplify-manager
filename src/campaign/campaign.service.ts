@@ -268,7 +268,7 @@ export class CampaignService {
           .then((resp) => {
             const creative = {
               data: resp.data.map((d) => JSON.stringify(d)),
-              channel: 'GOOGLE',
+              channel: 'google' as const,
             };
             campaignDoc.products[i].creatives.push(creative);
           })
@@ -297,6 +297,11 @@ export class CampaignService {
         //       'I GOT SOME CREATIVES FOR FACEBOOK- ADD THEM TO CAMPAIGN DOC',
         //       resp,
         //     );
+        //     const creative = {
+        //       data: resp.data.map((d) => JSON.stringify(d)),
+        //       channel: 'facebook' as const,
+        //     };
+        //     campaignDoc.products[i].creatives.push(creative);
         //   })
         //   .catch((error) => {
         //     let errorMessage = 'Something went wrong';
@@ -323,6 +328,11 @@ export class CampaignService {
         //       'I GOT SOME CREATIVES FOR INSTAGRAM- ADD THEM TO CAMPAIGN DOC',
         //       resp,
         //     );
+        //     const creative = {
+        //       data: resp.data.map((d) => JSON.stringify(d)),
+        //       channel: 'instagram' as const,
+        //     };
+        //     campaignDoc.products[i].creatives.push(creative);
         //   })
         //   .catch((error) => {
         //     let errorMessage = 'Something went wrong';
@@ -343,8 +353,6 @@ export class CampaignService {
       await campaignDoc.save(); // save for the promises that fulfilled
 
       const rejected = results.filter((r) => r.status === 'rejected');
-
-      console.log({ results: JSON.stringify({ results }) });
 
       if (rejected.length) {
         this.logger.debug(

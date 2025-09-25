@@ -19,6 +19,11 @@ import { CampaignPlatform, CampaignType } from 'src/enums/campaign';
 import { IsAtLeastTomorrowConstraint } from './is-atleast-tommorrow.constraint';
 import { IsAfterDate } from './is-after-date.constraint';
 
+enum CreativeChannel {
+  'GOOGLE' = 'google',
+  'FACEBOOK' = 'facebook',
+  'INSTAGRAM' = 'instagram',
+}
 export class CreativeDto {
   @IsOptional()
   @IsString({
@@ -30,10 +35,12 @@ export class CreativeDto {
     description:
       'The advertising channel for this creative (e.g., "facebook", "google").',
     example: 'facebook',
+    enum: CreativeChannel,
   })
   @IsString({ message: 'Channel must be a string.' })
+  @IsEnum(CreativeChannel)
   @IsNotEmpty({ message: 'Channel cannot be empty.' })
-  channel: string;
+  channel: 'google' | 'facebook' | 'instagram';
 
   @ApiProperty({
     description:

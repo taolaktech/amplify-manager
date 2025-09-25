@@ -21,7 +21,7 @@ export class Creative {
 
   @ApiProperty({ example: 'facebook', description: 'The advertising channel.' })
   @Prop({ required: true })
-  channel: string;
+  channel: 'facebook' | 'instagram' | 'google';
 
   @ApiProperty({
     example: ['https://example.com/image.jpg'],
