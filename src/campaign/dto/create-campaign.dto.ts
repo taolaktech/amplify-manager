@@ -12,10 +12,18 @@ import {
   ArrayMinSize,
   IsUrl,
   IsOptional,
+  Validate,
 } from 'class-validator';
 import { Type } from 'class-transformer';
 import { CampaignPlatform, CampaignType } from 'src/enums/campaign';
+import { IsAtLeastTomorrowConstraint } from './is-atleast-tommorrow.constraint';
+import { IsAfterDate } from './is-after-date.constraint';
 
+enum CreativeChannel {
+  'GOOGLE' = 'google',
+  'FACEBOOK' = 'facebook',
+  'INSTAGRAM' = 'instagram',
+}
 export class CreativeDto {
   @IsOptional()
   @IsString({
@@ -27,10 +35,12 @@ export class CreativeDto {
     description:
       'The advertising channel for this creative (e.g., "facebook", "google").',
     example: 'facebook',
+    enum: CreativeChannel,
   })
   @IsString({ message: 'Channel must be a string.' })
+  @IsEnum(CreativeChannel)
   @IsNotEmpty({ message: 'Channel cannot be empty.' })
-  channel: string;
+  channel: 'google' | 'facebook' | 'instagram';
 
   @ApiProperty({
     description:
@@ -128,10 +138,11 @@ export class ProductDto {
     description: 'A list of creatives for this product.',
   })
   @IsArray()
+  @IsOptional()
   @ValidateNested({ each: true })
-  @ArrayMinSize(1)
+  @ArrayMinSize(0)
   @Type(() => CreativeDto)
-  creatives: CreativeDto[];
+  creatives?: CreativeDto[];
 }
 
 export class CreateCampaignDto {
@@ -168,6 +179,14 @@ export class CreateCampaignDto {
   platforms: CampaignPlatform[];
 
   @ApiProperty({
+    description: 'The name of the campaign',
+    example: 'June Spring Campaign',
+  })
+  @IsString()
+  @IsNotEmpty()
+  name: string;
+
+  @ApiProperty({
     description: 'The primary color theme for the campaign creative.',
     example: '#3b5998',
   })
@@ -192,6 +211,9 @@ export class CreateCampaignDto {
     description: 'The start date and time for the campaign in ISO 8601 format.',
     example: '2024-10-01T09:00:00Z',
   })
+  @Validate(IsAtLeastTomorrowConstraint, {
+    message: 'start date must be at least tomorrow',
+  })
   @IsDateString({}, { message: 'A valid start date must be provided.' })
   @IsNotEmpty()
   startDate: string;
@@ -201,6 +223,7 @@ export class CreateCampaignDto {
     example: '2024-10-31T23:59:59Z',
   })
   @IsDateString({}, { message: 'A valid end date must be provided.' })
+  @IsAfterDate('startDate', { message: 'endDate must be after startDate' })
   @IsNotEmpty()
   endDate: string;
 

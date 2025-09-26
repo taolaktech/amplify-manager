@@ -3,6 +3,8 @@ export type CampaignInfoType = {
   createdBy: string;
   status: string;
   businessId: string;
+  shopifyAccountId: string;
+  name?: string;
   type: string;
   startDate: string;
   endDate: string;

@@ -21,7 +21,7 @@ export class Creative {
 
   @ApiProperty({ example: 'facebook', description: 'The advertising channel.' })
   @Prop({ required: true })
-  channel: string;
+  channel: 'facebook' | 'instagram' | 'google';
 
   @ApiProperty({
     example: ['https://example.com/image.jpg'],
@@ -147,6 +147,20 @@ export class Campaign {
   })
   @Prop({ type: Types.ObjectId, ref: 'business', required: true })
   businessId: Types.ObjectId;
+
+  @ApiProperty({
+    example: '65e5d6a8c4b1a8d4b3c9d7b2',
+    description: 'The database ID of the shopify account.',
+  })
+  @Prop({ type: Types.ObjectId, ref: 'shopify-accounts', required: true })
+  shopifyAccountId: Types.ObjectId;
+
+  @ApiProperty({
+    example: 'June Spring Campaign',
+    description: 'The name of the campaign.',
+  })
+  @Prop()
+  name: string;
 
   @ApiProperty({
     enum: CampaignType,

@@ -15,6 +15,7 @@ import { GetShopifyAuthUrlDto } from './dto';
 import {
   GetShopifyOrdersQuery,
   GetShopifyOrdersResponse,
+  GetShopifyProductByIdResponse,
   GetShopifyProductsQuery,
   GetShopifyProductsResponse,
 } from './types';
@@ -56,6 +57,7 @@ export class ShopifyService {
       );
       return res.data.url;
     } catch (error: unknown) {
+      this.logger.error('::: Unable to retrieve shopify auth url :::');
       if (error instanceof AxiosError) {
         console.log(
           error?.response?.data || error?.message || error?.response || error,
@@ -89,6 +91,9 @@ export class ShopifyService {
       });
       return res.data;
     } catch (error: unknown) {
+      this.logger.error(
+        `::: Unable to retrieve shopify products url params- ${JSON.stringify(params)} :::`,
+      );
       if (error instanceof AxiosError) {
         this.logger.error(error.response);
         throw new BadRequestException(error.response?.data);
@@ -101,20 +106,31 @@ export class ShopifyService {
     shop: string;
     accessToken: string;
     scope: string;
-    productId: string;
+    productId?: string;
+    handle?: string;
   }) {
     try {
       const url = `/products/product-by-id`;
 
-      const res = await this.integrationsAxiosInstance().post<{
-        product: { [key: string]: any };
-        shop: { [key: string]: any };
-      }>(url, params);
+      if (!params.productId && !params.handle) {
+        throw new BadRequestException(
+          `productId or product handle must be present`,
+        );
+      }
+
+      const res =
+        await this.integrationsAxiosInstance().post<GetShopifyProductByIdResponse>(
+          url,
+          params,
+        );
       return res.data;
     } catch (error: unknown) {
+      this.logger.error(
+        `::: Unable to retrieve shopify product by id or handle- ${JSON.stringify(params)} :::`,
+      );
       if (error instanceof AxiosError) {
         console.log(error.response);
-        throw new BadRequestException(error.response?.data);
+        throw new InternalServerErrorException(error.response?.data);
       }
       throw new InternalServerErrorException(ErrorCode.INTERNAL_SERVER_ERROR);
     }
@@ -145,9 +161,12 @@ export class ShopifyService {
       });
       return res.data;
     } catch (error: unknown) {
+      this.logger.error(
+        `::: Unable to retrieve shopify orders- ${JSON.stringify(params)} :::`,
+      );
       if (error instanceof AxiosError) {
         this.logger.error(error.response);
-        throw new BadRequestException(error.response?.data);
+        throw new InternalServerErrorException(error.response?.data);
       }
       throw new InternalServerErrorException(ErrorCode.INTERNAL_SERVER_ERROR);
     }
@@ -354,6 +373,27 @@ export class ShopifyService {
     }
 
     return avProductPrice;
+  }
+
+  async getShopifyAccountProductById(
+    shopifyAccountId: Types.ObjectId,
+    shopifyProductId: string,
+  ) {
+    const shopifyAccount =
+      await this.shopifyAccountModel.findById(shopifyAccountId);
+
+    if (!shopifyAccount) {
+      throw new BadRequestException(ErrorCode.SHOPIFY_ACCOUNT_NOT_FOUND);
+    }
+
+    const productRes = await this.getProductByIdCall({
+      shop: shopifyAccount.shop,
+      accessToken: shopifyAccount.accessToken,
+      scope: shopifyAccount.scope,
+      productId: shopifyProductId,
+    });
+
+    return productRes;
   }
 
   async getConnectedAccount(userId: Types.ObjectId) {

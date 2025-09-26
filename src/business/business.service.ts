@@ -266,10 +266,13 @@ export class BusinessService {
 
     const totalTargetRoasRatio = dto.budget / totalRevenue;
     const totalPercentageRoas = totalTargetRoasRatio * 100;
+    const roasInMultiple = Number(
+      ((totalTargetRoasRatio * dto.budget) / 100).toFixed(1),
+    );
 
     return {
-      message: `ROAS is ${Math.round(totalTargetRoasRatio * dto.budget)}x of campaign spend`,
-      roasInMultiple: Math.round(totalTargetRoasRatio * dto.budget),
+      message: `ROAS is ${roasInMultiple}x of campaign spend- $${dto.budget}`,
+      roasInMultiple,
       totalBudget: dto.budget,
       budgetPerPlatform,
       totalTargetRoasRatio: Number(totalTargetRoasRatio.toFixed(4)),
