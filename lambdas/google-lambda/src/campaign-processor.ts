@@ -243,7 +243,7 @@ const handleCampaignCreation = async ({
       campaignResourceName,
       campaignName: G_CAMPAIGN_NAME,
       campaignType: 'SEARCH',
-      campaignStatus: 'PAUSED',
+      campaignStatus: 'ENABLED',
       budgetResourceName,
       budgetAmountMicros: CAMPAIGN_BUDGET_AMOUNT * 1_000_000,
       biddingStrategyResourceName,

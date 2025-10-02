@@ -8,7 +8,6 @@ import { JwtService } from '@nestjs/jwt';
 import { AmplifyWalletService } from './services/wallet.service';
 import { InternalHttpHelper } from '../common/helpers/internal-http.helper';
 import { ServiceRegistryService } from '../common/services/service-registry.service';
-import { ShopifyService } from 'src/shopify/shopify.service';
 
 @Module({
   providers: [
@@ -20,7 +19,6 @@ import { ShopifyService } from 'src/shopify/shopify.service';
     AmplifyWalletService,
     InternalHttpHelper,
     ServiceRegistryService,
-    ShopifyService,
   ],
   controllers: [CampaignController],
 })

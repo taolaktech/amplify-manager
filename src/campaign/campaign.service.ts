@@ -13,6 +13,7 @@ import {
   BusinessDoc,
   CampaignDocument,
   CampaignTopUpRequestDoc,
+  GoogleAdsCampaignDoc,
 } from 'src/database/schema';
 import { CreateCampaignDto } from './dto/create-campaign.dto';
 import { UpdateCampaignDto } from './dto/update-campaign.dto';
@@ -23,7 +24,8 @@ import { CampaignToUpDto } from './dto/campaign-top-up.dto';
 import { CampaignPlatform, CampaignStatus } from 'src/enums/campaign';
 import { AppConfigService } from 'src/config/config.service';
 import axios, { AxiosError } from 'axios';
-import { ShopifyService } from 'src/shopify/shopify.service';
+import { UtilsService } from 'src/utils/utils.service';
+import { GetGoogleCampaignMetrics } from './types/google-campaign-metrics-resp';
 
 type CampaignValidationStatus =
   | 'ready_to_launch'
@@ -59,13 +61,15 @@ export class CampaignService {
 
   constructor(
     @InjectModel('campaigns') private campaignModel: Model<CampaignDocument>,
+    @InjectModel('google-ads-campaigns')
+    private googleAdsCampaignModel: Model<GoogleAdsCampaignDoc>,
     @InjectModel('business') private businessModel: Model<BusinessDoc>,
     @InjectModel('campaign-top-up-requests')
     private topUpRequestModel: Model<CampaignTopUpRequestDoc>,
     private readonly sqsProducer: SqsProducerService,
     private readonly walletService: AmplifyWalletService,
-    private readonly shopifyService: ShopifyService,
     private readonly config: AppConfigService,
+    private readonly utilsService: UtilsService,
   ) {}
 
   private async campaignValidation(params: {
@@ -168,7 +172,18 @@ export class CampaignService {
   }
 
   private async generateCreativesForAllProducts(campaignDoc: CampaignDocument) {
-    /*  helper function to check if channel creatives are present*/
+    let failedToGenerateSomeCreatives = false;
+
+    const googleSelected = campaignDoc.platforms.includes(
+      CampaignPlatform.GOOGLE,
+    );
+    const facebookSelected = campaignDoc.platforms.includes(
+      CampaignPlatform.FACEBOOK,
+    );
+    const instagramSelected = campaignDoc.platforms.includes(
+      CampaignPlatform.INSTAGRAM,
+    );
+
     const checkChannelCreatives = (
       creatives: CampaignDocument['products'][0]['creatives'],
     ) => {
@@ -193,18 +208,6 @@ export class CampaignService {
         facebookCreativesPresent,
       };
     };
-
-    let failedToGenerateSomeCreatives = false;
-
-    const googleSelected = campaignDoc.platforms.includes(
-      CampaignPlatform.GOOGLE,
-    );
-    const facebookSelected = campaignDoc.platforms.includes(
-      CampaignPlatform.FACEBOOK,
-    );
-    const instagramSelected = campaignDoc.platforms.includes(
-      CampaignPlatform.INSTAGRAM,
-    );
 
     /* begin loop */
     for (let i = 0; i < campaignDoc.products.length; i++) {
@@ -231,28 +234,16 @@ export class CampaignService {
         `::: Now generating creatives for campaign ${campaignDoc._id.toString()}, product-${i}`,
       );
 
-      const { productByIdentifier: shopifyProductData } =
-        await this.shopifyService.getShopifyAccountProductById(
-          campaignDoc.shopifyAccountId,
-          product.shopifyId,
-        );
-
       const data: CreativeGenBody = {
         productName: product.title,
         productPrice: `$${product.price.toString()}`,
         productDescription: product.description,
         productOccasion: product.occasion ?? '',
-        productFeatures: [
-          ...product.features,
-          ...(shopifyProductData.tags ?? []),
-          shopifyProductData.category?.name ?? '',
-          shopifyProductData.productType ?? '',
-          shopifyProductData.handle ?? '',
-        ],
+        productFeatures: product.features,
         tone: campaignDoc.tone,
         productCategory: product.category,
         brandName: product.title,
-        channel: 'FACEBOOK',
+        channel: 'FACEBOOK', // default to facebook for now
         productImage: product.imageLink,
         productLink: product.productLink,
         campaignType: campaignDoc.type,
@@ -280,7 +271,7 @@ export class CampaignService {
                 : 'Undetermined Error';
             }
             this.logger.debug(
-              `Unable to generate creative, channel- GOOGLE, error- ${errorMessage}`,
+              `Unable to generate creative, campaignId- ${campaignDoc._id.toString()}, product- ${i} channel- GOOGLE, error- ${errorMessage}`,
             );
             throw error;
           });
@@ -311,7 +302,7 @@ export class CampaignService {
         //         : 'Undetermined Error';
         //     }
         //     this.logger.debug(
-        //       `Unable to generate creative, channel- FACEBOOK, error- ${errorMessage}`,
+        //       `Unable to generate creative, campaignId- ${campaignDoc._id.toString()}, product- ${i}, channel- FACEBOOK, error- ${errorMessage}`,
         //     );
         //     throw error;
         //   });
@@ -342,7 +333,7 @@ export class CampaignService {
         //         : 'Undetermined Error';
         //     }
         //     this.logger.debug(
-        //       `Unable to generate creative, channel- INSTAGRAM, error- ${errorMessage}`,
+        //       `Unable to generate creative, campaignId- ${campaignDoc._id.toString()}, product- ${i}, channel- INSTAGRAM, error- ${errorMessage}`,
         //     );
         //     throw error;
         //   });
@@ -368,9 +359,154 @@ export class CampaignService {
       this.logger.error(
         `::: Failed to generate creatives for campaign one or more- ${campaignDoc._id.toString()} :::`,
       );
-      throw new InternalServerErrorException(
-        'Failed to generate creatives for campaign',
+    }
+  }
+
+  private async getGoogleCampaignMetrics(campaignResourceName: string) {
+    try {
+      const resourceComponents =
+        this.utilsService.extractIdsFromGoogleResourceName(
+          campaignResourceName,
+        );
+
+      if (!resourceComponents) {
+        throw new BadRequestException('Invalid Google Campaign Resource Name');
+      }
+
+      const { customerId, resourceId: campaignId } = resourceComponents;
+
+      const url = `${this.config.get('INTEGRATION_API_URL')}/api/google-ads/campaigns/get-metrics`;
+
+      const res = await axios.post<GetGoogleCampaignMetrics>(
+        url,
+        {
+          customerId,
+          campaignId,
+        },
+        {
+          headers: { 'x-api-key': this.config.get('INTEGRATION_API_KEY') },
+        },
       );
+
+      return res.data;
+    } catch (error) {
+      this.logger.error(
+        `::: Unable to fetch google campaign metrics, campaignResourceName- ${campaignResourceName}- ${error.message} :::`,
+      );
+      throw new InternalServerErrorException(
+        'Unable to fetch google campaign metrics',
+      );
+    }
+  }
+
+  checkIfAllCreativesPresent(campaignDoc: CampaignDocument) {
+    const googleSelected = campaignDoc.platforms.includes(
+      CampaignPlatform.GOOGLE,
+    );
+    const facebookSelected = campaignDoc.platforms.includes(
+      CampaignPlatform.FACEBOOK,
+    );
+    const instagramSelected = campaignDoc.platforms.includes(
+      CampaignPlatform.INSTAGRAM,
+    );
+
+    const checkChannelCreatives = (
+      creatives: CampaignDocument['products'][0]['creatives'],
+    ) => {
+      let googleCreativesPresent = false;
+      let instagramCreativesPresent = false;
+      let facebookCreativesPresent = false;
+
+      creatives.forEach((creative) => {
+        if (creative.channel === 'instagram') {
+          instagramCreativesPresent = true;
+        }
+        if (creative.channel === 'facebook') {
+          facebookCreativesPresent = true;
+        }
+        if (creative.channel === 'google') {
+          googleCreativesPresent = true;
+        }
+      });
+      return {
+        googleCreativesPresent,
+        instagramCreativesPresent,
+        facebookCreativesPresent,
+      };
+    };
+
+    let [
+      allCreativesPresent,
+      allGoogleCreativesPresent,
+      allFacebookCreativesPresent,
+      allInstagramCreativesPresent,
+    ] = [true, true, true, true];
+
+    /* begin loop */
+    for (let i = 0; i < campaignDoc.products.length; i++) {
+      const product = campaignDoc.products[i];
+      if (!product.creatives) {
+        campaignDoc.products[i].creatives = [];
+      }
+      const {
+        googleCreativesPresent,
+        instagramCreativesPresent,
+        facebookCreativesPresent,
+      } = checkChannelCreatives(product.creatives);
+
+      const googleCreativesNeeded = googleSelected && !googleCreativesPresent;
+      const facebookCreativesNeeded =
+        facebookSelected && !facebookCreativesPresent;
+      const instagramCreativesNeeded =
+        instagramSelected && !instagramCreativesPresent;
+
+      const productNeedsCreatives =
+        googleCreativesNeeded ||
+        facebookCreativesNeeded ||
+        instagramCreativesNeeded;
+
+      allCreativesPresent &&= !productNeedsCreatives;
+      allGoogleCreativesPresent &&= !googleCreativesNeeded;
+      allFacebookCreativesPresent &&= !facebookCreativesNeeded;
+      allInstagramCreativesPresent &&= !instagramCreativesNeeded;
+    }
+
+    return {
+      allCreativesPresent,
+      allGoogleCreativesPresent: !googleSelected
+        ? undefined
+        : allGoogleCreativesPresent,
+      allFacebookCreativesPresent: !facebookSelected
+        ? undefined
+        : allFacebookCreativesPresent,
+      allInstagramCreativesPresent: !instagramSelected
+        ? undefined
+        : allInstagramCreativesPresent,
+    };
+  }
+
+  async publishCampaignToAllRespectiveQueues(campaignDoc: CampaignDocument) {
+    const messagePromises = campaignDoc.platforms.map((platform) => {
+      this.logger.log(`Initiating message send for platform: ${platform}`);
+      return this.sqsProducer.sendMessage(campaignDoc, platform);
+    });
+
+    //
+    try {
+      await Promise.all(messagePromises);
+      this.logger.log(
+        `All messages for campaign ${campaignDoc._id.toString()} were successfully accepted by SQS.`,
+      );
+    } catch (error) {
+      this.logger.error(
+        `One or more messages failed to send for campaign ${campaignDoc._id.toString()}.`,
+        error,
+      );
+
+      campaignDoc.status = CampaignStatus.FAILED_TO_LAUNCH;
+      await campaignDoc.save();
+
+      throw error;
     }
   }
 
@@ -410,33 +546,29 @@ export class CampaignService {
       const newCampaign = await this.campaignModel.create({
         ...createCampaignDto,
         status: CampaignStatus.READY_TO_LAUNCH,
-        createdBy: new Types.ObjectId(userId),
+        createdBy: userId,
         shopifyAccountId: business.integrations.shopify.shopifyAccount,
         _id: campaignId,
       });
 
-      const messagePromises = newCampaign.platforms.map((platform) => {
-        this.logger.log(`Initiating message send for platform: ${platform}`);
-        return this.sqsProducer.sendMessage(newCampaign, platform);
-      });
+      await this.generateCreativesForAllProducts(newCampaign);
+      const { allCreativesPresent, allGoogleCreativesPresent } =
+        this.checkIfAllCreativesPresent(newCampaign);
 
-      //
-      try {
-        await this.generateCreativesForAllProducts(newCampaign);
-        await Promise.all(messagePromises);
-        newCampaign.status = CampaignStatus.LAUNCHING;
-        await newCampaign.save();
-        this.logger.log(
-          `All messages for campaign ${newCampaign._id.toString()} were successfully accepted by SQS.`,
-        );
-      } catch (error) {
+      if (allGoogleCreativesPresent === false) {
         this.logger.error(
-          `One or more messages failed to send for campaign ${newCampaign._id.toString()}.`,
-          error,
+          `::: Unable to generate google creatives for ${newCampaign._id.toString()}`,
         );
-
-        throw error;
+        throw new InternalServerErrorException(
+          'Unable to generate creatives for campaign',
+        );
       }
+
+      if (allCreativesPresent) {
+        newCampaign.status = CampaignStatus.LAUNCHING;
+        await this.publishCampaignToAllRespectiveQueues(newCampaign);
+      }
+      await newCampaign.save();
 
       return newCampaign;
     } catch (error) {
@@ -502,6 +634,94 @@ export class CampaignService {
     }
   }
 
+  private async calculateMetricsForCampaign(campaignDoc: CampaignDocument) {
+    // populate data from necessary collections
+    const campaignMetrics: CampaignDocument['metrics'] = {
+      totalClicks: 0,
+      totalConversionsValue: 0,
+      totalConversions: 0,
+      totalCost: 0,
+      totalImpressions: 0,
+    };
+    const staleTimeInMs = 2 * 60 * 60 * 1000; // 2 hours
+    await campaignDoc.populate('googleAdsCampaign');
+    const metricsLastUpdatedAt =
+      campaignDoc.googleAdsCampaign?.metricsLastUpdatedAt;
+
+    let googleCampaignMetrics = campaignDoc.googleAdsCampaign?.metrics;
+    // let facebookCampaignMetrics = campaignDoc.facebookCampaign?.metrics;
+    // let instagramCampaignMetrics = campaignDoc.instagramCampaign?.metrics;
+    const now = new Date();
+    // metrics stale when campaign has never been updated or last update was more than 2 hours ago
+    const isGoogleMetricsStale =
+      !metricsLastUpdatedAt ||
+      now.getTime() - metricsLastUpdatedAt.getTime() > staleTimeInMs;
+
+    // update google metrics if google campaign exists and metrics are stale
+    if (
+      campaignDoc.googleAdsCampaign?.campaignResourceName &&
+      isGoogleMetricsStale
+    ) {
+      this.logger.log(
+        `google metrics are stale for campaign ${campaignDoc._id.toString()}. Retrieving fresh metrics.`,
+      );
+      const metricsResult = await this.getGoogleCampaignMetrics(
+        campaignDoc.googleAdsCampaign.campaignResourceName,
+      );
+      googleCampaignMetrics = metricsResult.results[0].metrics;
+      if (metricsResult.results.length && googleCampaignMetrics) {
+        await this.googleAdsCampaignModel.findOneAndUpdate(
+          { campaign: campaignDoc._id },
+          {
+            $set: {
+              metrics: googleCampaignMetrics,
+              metricsLastUpdatedAt: new Date(),
+            },
+          },
+          { new: true },
+        );
+      }
+    }
+
+    if (googleCampaignMetrics) {
+      campaignMetrics.totalClicks += Number(googleCampaignMetrics.clicks);
+      campaignMetrics.totalConversionsValue +=
+        googleCampaignMetrics.conversionsValue;
+      campaignMetrics.totalConversions += googleCampaignMetrics.conversions;
+      campaignMetrics.totalCost +=
+        Number(googleCampaignMetrics.costMicros) / 1_000_000;
+      campaignMetrics.totalImpressions += Number(
+        googleCampaignMetrics.impressions,
+      );
+    }
+    // if (facebookCampaignMetrics) {
+    //   campaignMetrics.totalClicks += Number(facebookCampaignMetrics.clicks);
+    //   campaignMetrics.totalConversionsValue +=
+    //     facebookCampaignMetrics.conversionsValue;
+    //   campaignMetrics.totalConversions += facebookCampaignMetrics.conversions;
+    //   campaignMetrics.totalCost +=
+    //     Number(facebookCampaignMetrics.costMicros) / 1_000_000;
+    //   campaignMetrics.totalImpressions += Number(
+    //     facebookCampaignMetrics.impressions,
+    //   );
+    // }
+
+    // if (instagramCampaignMetrics) {
+    //   campaignMetrics.totalClicks += Number(facebookCampaignMetrics.clicks);
+    //   campaignMetrics.totalConversionsValue +=
+    //     facebookCampaignMetrics.conversionsValue;
+    //   campaignMetrics.totalConversions += facebookCampaignMetrics.conversions;
+    //   campaignMetrics.totalCost +=
+    //     Number(facebookCampaignMetrics.costMicros) / 1_000_000;
+    //   campaignMetrics.totalImpressions += Number(
+    //     facebookCampaignMetrics.impressions,
+    //   );
+    // }
+
+    campaignDoc.metrics = campaignMetrics;
+    await campaignDoc.save();
+  }
+
   async findAll(listCampaignsDto: ListCampaignsDto, userId: string) {
     const { page, perPage, status, type, platforms, sortBy } = listCampaignsDto;
 
@@ -534,24 +754,24 @@ export class CampaignService {
         .find(filter)
         .sort(sortOptions)
         .skip(skip)
-        .limit(perPage)
-        .exec(),
+        .limit(perPage),
       this.campaignModel.countDocuments(filter).exec(),
     ]);
 
-    // 5. Construct the paginated response
-    const totalPages = Math.ceil(total / perPage);
+    // retrieve metrics for all google campaigns in the list
+    for (let i = 0; i < campaigns.length; i++) {
+      await this.calculateMetricsForCampaign(campaigns[i]);
+    }
 
+    // 5. Construct the paginated response
+    const pagination = this.utilsService.getPaginationMeta({
+      total,
+      page,
+      perPage,
+    });
     return {
-      data: campaigns,
-      pagination: {
-        total,
-        page,
-        perPage,
-        totalPages,
-        hasNextPage: page < totalPages,
-        hasPrevPage: page > 1,
-      },
+      campaigns,
+      pagination,
     };
   }
 

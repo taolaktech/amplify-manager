@@ -115,4 +115,27 @@ export class UtilsService {
       estimatedConversionValues,
     };
   }
+
+  extractIdsFromGoogleResourceName(resourceName: string) {
+    // Example resource name: customers/1234567890/campaigns/987654321
+    const parts = resourceName.split('/');
+    if (parts.length >= 4) {
+      const customerId = parts[1];
+      const resourceName = parts[2];
+      const resourceId = parts[3];
+      return { customerId, resourceName, resourceId };
+    }
+  }
+
+  getPaginationMeta(params: { page: number; perPage: number; total: number }) {
+    const totalPages = Math.ceil(params.total / params.perPage);
+    return {
+      total: params.total,
+      page: params.page,
+      perPage: params.perPage,
+      totalPages,
+      hasNextPage: params.page < totalPages,
+      hasPrevPage: params.page > 1,
+    };
+  }
 }

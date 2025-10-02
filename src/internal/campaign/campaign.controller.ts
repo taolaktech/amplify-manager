@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Param, Patch } from '@nestjs/common';
+import { Body, Controller, Get, Param, Patch, Post } from '@nestjs/common';
 import { InternalCampaignService } from './campaign.service';
 import { ApiOperation, ApiResponse, ApiSecurity } from '@nestjs/swagger';
 
@@ -51,6 +51,15 @@ export class InternalCampaignController {
     return {
       data: result,
       message: 'Google Ads campaign state saved successfully',
+      success: true,
+    };
+  }
+
+  @Post('/campaign-creatives/webhook')
+  async campaignCreativesWebhook(@Body() payload: any) {
+    await this.internalCampaignService.campaignCreativesWebhook(payload);
+    return {
+      message: 'Webhook received successfully',
       success: true,
     };
   }

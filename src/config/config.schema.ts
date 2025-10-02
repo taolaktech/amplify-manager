@@ -21,6 +21,10 @@ export const configSchema = z.object({
   AMPLIFY_AI_API_URL: z.string(),
   AMPLIFY_AI_API_KEY: z.string(),
 
+  // amplify n8n
+  AMPLIFY_N8N_API_URL: z.string(),
+  AMPLIFY_N8N_API_KEY: z.string(),
+
   //DB
   MONGO_URI: z.string(),
   DB_NAME: z.string(),

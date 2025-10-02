@@ -4,6 +4,13 @@ import { Model } from 'mongoose';
 import { CampaignDocument, GoogleAdsCampaignDoc } from 'src/database/schema';
 import { SaveGoogleAdsCampaignDataDto } from './dto';
 import { CampaignPlatform, CampaignStatus } from 'src/enums/campaign';
+import { CampaignService } from 'src/campaign/campaign.service';
+
+type N8nWebhookPayload = {
+  creativeSetId: string;
+  campaignId: string;
+  status: 'completed' | 'failed';
+};
 
 @Injectable()
 export class InternalCampaignService {
@@ -13,6 +20,7 @@ export class InternalCampaignService {
     @InjectModel('campaigns') private campaignModel: Model<CampaignDocument>,
     @InjectModel('google-ads-campaigns')
     private googleAdsCampaignModel: Model<GoogleAdsCampaignDoc>,
+    private campaignService: CampaignService,
   ) {}
 
   async findOne(id: string): Promise<CampaignDocument> {
@@ -74,6 +82,38 @@ export class InternalCampaignService {
     if (launchedOnAllPlatforms) {
       campaign.status = CampaignStatus.LIVE;
       await campaign.save();
+    }
+  }
+
+  async campaignCreativesWebhook(payload: N8nWebhookPayload) {
+    const { campaignId, status, creativeSetId } = payload;
+
+    // find campaign by id
+    const campaign = await this.campaignModel.findById(campaignId);
+    if (!campaign) {
+      throw new NotFoundException(`Campaign with ID ${campaignId} not found`);
+    }
+    // update the campaign creatives info
+    if (status === 'failed') {
+      campaign.status = CampaignStatus.FAILED_TO_LAUNCH;
+      await campaign.save();
+      const message = `Creative generation failed for campaign ${campaignId}`;
+      this.logger.error(message);
+      return { message: 'campaign status now failed' };
+    }
+    if (status === 'completed') {
+      console.log('Find creative set and update campaign', creativeSetId);
+    }
+
+    // check if all creatives are present. Where do we get all the creatives info from ?????
+    const { allCreativesPresent } =
+      this.campaignService.checkIfAllCreativesPresent(campaign);
+    // if all creatives present, send campaign to queues and update status to launching
+    if (allCreativesPresent) {
+      campaign.status = CampaignStatus.LAUNCHING;
+      await campaign.save();
+      await this.campaignService.publishCampaignToAllRespectiveQueues(campaign);
+      return { message: 'campaign status now launching' };
     }
   }
 }

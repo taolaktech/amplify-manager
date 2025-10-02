@@ -38,6 +38,26 @@ class AdGroup {
 
 const AdGroupSchema = SchemaFactory.createForClass(AdGroup);
 
+@Schema({ _id: false })
+class Metrics {
+  @Prop({ default: '0' })
+  clicks: string;
+
+  @Prop({ default: 0 })
+  conversionsValue: number;
+
+  @Prop({ default: 0 })
+  conversions: number;
+
+  @Prop({ default: '0' })
+  costMicros: string;
+
+  @Prop({ default: '0' })
+  impressions: string;
+}
+
+const MetricsSchema = SchemaFactory.createForClass(Metrics);
+
 @Schema({ timestamps: true })
 export class GoogleAdsCampaign extends Document {
   @Prop({ type: Types.ObjectId, ref: 'campaigns', required: true })
@@ -78,6 +98,12 @@ export class GoogleAdsCampaign extends Document {
 
   @Prop({ default: false })
   allStepsCompleted: boolean;
+
+  @Prop({ type: MetricsSchema, default: () => {} })
+  metrics?: Metrics;
+
+  @Prop()
+  metricsLastUpdatedAt: Date;
 }
 
 export const GoogleAdsCampaignSchema =

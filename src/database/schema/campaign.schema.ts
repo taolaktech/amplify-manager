@@ -7,6 +7,7 @@ import {
   CampaignType,
   CampaignPlatform,
 } from '../../enums/campaign';
+import { GoogleAdsCampaign } from './google-ads-campaign.schema';
 
 export type CampaignDocument = HydratedDocument<Campaign>;
 
@@ -121,10 +122,43 @@ export class Product {
   @Prop({ type: [CreativeSchema], required: true })
   creatives: Creative[];
 }
-
 export const ProductSchema = SchemaFactory.createForClass(Product);
 
-@Schema({ timestamps: true })
+@Schema({ _id: false })
+class Metrics {
+  @ApiProperty({
+    example: 25,
+  })
+  @Prop({ default: 0 })
+  totalClicks: number;
+
+  @ApiProperty({
+    example: 25,
+  })
+  @Prop({ default: 0 })
+  totalConversionsValue: number;
+
+  @ApiProperty({
+    example: 25,
+  })
+  @Prop({ default: 0 })
+  totalConversions: number;
+
+  @ApiProperty({
+    example: 25,
+  })
+  @Prop({ default: 0 })
+  totalCost: number;
+
+  @ApiProperty({
+    example: 25,
+  })
+  @Prop({ default: 0 })
+  totalImpressions: number;
+}
+export const MetricsSchema = SchemaFactory.createForClass(Metrics);
+
+@Schema({ timestamps: true, virtuals: true })
 export class Campaign {
   @Prop({ type: Types.ObjectId, ref: 'users', required: true })
   createdBy: Types.ObjectId;
@@ -217,7 +251,7 @@ export class Campaign {
   @ApiProperty({
     enum: CampaignPlatform,
     isArray: true,
-    example: [CampaignPlatform.FACEBOOK, CampaignPlatform.GOOGLE],
+    example: Object.values(CampaignPlatform),
     description: 'List of targeted platforms.',
   })
   @Prop({
@@ -226,6 +260,26 @@ export class Campaign {
     required: true,
   })
   platforms: CampaignPlatform[];
+
+  @ApiProperty({
+    type: [Metrics],
+    description: 'Total metrics- aggregated across all platforms.',
+  })
+  @Prop({ type: [MetricsSchema], required: true, default: () => {} })
+  metrics: Metrics;
+
+  /**
+   * Populated virtual for the associated Google Ads campaign.
+   * This is set when using .populate('googleAdsCampaign').
+   */
+  googleAdsCampaign?: HydratedDocument<GoogleAdsCampaign>;
 }
 
 export const CampaignSchema = SchemaFactory.createForClass(Campaign);
+
+CampaignSchema.virtual('googleAdsCampaign', {
+  ref: 'google-ads-campaigns',
+  localField: '_id',
+  foreignField: 'campaign',
+  justOne: true,
+});
