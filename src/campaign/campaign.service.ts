@@ -277,6 +277,7 @@ export class CampaignService {
           });
         promises.push(googleCreativePromise);
       }
+
       if (facebookSelected && !facebookCreativesPresent) {
         // generate facebook creatives
         // const facebookCreativesPromise = this.getCreativesWithAmplifyAi({
@@ -418,12 +419,15 @@ export class CampaignService {
       let facebookCreativesPresent = false;
 
       creatives.forEach((creative) => {
+        //TODO
         if (creative.channel === 'instagram') {
           instagramCreativesPresent = true;
         }
+        //TODO parse creative.data. check if has url to be true
         if (creative.channel === 'facebook') {
           facebookCreativesPresent = true;
         }
+
         if (creative.channel === 'google') {
           googleCreativesPresent = true;
         }
@@ -551,7 +555,9 @@ export class CampaignService {
         _id: campaignId,
       });
 
+      // generate creatives / creatives sets of product
       await this.generateCreativesForAllProducts(newCampaign);
+
       const { allCreativesPresent, allGoogleCreativesPresent } =
         this.checkIfAllCreativesPresent(newCampaign);
 
@@ -565,7 +571,7 @@ export class CampaignService {
       }
 
       if (allCreativesPresent) {
-        newCampaign.status = CampaignStatus.LAUNCHING;
+        newCampaign.status = CampaignStatus.PROCESSED;
         await this.publishCampaignToAllRespectiveQueues(newCampaign);
       }
       await newCampaign.save();
@@ -847,5 +853,29 @@ export class CampaignService {
 
       throw new BadRequestException(message);
     }
+  }
+
+  private async n8nCall(data: any) {
+    try {
+      const url = `${this.config.get('AMPLIFY_N8N_API_URL')}/webhook/4032ad24-63b4-474c-8609-a3500b06b8bc`;
+
+      const response = await axios.post<{ success: boolean; data: any[] }>(
+        url,
+        data,
+      );
+      return response.data;
+    } catch (error: any) {
+      console.log({ error });
+      this.logger.error(
+        `Error calling n8n- ${JSON.stringify(error.response?.data || error.response)}`,
+      );
+      throw new InternalServerErrorException(
+        'Unable to load creatives at the moment',
+      );
+    }
+  }
+
+  async generateMediaCreatives(body: any) {
+    return await this.n8nCall(body);
   }
 }

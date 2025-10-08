@@ -21,6 +21,7 @@ import { Campaign, GoogleAdsCampaign, UserDoc } from 'src/database/schema';
 import { UpdateCampaignDto } from './dto/update-campaign.dto';
 import { ListCampaignsDto } from './dto/list-campaigns.dto';
 import { CampaignToUpDto } from './dto/campaign-top-up.dto';
+import { GenerateMediaCreativesDto } from './dto/generate-media-creatives.dto';
 
 class PaginationMeta {
   @ApiProperty()
@@ -251,5 +252,10 @@ export class CampaignController {
       message: `Successfully topped up campaign budget with $${topUpBody.amount}`,
       success: true,
     };
+  }
+
+  @Post('/generate-media-creatives')
+  async generateMediaCreatives(@Body() dto: GenerateMediaCreativesDto) {
+    return await this.campaignService.generateMediaCreatives(dto);
   }
 }
