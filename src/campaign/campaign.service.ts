@@ -385,7 +385,7 @@ export class CampaignService {
 
     if (failedToGenerateSomeCreatives) {
       this.logger.error(
-        `::: Failed to generate creatives for campaign one or more- ${campaignDoc._id.toString()} :::`,
+        `::: Failed to generate creatives for campaign one or more products- ${campaignDoc._id.toString()} :::`,
       );
     }
   }
@@ -576,7 +576,7 @@ export class CampaignService {
         ...createCampaignDto,
         status: CampaignStatus.READY_TO_LAUNCH,
         createdBy: userId,
-        shopifyAccountId: business.integrations.shopify.shopifyAccount,
+        shopifyAccountId: business.integrations?.shopify?.shopifyAccount,
         _id: campaignId,
       });
 
