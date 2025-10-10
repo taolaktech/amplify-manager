@@ -272,7 +272,7 @@ export class Campaign {
     type: [Metrics],
     description: 'Total metrics- aggregated across all platforms.',
   })
-  @Prop({ type: MetricsSchema, required: true, default: () => {} })
+  @Prop({ type: MetricsSchema, default: () => {} })
   metrics: Metrics;
 
   /**

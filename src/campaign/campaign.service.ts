@@ -10,7 +10,6 @@ import {
 import { InjectModel } from '@nestjs/mongoose';
 import { FilterQuery, Model, SortOrder, Types } from 'mongoose';
 import {
-  BrandAssetDoc,
   BusinessDoc,
   CampaignDocument,
   CampaignTopUpRequestDoc,
@@ -57,6 +56,7 @@ type GoogleCreativeGenBody = {
 
 type FbIgCreativeGenBody = {
   businessId: string;
+  campaignId: string;
   productName: string;
   productDescription: string;
   productFeatures: string[];
@@ -82,7 +82,6 @@ export class CampaignService {
     @InjectModel('google-ads-campaigns')
     private googleAdsCampaignModel: Model<GoogleAdsCampaignDoc>,
     @InjectModel('business') private businessModel: Model<BusinessDoc>,
-    @InjectModel('brand-assets') private brandAssetModel: Model<BrandAssetDoc>,
     @InjectModel('campaign-top-up-requests')
     private topUpRequestModel: Model<CampaignTopUpRequestDoc>,
     private readonly sqsProducer: SqsProducerService,
@@ -169,9 +168,8 @@ export class CampaignService {
   private async generateCreativesForAllProducts(params: {
     campaignDoc: CampaignDocument;
     business: BusinessDoc;
-    brandAsset: BrandAssetDoc;
   }) {
-    const { campaignDoc, business, brandAsset } = params;
+    const { campaignDoc, business } = params;
     let failedToGenerateSomeCreatives = false;
 
     const googleSelected = campaignDoc.platforms.includes(
@@ -250,7 +248,8 @@ export class CampaignService {
       };
 
       const fbIgPayload: FbIgCreativeGenBody = {
-        businessId: '682a2ca8bcf5df0ad7632a77',
+        campaignId: campaignDoc._id.toString(),
+        businessId: business._id.toString(),
         productName: googlePayload.productName,
         productDescription: googlePayload.productDescription,
         productFeatures: googlePayload.productFeatures,
@@ -260,8 +259,8 @@ export class CampaignService {
         type: 'IMAGE',
         productCategory: googlePayload.productCategory,
         tone: googlePayload.tone,
-        brandColor: brandAsset.primaryColor,
-        brandAccent: brandAsset.secondaryColor,
+        brandColor: campaignDoc.brandColor,
+        brandAccent: campaignDoc.accentColor,
         siteUrl: business.website,
         approach: 'AI',
         campaignType: googlePayload.campaignType,
@@ -303,10 +302,10 @@ export class CampaignService {
           channel: 'FACEBOOK',
         })
           .then((resp) => {
-            console.log(
-              'I GOT SOME CREATIVES FOR FACEBOOK- ADD THEM TO CAMPAIGN DOC',
-              resp,
-            );
+            console.log('I GOT SOME CREATIVES RESPONSE FOR FACEBOOK', resp);
+            if (resp.status === '400') {
+              throw new Error('Failed to get creative set id');
+            }
             const creative = {
               channel: 'facebook' as const,
               id: resp.creativeSetId,
@@ -322,6 +321,9 @@ export class CampaignService {
                 ? JSON.stringify({ error: error.response?.data })
                 : 'Undetermined Error';
             }
+            if (error instanceof Error) {
+              errorMessage = error.message;
+            }
             this.logger.debug(
               `Unable to generate creative, campaignId- ${campaignDoc._id.toString()}, product- ${i}, channel- FACEBOOK, error- ${errorMessage}`,
             );
@@ -336,10 +338,10 @@ export class CampaignService {
           channel: 'INSTAGRAM',
         })
           .then((resp) => {
-            console.log(
-              'I GOT SOME CREATIVES FOR INSTAGRAM- ADD THEM TO CAMPAIGN DOC',
-              resp,
-            );
+            console.log('I GOT SOME CREATIVES FOR INSTAGRAM', resp);
+            if (resp.status === '400') {
+              throw new Error('Failed to get creative set id');
+            }
             const creative = {
               channel: 'instagram' as const,
               id: resp.creativeSetId,
@@ -355,8 +357,11 @@ export class CampaignService {
                 ? JSON.stringify({ error: error.response?.data })
                 : 'Undetermined Error';
             }
+            if (error instanceof Error) {
+              errorMessage = error.message;
+            }
             this.logger.debug(
-              `Unable to generate creative, campaignId- ${campaignDoc._id.toString()}, product- ${i}, channel- INSTAGRAM, error- ${errorMessage}`,
+              `::: Unable to generate creative, campaignId- ${campaignDoc._id.toString()}, product- ${i}, channel- INSTAGRAM, error- ${errorMessage}:::`,
             );
             throw error;
           });
@@ -555,16 +560,6 @@ export class CampaignService {
         throw new ForbiddenException({ message: 'business not provided' });
       }
 
-      const brandAsset = await this.brandAssetModel.findOne({
-        businessId: business._id,
-      });
-
-      if (!brandAsset) {
-        throw new BadRequestException(
-          `Brand Assets not found for your business. This is required to generate creatives for your campaign`,
-        );
-      }
-
       const campaignId = new Types.ObjectId();
       // debit the user wallet for campaign creation
       await this.walletService.debitForCampaign({
@@ -589,7 +584,6 @@ export class CampaignService {
       await this.generateCreativesForAllProducts({
         campaignDoc: newCampaign,
         business,
-        brandAsset,
       });
 
       const { allCreativesPresent, allGoogleCreativesPresent } =
@@ -896,6 +890,7 @@ export class CampaignService {
       const response = await axios.post<{
         creativeSetId: string;
         status: string;
+        message?: string;
       }>(url, data, {
         headers: {
           Authorization: `Bearer ${this.config.get('AMPLIFY_N8N_API_KEY')}`,
