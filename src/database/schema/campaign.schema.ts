@@ -25,10 +25,17 @@ export class Creative {
   channel: 'facebook' | 'instagram' | 'google';
 
   @ApiProperty({
+    example: 'pending',
+    description: 'Status for set gen for facebook and instagram',
+  })
+  @Prop({ required: false })
+  status?: 'pending' | 'created';
+
+  @ApiProperty({
     example: ['https://example.com/image.jpg'],
     description: 'Array of creative assets (URLs, text).',
   })
-  @Prop({ type: [String], required: true })
+  @Prop({ type: [String], required: true, default: [] })
   data: string[];
 }
 
