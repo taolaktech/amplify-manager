@@ -1,6 +1,9 @@
 import { constants } from './constants.js';
 import axios from 'axios';
-import { SaveGoogleAdsCampaignData } from './types/save-google-campaign-data.js';
+import {
+  GoogleAdsProcessingStatus,
+  SaveGoogleAdsCampaignData,
+} from './types/save-google-campaign-data.js';
 import { CampaignInfoType } from './types/campaign-info.js';
 
 export const campaignsAxiosInstance = axios.create({
@@ -37,4 +40,21 @@ export const saveGoogleAdsCampaignData = async (
     console.error('Error occurred while saving google ads campaign data');
     throw error;
   }
+};
+
+export const statusTracking = { status: GoogleAdsProcessingStatus.PENDING };
+
+export const saveProcessingStatus = async (
+  campaignId: string,
+  status: GoogleAdsProcessingStatus,
+) => {
+  let processingStatusBeforeFailure;
+  if (status === GoogleAdsProcessingStatus.FAILED) {
+    processingStatusBeforeFailure = statusTracking.status;
+  }
+  await saveGoogleAdsCampaignData(campaignId, {
+    processingStatus: status,
+    processingStatusBeforeFailure,
+  });
+  statusTracking.status = status;
 };

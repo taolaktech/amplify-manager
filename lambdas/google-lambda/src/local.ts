@@ -2,7 +2,7 @@ import { handler } from './index.js';
 
 handler({
   Records: [
-    { body: JSON.stringify({ campaignId: '68d4674eb8d42e267779f503' }) },
+    { body: JSON.stringify({ campaignId: '68e89923b3a16f71ff332043' }) },
   ],
 })
   .then(() => {

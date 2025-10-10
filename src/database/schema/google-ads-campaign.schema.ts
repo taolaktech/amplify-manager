@@ -1,6 +1,6 @@
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
-import { HydratedDocument } from 'mongoose';
-import { Document, Types } from 'mongoose';
+import { HydratedDocument, Document, Types } from 'mongoose';
+import { GoogleAdsProcessingStatus } from 'src/enums/campaign';
 
 export type GoogleAdsCampaignDoc = HydratedDocument<GoogleAdsCampaign>;
 
@@ -96,8 +96,16 @@ export class GoogleAdsCampaign extends Document {
   @Prop({ default: false })
   geotargetingAddedToCampaign: boolean;
 
-  @Prop({ default: false })
-  allStepsCompleted: boolean;
+  @Prop({
+    enum: Object.keys(GoogleAdsProcessingStatus),
+    default: GoogleAdsProcessingStatus.PENDING,
+  })
+  processingStatus: GoogleAdsProcessingStatus;
+
+  @Prop({
+    enum: Object.keys(GoogleAdsProcessingStatus),
+  })
+  processingStatusBeforeFailure?: GoogleAdsProcessingStatus;
 
   @Prop({ type: MetricsSchema, default: () => {} })
   metrics?: Metrics;

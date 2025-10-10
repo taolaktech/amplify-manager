@@ -3,7 +3,11 @@ import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
 import { CampaignDocument, GoogleAdsCampaignDoc } from 'src/database/schema';
 import { SaveGoogleAdsCampaignDataDto } from './dto';
-import { CampaignPlatform, CampaignStatus } from 'src/enums/campaign';
+import {
+  CampaignPlatform,
+  CampaignStatus,
+  GoogleAdsProcessingStatus,
+} from 'src/enums/campaign';
 import { CampaignService } from 'src/campaign/campaign.service';
 
 type N8nWebhookPayload = {
@@ -50,7 +54,9 @@ export class InternalCampaignService {
         { new: true, upsert: true },
       );
 
-    if (googleAdsCampaign.allStepsCompleted) {
+    if (
+      googleAdsCampaign.processingStatus === GoogleAdsProcessingStatus.LAUNCHED
+    ) {
       await this.updateCampaignLaunchState(campaign);
     }
 
@@ -68,7 +74,9 @@ export class InternalCampaignService {
       if (!googleAdsCampaignInfo) {
         return;
       }
-      launchedOnAllPlatforms &&= googleAdsCampaignInfo?.allStepsCompleted;
+      launchedOnAllPlatforms &&=
+        googleAdsCampaignInfo.processingStatus ===
+        GoogleAdsProcessingStatus.LAUNCHED;
     }
 
     if (campaign.platforms.includes(CampaignPlatform.FACEBOOK)) {
@@ -96,8 +104,9 @@ export class InternalCampaignService {
     // update the campaign creatives info
     if (status === 'failed') {
       campaign.status = CampaignStatus.FAILED_TO_LAUNCH;
+      //TODO-
       await campaign.save();
-      const message = `Creative generation failed for campaign ${campaignId}`;
+      const message = `Creative generation failed for campaign ${campaignId}, creativeSetId ${creativeSetId}`;
       this.logger.error(message);
       return { message: 'campaign status now failed' };
     }
@@ -106,11 +115,15 @@ export class InternalCampaignService {
     }
 
     // check if all creatives are present. Where do we get all the creatives info from ?????
-    const { allCreativesPresent } =
-      this.campaignService.checkIfAllCreativesPresent(campaign);
+    const {
+      allCreativesPresent,
+      // allGoogleCreativesPresent,
+      // allFacebookCreativesPresent,
+      // allInstagramCreativesPresent,
+    } = this.campaignService.checkIfAllCreativesPresent(campaign);
     // if all creatives present, send campaign to queues and update status to launching
     if (allCreativesPresent) {
-      campaign.status = CampaignStatus.LAUNCHING;
+      campaign.status = CampaignStatus.PROCESSED;
       await campaign.save();
       await this.campaignService.publishCampaignToAllRespectiveQueues(campaign);
       return { message: 'campaign status now launching' };

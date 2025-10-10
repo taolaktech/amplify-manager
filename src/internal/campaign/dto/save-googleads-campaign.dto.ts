@@ -3,11 +3,13 @@ import { Type } from 'class-transformer';
 import {
   IsArray,
   IsBoolean,
+  IsEnum,
   IsNumber,
   IsOptional,
   IsString,
   ValidateNested,
 } from 'class-validator';
+import { GoogleAdsProcessingStatus } from 'src/enums/campaign';
 
 class AdGroupAd {
   @ApiProperty()
@@ -115,6 +117,11 @@ export class SaveGoogleAdsCampaignDataDto {
 
   @ApiProperty()
   @IsOptional()
-  @IsBoolean()
-  allStepsCompleted?: boolean;
+  @IsEnum(GoogleAdsProcessingStatus)
+  processingStatus?: GoogleAdsProcessingStatus;
+
+  @ApiProperty()
+  @IsOptional()
+  @IsEnum(GoogleAdsProcessingStatus)
+  processingStatusBeforeFailure?: GoogleAdsProcessingStatus;
 }

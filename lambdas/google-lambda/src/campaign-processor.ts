@@ -6,6 +6,7 @@ import {
 import {
   getAmplifyCampaignById,
   saveGoogleAdsCampaignData,
+  saveProcessingStatus,
 } from './campaign.service.js';
 import {
   createCampaignBudget,
@@ -24,9 +25,11 @@ import {
   extractResourceIdFromResourceName,
   extractConversionIdAndLabelFromEventSnippet,
   getAdGroupByNameOrId,
+  updateGoogleCampaignStatus,
 } from './google-ads.service.js';
 import { BusinessInfoType } from './types/business-info.js';
 import { CampaignInfoType } from './types/campaign-info.js';
+import { GoogleAdsProcessingStatus } from './types/save-google-campaign-data.js';
 import {
   countryCodeMap,
   generateRandomString,
@@ -101,7 +104,7 @@ const handleCustomerAndConversionActionCreation = async ({
 }: {
   businessInfo: BusinessInfoType;
 }) => {
-  const TIME_ZONE = 'America/New_York';
+  const TIME_ZONE = 'America/Chicago';
   const CURRENCY_CODE = 'USD';
   const BUSINESS_ID = businessInfo._id;
   const customerName = `${businessInfo.companyName}-${businessInfo._id}`;
@@ -200,7 +203,10 @@ const handleCampaignCreation = async ({
     console.log(
       `\ncampaign does not exist. Now creating campaign...${G_CAMPAIGN_NAME}`,
     );
-
+    await saveProcessingStatus(
+      campaignInfo._id,
+      GoogleAdsProcessingStatus.CREATING_BUDGET,
+    );
     console.log(
       `\ncreating campaign budget, $_${CAMPAIGN_BUDGET_AMOUNT} per day ...`,
     );
@@ -213,6 +219,10 @@ const handleCampaignCreation = async ({
     const budgetResourceName =
       extractResourceNameFromCreateResponse(budgetResultRes);
 
+    await saveProcessingStatus(
+      campaignInfo._id,
+      GoogleAdsProcessingStatus.CREATING_BIDDING_STRATEGY,
+    );
     console.log(
       `\ncreating target roas bidding strategy, value- ${TARGET_ROAS}...`,
     );
@@ -227,6 +237,10 @@ const handleCampaignCreation = async ({
     const biddingStrategyResourceName =
       extractResourceNameFromCreateResponse(biddingStrategyRes);
 
+    await saveProcessingStatus(
+      campaignInfo._id,
+      GoogleAdsProcessingStatus.CREATING_CAMPAIGN,
+    );
     console.log('\ncreating campaign with budget and bidding strategy...');
     campaignRes = await createSearchCampaign({
       customerId: CUSTOMER_ID,
@@ -243,7 +257,7 @@ const handleCampaignCreation = async ({
       campaignResourceName,
       campaignName: G_CAMPAIGN_NAME,
       campaignType: 'SEARCH',
-      campaignStatus: 'ENABLED',
+      campaignStatus: 'PAUSED',
       budgetResourceName,
       budgetAmountMicros: CAMPAIGN_BUDGET_AMOUNT * 1_000_000,
       biddingStrategyResourceName,
@@ -517,6 +531,12 @@ export const processCampaign = async (campaignId: string) => {
 
   const { data: campaignInfo } = await getAmplifyCampaignById(campaignId);
 
+  //save processing status
+  await saveProcessingStatus(
+    campaignInfo._id,
+    GoogleAdsProcessingStatus.INITIALIZING,
+  );
+
   if (!campaignInfo.platforms.includes('GOOGLE')) {
     const message = `GOOGLE not among platforms- ${campaignInfo.platforms.join(', ')}`;
     console.error(message);
@@ -525,6 +545,12 @@ export const processCampaign = async (campaignId: string) => {
 
   const { business: businessInfo } = await getAmplifyBusinessById(
     campaignInfo.businessId,
+  );
+
+  //save processing status
+  await saveProcessingStatus(
+    campaignInfo._id,
+    GoogleAdsProcessingStatus.INITIALIZED,
   );
 
   const BUSINESS_ID = businessInfo._id;
@@ -536,9 +562,20 @@ export const processCampaign = async (campaignId: string) => {
     console.log(
       '\ngoogle ads customer not found on business, creating new customer...',
     );
+    //save processing status
+    await saveProcessingStatus(
+      campaignInfo._id,
+      GoogleAdsProcessingStatus.CREATING_CUSTOMER,
+    );
+
     const customerHandlerRes = await handleCustomerAndConversionActionCreation({
       businessInfo,
     });
+
+    await saveProcessingStatus(
+      campaignInfo._id,
+      GoogleAdsProcessingStatus.CUSTOMER_CREATED,
+    );
 
     CUSTOMER_ID = customerHandlerRes.customerId;
   } else {
@@ -557,16 +594,39 @@ export const processCampaign = async (campaignId: string) => {
   const CAMPAIGN_RESOURCE_NAME = handleCampaignCreationRes.campaignResourceName;
   const G_CAMPAIGN_NAME = handleCampaignCreationRes.campaignName;
 
+  await saveProcessingStatus(
+    campaignInfo._id,
+    GoogleAdsProcessingStatus.CREATING_AD_GROUPS,
+  );
+
   console.log(`\ncreating ad groups for ${CAMPAIGN_RESOURCE_NAME}...`);
   const adGroups = await handleAdGroupsCreation({
     G_CAMPAIGN_NAME,
     CAMPAIGN_RESOURCE_NAME,
     CUSTOMER_ID,
   });
+  await saveProcessingStatus(
+    campaignInfo._id,
+    GoogleAdsProcessingStatus.AD_GROUPS_CREATED,
+  );
 
+  //save processing status
+  await saveProcessingStatus(
+    campaignInfo._id,
+    GoogleAdsProcessingStatus.CREATING_AD_GROUP_ADS,
+  );
   console.log('\ncreating adGroupAd for each adGroup...');
   await handleAdGroupAdCreation({ adGroups, SHOPIFY_URL, campaignInfo });
+  await saveProcessingStatus(
+    campaignInfo._id,
+    GoogleAdsProcessingStatus.AD_GROUP_ADS_CREATED,
+  );
 
+  //save processing status
+  await saveProcessingStatus(
+    campaignInfo._id,
+    GoogleAdsProcessingStatus.GENERATING_KEYWORDS,
+  );
   console.log('\ngenerating keywords and adding them to adgroups...');
   await handleKeywordGenAndAdditionToAdGroups({
     campaignInfo,
@@ -575,6 +635,16 @@ export const processCampaign = async (campaignId: string) => {
     adGroups,
     SHOPIFY_URL,
   });
+  await saveProcessingStatus(
+    campaignInfo._id,
+    GoogleAdsProcessingStatus.KEYWORDS_ADDED,
+  );
+
+  //save processing status
+  await saveProcessingStatus(
+    campaignInfo._id,
+    GoogleAdsProcessingStatus.ADDING_GEO_TARGETING,
+  );
 
   console.log(`\nadding geo targeting to campaign....`);
   await handleGeoTargeting({
@@ -582,7 +652,19 @@ export const processCampaign = async (campaignId: string) => {
     campaignResourceName: CAMPAIGN_RESOURCE_NAME,
   });
 
-  await saveGoogleAdsCampaignData(campaignInfo._id, {
-    allStepsCompleted: true,
+  console.log(`\nenabling(launching) campaign on google....`);
+  await updateGoogleCampaignStatus({
+    campaignResourceName: CAMPAIGN_RESOURCE_NAME,
+    status: 'ENABLED',
   });
+
+  await saveGoogleAdsCampaignData(campaignInfo._id, {
+    campaignStatus: 'ENABLED',
+  });
+
+  //save processing status
+  await saveProcessingStatus(
+    campaignInfo._id,
+    GoogleAdsProcessingStatus.LAUNCHED,
+  );
 };

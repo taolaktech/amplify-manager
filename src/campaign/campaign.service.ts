@@ -120,30 +120,31 @@ export class CampaignService {
       return { validation };
     }
 
-    let googleCreativesCount = 0;
-    createCampaignDto.products.forEach((product) => {
-      if (!product.creatives || !product.creatives.length) {
-        validation.status = 'pending_assets';
-        validation.message = 'Product has no creatives';
-      }
-      product.creatives?.forEach((creative) => {
-        if (creative.channel === 'google') {
-          googleCreativesCount += creative.data?.length;
-        }
-      });
-    });
+    // TODO  remove this
+    // let googleCreativesCount = 0;
+    // createCampaignDto.products.forEach((product) => {
+    //   if (!product.creatives || !product.creatives.length) {
+    //     validation.status = 'pending_assets';
+    //     validation.message = 'Product has no creatives';
+    //   }
+    //   product.creatives?.forEach((creative) => {
+    //     if (creative.channel === 'google') {
+    //       googleCreativesCount += creative.data?.length;
+    //     }
+    //   });
+    // });
 
-    if (
-      createCampaignDto.platforms.includes(CampaignPlatform.GOOGLE) &&
-      googleCreativesCount < 6
-    ) {
-      validation.status = 'pending_assets';
-      validation.message = `Asset Generation Error Too few assets-Platform- ${CampaignPlatform.GOOGLE}`;
-      this.logger.debug(
-        `::: User ${userId}. Insufficient assets generated for ${CampaignPlatform.GOOGLE} :::`,
-      );
-      return { validation, business };
-    }
+    // if (
+    //   createCampaignDto.platforms.includes(CampaignPlatform.GOOGLE) &&
+    //   googleCreativesCount < 6
+    // ) {
+    //   validation.status = 'pending_assets';
+    //   validation.message = `Asset Generation Error Too few assets-Platform- ${CampaignPlatform.GOOGLE}`;
+    //   this.logger.debug(
+    //     `::: User ${userId}. Insufficient assets generated for ${CampaignPlatform.GOOGLE} :::`,
+    //   );
+    //   return { validation, business };
+    // }
     return { validation, business };
   }
 

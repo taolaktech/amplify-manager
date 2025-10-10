@@ -230,6 +230,27 @@ export const createSearchCampaign = async ({
   }
 };
 
+export const updateGoogleCampaignStatus = async ({
+  campaignResourceName,
+  status,
+}: {
+  campaignResourceName: string;
+  status: 'ENABLED' | 'PAUSED' | 'REMOVED';
+}) => {
+  try {
+    const response = await googleAdsAxiosInstance.post(
+      '/campaigns/update-status',
+      {
+        campaignResourceName,
+        status,
+      },
+    );
+    return response.data;
+  } catch (error) {
+    return errorHandler(error, 'Error updating google campaign status');
+  }
+};
+
 export const createAdGroup = async ({
   adGroupName,
   campaignResourceName,
