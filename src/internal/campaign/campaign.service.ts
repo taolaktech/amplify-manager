@@ -14,6 +14,8 @@ type N8nWebhookPayload = {
   creativeSetId: string;
   campaignId: string;
   status: 'completed' | 'failed';
+  keys: string[];
+  creatives: string[];
 };
 
 @Injectable()
@@ -94,39 +96,79 @@ export class InternalCampaignService {
   }
 
   async campaignCreativesWebhook(payload: N8nWebhookPayload) {
-    const { campaignId, status, creativeSetId } = payload;
+    const { campaignId, status, creativeSetId, creatives } = payload;
 
+    if (status !== 'completed') {
+      this.logger.warn(
+        `status ${status} from n8n, campaignId: ${campaignId}, creativeSetId: ${creativeSetId}`,
+      );
+      return;
+    }
     // find campaign by id
     const campaign = await this.campaignModel.findById(campaignId);
     if (!campaign) {
-      throw new NotFoundException(`Campaign with ID ${campaignId} not found`);
+      this.logger.warn(
+        `::: campaign ${campaignId} not found to insert creatives :::`,
+      );
+      return;
     }
-    // update the campaign creatives info
-    if (status === 'failed') {
-      campaign.status = CampaignStatus.FAILED_TO_LAUNCH;
-      //TODO-
-      await campaign.save();
-      const message = `Creative generation failed for campaign ${campaignId}, creativeSetId ${creativeSetId}`;
-      this.logger.error(message);
-      return { message: 'campaign status now failed' };
-    }
-    if (status === 'completed') {
-      console.log('Find creative set and update campaign', creativeSetId);
+    let productIndex: number | undefined;
+    let creativeIndex: number | undefined;
+    let channel: undefined | 'facebook' | 'instagram' | 'google';
+
+    for (let i = 0; i < campaign.products.length; i++) {
+      for (let j = 0; j < campaign.products[i].creatives.length; j++) {
+        if (campaign.products[i].creatives[j].id === creativeSetId) {
+          productIndex = i;
+          creativeIndex = j;
+          channel = campaign.products[i].creatives[j].channel;
+          this.logger.log(
+            `creatives gotten for campaign- ${campaignId}, product- ${i}, platform- ${channel}`,
+          );
+          break;
+        }
+      }
+      if (productIndex && creativeIndex) {
+        //early return
+        break;
+      }
     }
 
-    // check if all creatives are present. Where do we get all the creatives info from ?????
+    if (!productIndex || !creativeIndex || !channel) {
+      this.logger.debug(
+        `creativeSetId ${creativeSetId} not found on campaign ${campaign._id.toString()}`,
+      );
+      return;
+    }
+
+    campaign.products[productIndex].creatives[creativeIndex].data = creatives;
+    await campaign.save();
+
     const {
       allCreativesPresent,
-      // allGoogleCreativesPresent,
-      // allFacebookCreativesPresent,
-      // allInstagramCreativesPresent,
+      allFacebookCreativesPresent,
+      allInstagramCreativesPresent,
     } = this.campaignService.checkIfAllCreativesPresent(campaign);
-    // if all creatives present, send campaign to queues and update status to launching
-    if (allCreativesPresent) {
+
+    if (allFacebookCreativesPresent && channel === 'facebook') {
+      await this.campaignService.publishCampaignToPlatformQueue(
+        campaign,
+        CampaignPlatform.FACEBOOK,
+      );
+    }
+    if (allInstagramCreativesPresent && channel === 'instagram') {
+      await this.campaignService.publishCampaignToPlatformQueue(
+        campaign,
+        CampaignPlatform.INSTAGRAM,
+      );
+    }
+
+    if (
+      allCreativesPresent &&
+      campaign.status === CampaignStatus.READY_TO_LAUNCH
+    ) {
       campaign.status = CampaignStatus.PROCESSED;
       await campaign.save();
-      await this.campaignService.publishCampaignToAllRespectiveQueues(campaign);
-      return { message: 'campaign status now launching' };
     }
   }
 }

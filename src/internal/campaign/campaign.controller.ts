@@ -56,7 +56,7 @@ export class InternalCampaignController {
   }
 
   @Post('/campaign-creatives/webhook')
-  async campaignCreativesWebhook(@Body() payload: any) {
+  async campaignCreativesWebhook(@Body() payload) {
     await this.internalCampaignService.campaignCreativesWebhook(payload);
     return {
       message: 'Webhook received successfully',

@@ -13,6 +13,7 @@ import {
   IsUrl,
   IsOptional,
   Validate,
+  ArrayNotEmpty,
 } from 'class-validator';
 import { Type } from 'class-transformer';
 import { CampaignPlatform, CampaignType } from 'src/enums/campaign';
@@ -126,8 +127,10 @@ export class ProductDto {
   category: string;
 
   @ApiProperty({ description: 'A URL to the main product image.' })
-  @IsUrl({}, { message: 'A valid imageLink URL must be provided.' })
-  imageLink: string;
+  @IsArray()
+  @IsUrl({}, { message: 'A valid imageLink URL must be provided.', each: true })
+  @ArrayNotEmpty()
+  imageLinks: string[];
 
   @ApiProperty({ description: 'A URL to the product page.' })
   @IsUrl({}, { message: 'A valid productLink URL must be provided.' })

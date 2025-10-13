@@ -58,18 +58,18 @@ type FbIgCreativeGenBody = {
   businessId: string;
   campaignId: string;
   productName: string;
-  productDescription: string;
   productFeatures: string[];
   brandName: string;
   channel: string;
+  approach: 'AI';
   productImages: string[];
   type: string;
-  productCategory: string;
-  tone: string;
-  brandColor: string;
-  brandAccent: string;
-  siteUrl: string;
-  approach: 'AI';
+  productDescription?: string;
+  productCategory?: string;
+  brandColor?: string;
+  brandAccent?: string;
+  tone?: string;
+  siteUrl?: string;
   campaignType: string;
 };
 
@@ -242,28 +242,28 @@ export class CampaignService {
         productCategory: product.category,
         brandName: product.title,
         channel: 'GOOGLE', // default to facebook for now
-        productImage: product.imageLink,
+        productImage: product.imageLinks[0],
         productLink: product.productLink,
         campaignType: campaignDoc.type,
       };
 
       const fbIgPayload: FbIgCreativeGenBody = {
+        approach: 'AI', // req
         campaignId: campaignDoc._id.toString(),
         businessId: business._id.toString(),
+        campaignType: googlePayload.campaignType,
         productName: googlePayload.productName,
-        productDescription: googlePayload.productDescription,
         productFeatures: googlePayload.productFeatures,
         brandName: googlePayload.brandName,
         channel: 'INSTAGRAM',
-        productImages: [product.imageLink],
+        productImages: product.imageLinks,
         type: 'IMAGE',
-        productCategory: googlePayload.productCategory,
-        tone: googlePayload.tone,
-        brandColor: campaignDoc.brandColor,
-        brandAccent: campaignDoc.accentColor,
-        siteUrl: business.website,
-        approach: 'AI',
-        campaignType: googlePayload.campaignType,
+        productCategory: googlePayload.productCategory, //opt
+        tone: googlePayload.tone, // opt
+        brandColor: campaignDoc.brandColor, // opt
+        brandAccent: campaignDoc.accentColor, // opt
+        siteUrl: business.website, // opt
+        productDescription: googlePayload.productDescription, // optional
       };
 
       const promises: Promise<any>[] = [];
@@ -302,9 +302,15 @@ export class CampaignService {
           channel: 'FACEBOOK',
         })
           .then((resp) => {
-            console.log('I GOT SOME CREATIVES RESPONSE FOR FACEBOOK', resp);
-            if (resp.status === '400') {
-              throw new Error('Failed to get creative set id');
+            if (resp.status === '400' || resp.status === '401') {
+              throw new Error(
+                `Failed to get creative set id. Failed with status ${resp.status}, channel facebook`,
+              );
+            }
+            if (!resp.creativeSetId) {
+              throw new Error(
+                `Failed to get creative set id. creativeSetId not present, channel facebook`,
+              );
             }
             const creative = {
               channel: 'facebook' as const,
@@ -338,9 +344,15 @@ export class CampaignService {
           channel: 'INSTAGRAM',
         })
           .then((resp) => {
-            console.log('I GOT SOME CREATIVES FOR INSTAGRAM', resp);
-            if (resp.status === '400') {
-              throw new Error('Failed to get creative set id');
+            if (resp.status === '400' || resp.status === '401') {
+              throw new Error(
+                `Failed to get creative set id. Failed with status ${resp.status}, channel facebook`,
+              );
+            }
+            if (!resp.creativeSetId) {
+              throw new Error(
+                `Failed to get creative set id. creativeSetId not present, channel facebook`,
+              );
             }
             const creative = {
               channel: 'instagram' as const,
@@ -542,6 +554,31 @@ export class CampaignService {
     }
   }
 
+  async publishCampaignToPlatformQueue(
+    campaignDoc: CampaignDocument,
+    platform: CampaignDocument['platforms'][0],
+  ) {
+    if (!campaignDoc.platforms.includes(platform)) {
+      return;
+    }
+    try {
+      await this.sqsProducer.sendMessage(campaignDoc, platform);
+      this.logger.log(
+        `${platform} message for campaign ${campaignDoc._id.toString()} was successfully accepted by SQS.`,
+      );
+    } catch (error) {
+      this.logger.error(
+        `${platform} message failed to send to sqs for campaign ${campaignDoc._id.toString()}`,
+        error,
+      );
+
+      campaignDoc.status = CampaignStatus.FAILED_TO_LAUNCH;
+      await campaignDoc.save();
+
+      throw error;
+    }
+  }
+
   async create(
     createCampaignDto: CreateCampaignDto,
     userId: Types.ObjectId,
@@ -580,7 +617,7 @@ export class CampaignService {
         _id: campaignId,
       });
 
-      // generate creatives / creatives sets of product
+      // generate creatives or creatives set ids of products without any
       await this.generateCreativesForAllProducts({
         campaignDoc: newCampaign,
         business,
@@ -590,11 +627,8 @@ export class CampaignService {
         this.checkIfAllCreativesPresent(newCampaign);
 
       if (allGoogleCreativesPresent === false) {
-        this.logger.error(
+        this.logger.debug(
           `::: Unable to generate google creatives for ${newCampaign._id.toString()}`,
-        );
-        throw new InternalServerErrorException(
-          'Unable to generate creatives for campaign',
         );
       }
 
@@ -898,7 +932,6 @@ export class CampaignService {
       });
       return response.data;
     } catch (error: any) {
-      console.log({ error });
       this.logger.error(
         `Error calling n8n- ${JSON.stringify(error.response?.data || error.response)}`,
       );

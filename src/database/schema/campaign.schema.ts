@@ -95,6 +95,7 @@ export class Product {
   audience?: string;
 
   @ApiProperty({ example: 'Race day', description: 'Suitable occasion.' })
+  @Prop()
   occasion: string;
 
   @ApiProperty({
@@ -109,11 +110,11 @@ export class Product {
   category: string;
 
   @ApiProperty({
-    example: 'https://example.com/image.png',
-    description: 'URL to product image.',
+    example: ['https://example.com/image.png'],
+    description: 'URLs to product image.',
   })
   @Prop({ required: true })
-  imageLink: string;
+  imageLinks: string[];
 
   @ApiProperty({
     example: 'https://example.com/product/123',
@@ -212,15 +213,18 @@ export class Campaign {
   type: CampaignType;
 
   @ApiProperty({ example: '#3b5998', description: 'Primary campaign color.' })
+  @Prop()
   brandColor: string;
 
   @ApiProperty({ example: '#3b5998', description: 'Primary campaign color.' })
+  @Prop()
   accentColor: string;
 
   @ApiProperty({
     example: 'Playful and energetic',
     description: 'Tone of voice for ad copy.',
   })
+  @Prop()
   tone: string;
 
   @ApiProperty({
