@@ -123,7 +123,6 @@ export class SetShippingLocationsDto {
 
   @ApiProperty()
   @IsArray()
-  @ArrayNotEmpty()
   @Type(() => String)
   @IsString({ each: true })
   internationalShippingLocations: string[];

@@ -17,10 +17,14 @@ import {
   ApiResponse,
   ApiTags,
 } from '@nestjs/swagger';
-import { Campaign, UserDoc } from 'src/database/schema';
+import { Campaign, GoogleAdsCampaign, UserDoc } from 'src/database/schema';
 import { UpdateCampaignDto } from './dto/update-campaign.dto';
 import { ListCampaignsDto } from './dto/list-campaigns.dto';
 import { CampaignToUpDto } from './dto/campaign-top-up.dto';
+import {
+  GenerateGoogleCreativesDto,
+  GenerateMediaCreativesDto,
+} from './dto/generate-creatives.dto';
 
 class PaginationMeta {
   @ApiProperty()
@@ -44,10 +48,15 @@ class PaginationMeta {
 
 class PaginatedCampaignResponse {
   @ApiProperty({ type: [Campaign] })
-  data: Campaign[];
+  campaigns: Campaign[];
 
   @ApiProperty({ type: PaginationMeta })
   pagination: PaginationMeta;
+}
+
+class FindAllCampaignsResponse {
+  @ApiProperty({ type: PaginatedCampaignResponse })
+  data: PaginatedCampaignResponse;
 }
 
 class CampaignResponse {
@@ -61,6 +70,9 @@ class CampaignResponse {
   // can automatically generate a detailed model of the returned data.
   @ApiProperty({ type: Campaign })
   data: Campaign;
+
+  @ApiProperty({ type: () => GoogleAdsCampaign, required: false })
+  googleAdsCampaign?: GoogleAdsCampaign;
 }
 
 class TopUpCampaignResponse {
@@ -156,20 +168,20 @@ export class CampaignController {
   @ApiResponse({
     status: 200,
     description: 'A paginated list of campaigns.',
-    type: PaginatedCampaignResponse,
+    type: FindAllCampaignsResponse,
   })
   async findAll(
     @GetUser() user: UserDoc,
     @Query() listCampaignsDto: ListCampaignsDto,
   ) {
     const userId = user._id.toString();
-    const campaigns = await this.campaignService.findAll(
+    const { campaigns, pagination } = await this.campaignService.findAll(
       listCampaignsDto,
       userId,
     );
 
     return {
-      data: campaigns,
+      data: { campaigns, pagination },
       message: 'Campaigns retrieved successfully',
       success: true,
     };
@@ -243,5 +255,21 @@ export class CampaignController {
       message: `Successfully topped up campaign budget with $${topUpBody.amount}`,
       success: true,
     };
+  }
+
+  @Post('/generate-media-creatives')
+  async generateMediaCreatives(
+    @GetUser() user: UserDoc,
+    @Body() dto: GenerateMediaCreativesDto,
+  ) {
+    return await this.campaignService.generateMediaCreatives(user._id, dto);
+  }
+
+  @Post('/generate-google-creatives')
+  async generateGoogleCreatives(
+    @GetUser() user: UserDoc,
+    @Body() dto: GenerateGoogleCreativesDto,
+  ) {
+    return await this.campaignService.generateGoogleCreatives(user._id, dto);
   }
 }

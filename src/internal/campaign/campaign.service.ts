@@ -2,8 +2,13 @@ import { Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
 import { CampaignDocument, GoogleAdsCampaignDoc } from 'src/database/schema';
-import { SaveGoogleAdsCampaignDataDto } from './dto';
-import { CampaignPlatform, CampaignStatus } from 'src/enums/campaign';
+import { N8nWebhookPayloadDto, SaveGoogleAdsCampaignDataDto } from './dto';
+import {
+  CampaignPlatform,
+  CampaignStatus,
+  GoogleAdsProcessingStatus,
+} from 'src/enums/campaign';
+import { CampaignService } from 'src/campaign/campaign.service';
 
 @Injectable()
 export class InternalCampaignService {
@@ -13,6 +18,7 @@ export class InternalCampaignService {
     @InjectModel('campaigns') private campaignModel: Model<CampaignDocument>,
     @InjectModel('google-ads-campaigns')
     private googleAdsCampaignModel: Model<GoogleAdsCampaignDoc>,
+    private campaignService: CampaignService,
   ) {}
 
   async findOne(id: string): Promise<CampaignDocument> {
@@ -42,7 +48,9 @@ export class InternalCampaignService {
         { new: true, upsert: true },
       );
 
-    if (googleAdsCampaign.allStepsCompleted) {
+    if (
+      googleAdsCampaign.processingStatus === GoogleAdsProcessingStatus.LAUNCHED
+    ) {
       await this.updateCampaignLaunchState(campaign);
     }
 
@@ -60,7 +68,9 @@ export class InternalCampaignService {
       if (!googleAdsCampaignInfo) {
         return;
       }
-      launchedOnAllPlatforms &&= googleAdsCampaignInfo?.allStepsCompleted;
+      launchedOnAllPlatforms &&=
+        googleAdsCampaignInfo.processingStatus ===
+        GoogleAdsProcessingStatus.LAUNCHED;
     }
 
     if (campaign.platforms.includes(CampaignPlatform.FACEBOOK)) {
@@ -74,6 +84,84 @@ export class InternalCampaignService {
     if (launchedOnAllPlatforms) {
       campaign.status = CampaignStatus.LIVE;
       await campaign.save();
+    }
+  }
+
+  async campaignCreativesWebhook(payload: N8nWebhookPayloadDto) {
+    const { campaignId, status, creativeSetId, creatives } = payload;
+
+    if (status !== 'completed') {
+      this.logger.warn(
+        `status ${status} from n8n, campaignId: ${campaignId}, creativeSetId: ${creativeSetId}`,
+      );
+      return;
+    }
+    // find campaign by id
+    const campaign = await this.campaignModel.findById(campaignId);
+    if (!campaign) {
+      this.logger.warn(
+        `::: campaign ${campaignId} not found to insert creatives :::`,
+      );
+      return;
+    }
+    let productIndex = -1;
+    let creativeIndex = -1;
+    let channel: undefined | 'facebook' | 'instagram' | 'google';
+
+    for (let i = 0; i < campaign.products.length; i++) {
+      for (let j = 0; j < campaign.products[i].creatives.length; j++) {
+        if (campaign.products[i].creatives[j].id === creativeSetId) {
+          productIndex = i;
+          creativeIndex = j;
+          channel = campaign.products[i].creatives[j].channel;
+          this.logger.log(
+            `creatives gotten for campaign- ${campaignId}, product- ${i}, platform- ${channel}`,
+          );
+          break;
+        }
+      }
+      if (productIndex && creativeIndex) {
+        //early return
+        break;
+      }
+    }
+
+    if (productIndex === -1 || creativeIndex === -1 || !channel) {
+      this.logger.debug(
+        `creativeSetId ${creativeSetId} not found on campaign ${campaign._id.toString()}`,
+      );
+      return;
+    }
+
+    campaign.products[productIndex].creatives[creativeIndex].data = creatives;
+    campaign.products[productIndex].creatives[creativeIndex].status = 'created';
+    await campaign.save();
+
+    const {
+      allCreativesPresent,
+      allFacebookCreativesPresent,
+      allInstagramCreativesPresent,
+    } = this.campaignService.checkIfAllCreativesPresent(campaign);
+    if (
+      allCreativesPresent &&
+      campaign.status === CampaignStatus.READY_TO_LAUNCH
+    ) {
+      campaign.status = CampaignStatus.PROCESSED;
+      await campaign.save();
+    }
+
+    if (allFacebookCreativesPresent && channel === 'facebook') {
+      await this.campaignService.publishCampaignToPlatformQueue(
+        campaign,
+        CampaignPlatform.FACEBOOK,
+      );
+    }
+
+    if (allInstagramCreativesPresent && channel === 'instagram') {
+      await this.campaignService.publishCampaignToPlatformQueue(
+        campaign,
+        CampaignPlatform.INSTAGRAM,
+      );
     }
   }
 }

@@ -113,7 +113,7 @@ export class AmplifyWalletService {
               {
                 message:
                   'Payment Required: Insufficient wallet balance or wallet inactive.',
-                code: 'E_PAYMENT_REQUIRED', // You can define a custom error code for your API
+                code: 'pending_payment', // You can define a custom error code for your API
               },
               HttpStatus.PAYMENT_REQUIRED, // 402 status code
             );

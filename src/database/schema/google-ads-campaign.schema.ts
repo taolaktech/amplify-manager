@@ -1,6 +1,6 @@
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
-import { HydratedDocument } from 'mongoose';
-import { Document, Types } from 'mongoose';
+import { HydratedDocument, Document, Types } from 'mongoose';
+import { GoogleAdsProcessingStatus } from 'src/enums/campaign';
 
 export type GoogleAdsCampaignDoc = HydratedDocument<GoogleAdsCampaign>;
 
@@ -37,6 +37,26 @@ class AdGroup {
 }
 
 const AdGroupSchema = SchemaFactory.createForClass(AdGroup);
+
+@Schema({ _id: false })
+class Metrics {
+  @Prop({ default: '0' })
+  clicks: string;
+
+  @Prop({ default: 0 })
+  conversionsValue: number;
+
+  @Prop({ default: 0 })
+  conversions: number;
+
+  @Prop({ default: '0' })
+  costMicros: string;
+
+  @Prop({ default: '0' })
+  impressions: string;
+}
+
+const MetricsSchema = SchemaFactory.createForClass(Metrics);
 
 @Schema({ timestamps: true })
 export class GoogleAdsCampaign extends Document {
@@ -76,8 +96,22 @@ export class GoogleAdsCampaign extends Document {
   @Prop({ default: false })
   geotargetingAddedToCampaign: boolean;
 
-  @Prop({ default: false })
-  allStepsCompleted: boolean;
+  @Prop({
+    enum: Object.keys(GoogleAdsProcessingStatus),
+    default: GoogleAdsProcessingStatus.PENDING,
+  })
+  processingStatus: GoogleAdsProcessingStatus;
+
+  @Prop({
+    enum: Object.keys(GoogleAdsProcessingStatus),
+  })
+  processingStatusBeforeFailure?: GoogleAdsProcessingStatus;
+
+  @Prop({ type: MetricsSchema, default: () => {} })
+  metrics?: Metrics;
+
+  @Prop()
+  metricsLastUpdatedAt: Date;
 }
 
 export const GoogleAdsCampaignSchema =

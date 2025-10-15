@@ -13,6 +13,7 @@ import {
   BusinessDoc,
   CampaignDocument,
   CampaignTopUpRequestDoc,
+  GoogleAdsCampaignDoc,
 } from 'src/database/schema';
 import { CreateCampaignDto } from './dto/create-campaign.dto';
 import { UpdateCampaignDto } from './dto/update-campaign.dto';
@@ -20,15 +21,23 @@ import { SqsProducerService } from './sqs-producer.service';
 import { ListCampaignsDto } from './dto/list-campaigns.dto';
 import { AmplifyWalletService } from './services/wallet.service';
 import { CampaignToUpDto } from './dto/campaign-top-up.dto';
-import { CampaignPlatform, CampaignStatus } from 'src/enums/campaign';
+import {
+  CampaignPlatform,
+  CampaignStatus,
+  GoogleAdsProcessingStatus,
+} from 'src/enums/campaign';
 import { AppConfigService } from 'src/config/config.service';
 import axios, { AxiosError } from 'axios';
-import { ShopifyService } from 'src/shopify/shopify.service';
+import { UtilsService } from 'src/utils/utils.service';
+import { GetGoogleCampaignMetrics } from './types/google-campaign-metrics-resp';
+import {
+  GenerateGoogleCreativesDto,
+  GenerateMediaCreativesDto,
+} from './dto/generate-creatives.dto';
 
-type CampaignValidationStatus =
+type CampaignValidationCode =
   | 'ready_to_launch'
   | 'validation_failed'
-  | 'pending_assets'
   | 'pending_payment'
   | 'awaiting_ad_account'
   | 'insufficient_plan'
@@ -38,7 +47,7 @@ type CampaignValidationStatus =
   | 'failed_to_launch'
   | 'error';
 
-type CreativeGenBody = {
+type GoogleCreativeGenBody = {
   productName: string;
   productPrice: string;
   productDescription: string;
@@ -47,10 +56,29 @@ type CreativeGenBody = {
   tone: string;
   productCategory: string;
   brandName: string;
-  channel: string;
+  channel: 'GOOGLE';
   productImage: string;
   productLink: string;
   campaignType: string;
+};
+
+type FbIgCreativeGenBody = {
+  businessId: string;
+  productName: string;
+  productFeatures: string[];
+  brandName: string;
+  channel: string;
+  approach: 'AI';
+  productImages: string[];
+  campaignType: string;
+  type: string;
+  productDescription?: string;
+  productCategory?: string;
+  brandColor?: string;
+  brandAccent?: string;
+  tone?: string;
+  siteUrl?: string;
+  campaignId?: string;
 };
 
 @Injectable()
@@ -59,13 +87,15 @@ export class CampaignService {
 
   constructor(
     @InjectModel('campaigns') private campaignModel: Model<CampaignDocument>,
+    @InjectModel('google-ads-campaigns')
+    private googleAdsCampaignModel: Model<GoogleAdsCampaignDoc>,
     @InjectModel('business') private businessModel: Model<BusinessDoc>,
     @InjectModel('campaign-top-up-requests')
     private topUpRequestModel: Model<CampaignTopUpRequestDoc>,
     private readonly sqsProducer: SqsProducerService,
     private readonly walletService: AmplifyWalletService,
-    private readonly shopifyService: ShopifyService,
     private readonly config: AppConfigService,
+    private readonly utilsService: UtilsService,
   ) {}
 
   private async campaignValidation(params: {
@@ -73,8 +103,8 @@ export class CampaignService {
     userId: string;
   }) {
     const { createCampaignDto, userId } = params;
-    const validation: { message: string; status: CampaignValidationStatus } = {
-      status: 'ready_to_launch',
+    const validation: { message: string; code: CampaignValidationCode } = {
+      code: 'ready_to_launch',
       message: 'Ready to Launch',
     };
 
@@ -83,7 +113,7 @@ export class CampaignService {
     );
 
     if (!business || business.userId.toString() !== userId.toString()) {
-      validation.status = 'validation_failed';
+      validation.code = 'validation_failed';
       validation.message = 'Invalid business provided!!';
 
       return { validation };
@@ -111,45 +141,21 @@ export class CampaignService {
       this.logger.debug(
         `::: User ${userId} has reached their campaign limit :::`,
       );
-      validation.status = 'insufficient_plan';
+      validation.code = 'insufficient_plan';
       validation.message = 'Plan limits exceeded';
       return { validation };
     }
 
-    let googleCreativesCount = 0;
-    createCampaignDto.products.forEach((product) => {
-      if (!product.creatives || !product.creatives.length) {
-        validation.status = 'pending_assets';
-        validation.message = 'Product has no creatives';
-      }
-      product.creatives?.forEach((creative) => {
-        if (creative.channel === 'google') {
-          googleCreativesCount += creative.data?.length;
-        }
-      });
-    });
-
-    if (
-      createCampaignDto.platforms.includes(CampaignPlatform.GOOGLE) &&
-      googleCreativesCount < 6
-    ) {
-      validation.status = 'pending_assets';
-      validation.message = `Asset Generation Error Too few assets-Platform- ${CampaignPlatform.GOOGLE}`;
-      this.logger.debug(
-        `::: User ${userId}. Insufficient assets generated for ${CampaignPlatform.GOOGLE} :::`,
-      );
-      return { validation, business };
-    }
     return { validation, business };
   }
 
-  private async getCreativesWithAmplifyAi(data: CreativeGenBody) {
+  private async getCreativesWithAmplifyAi(data: GoogleCreativeGenBody) {
     try {
       const url = `${this.config.get('AMPLIFY_AI_API_URL')}/api/creatives`;
-      const response = await axios.post<{ success: boolean; data: any[] }>(
-        url,
-        data,
-      );
+      const response = await axios.post<{
+        success: boolean;
+        data: { headline: string; description: string }[];
+      }>(url, data);
       return response.data;
     } catch (error: any) {
       if (error instanceof AxiosError) {
@@ -167,33 +173,11 @@ export class CampaignService {
     }
   }
 
-  private async generateCreativesForAllProducts(campaignDoc: CampaignDocument) {
-    /*  helper function to check if channel creatives are present*/
-    const checkChannelCreatives = (
-      creatives: CampaignDocument['products'][0]['creatives'],
-    ) => {
-      let googleCreativesPresent = false;
-      let instagramCreativesPresent = false;
-      let facebookCreativesPresent = false;
-
-      creatives.forEach((creative) => {
-        if (creative.channel === 'instagram') {
-          instagramCreativesPresent = true;
-        }
-        if (creative.channel === 'facebook') {
-          facebookCreativesPresent = true;
-        }
-        if (creative.channel === 'google') {
-          googleCreativesPresent = true;
-        }
-      });
-      return {
-        googleCreativesPresent,
-        instagramCreativesPresent,
-        facebookCreativesPresent,
-      };
-    };
-
+  private async generateCreativesForAllProducts(params: {
+    campaignDoc: CampaignDocument;
+    business: BusinessDoc;
+  }) {
+    const { campaignDoc, business } = params;
     let failedToGenerateSomeCreatives = false;
 
     const googleSelected = campaignDoc.platforms.includes(
@@ -206,6 +190,31 @@ export class CampaignService {
       CampaignPlatform.INSTAGRAM,
     );
 
+    const checkChannelsIfCreativeGenNeeded = (
+      creatives: CampaignDocument['products'][0]['creatives'],
+    ) => {
+      let googleCreativesPresent = false;
+      let instagramCreativesPresent = false;
+      let facebookCreativesPresent = false;
+
+      creatives.forEach((creative) => {
+        if (creative.channel === 'instagram' && creative.id) {
+          instagramCreativesPresent = true;
+        }
+        if (creative.channel === 'facebook' && creative.id) {
+          facebookCreativesPresent = true;
+        }
+        if (creative.channel === 'google' && creative.data.length > 0) {
+          googleCreativesPresent = true;
+        }
+      });
+      return {
+        googleCreativesPresent,
+        instagramCreativesPresent,
+        facebookCreativesPresent,
+      };
+    };
+
     /* begin loop */
     for (let i = 0; i < campaignDoc.products.length; i++) {
       const product = campaignDoc.products[i];
@@ -216,7 +225,7 @@ export class CampaignService {
         googleCreativesPresent,
         instagramCreativesPresent,
         facebookCreativesPresent,
-      } = checkChannelCreatives(product.creatives);
+      } = checkChannelsIfCreativeGenNeeded(product.creatives);
 
       const productNeedsCreatives =
         (googleSelected && !googleCreativesPresent) ||
@@ -231,38 +240,45 @@ export class CampaignService {
         `::: Now generating creatives for campaign ${campaignDoc._id.toString()}, product-${i}`,
       );
 
-      const { productByIdentifier: shopifyProductData } =
-        await this.shopifyService.getShopifyAccountProductById(
-          campaignDoc.shopifyAccountId,
-          product.shopifyId,
-        );
-
-      const data: CreativeGenBody = {
+      const googlePayload: GoogleCreativeGenBody = {
         productName: product.title,
         productPrice: `$${product.price.toString()}`,
         productDescription: product.description,
         productOccasion: product.occasion ?? '',
-        productFeatures: [
-          ...product.features,
-          ...(shopifyProductData.tags ?? []),
-          shopifyProductData.category?.name ?? '',
-          shopifyProductData.productType ?? '',
-          shopifyProductData.handle ?? '',
-        ],
+        productFeatures: product.features,
         tone: campaignDoc.tone,
         productCategory: product.category,
         brandName: product.title,
-        channel: 'FACEBOOK',
-        productImage: product.imageLink,
+        channel: 'GOOGLE',
+        productImage: product.imageLinks[0],
         productLink: product.productLink,
         campaignType: campaignDoc.type,
+      };
+
+      const fbIgPayload: FbIgCreativeGenBody = {
+        approach: 'AI', // req
+        campaignId: campaignDoc._id.toString(),
+        businessId: business._id.toString(),
+        campaignType: googlePayload.campaignType,
+        productName: googlePayload.productName,
+        productFeatures: googlePayload.productFeatures,
+        brandName: googlePayload.brandName,
+        channel: 'INSTAGRAM',
+        productImages: product.imageLinks,
+        type: 'IMAGE',
+        productCategory: googlePayload.productCategory, //opt
+        tone: googlePayload.tone, // opt
+        brandColor: campaignDoc.brandColor, // opt
+        brandAccent: campaignDoc.accentColor, // opt
+        siteUrl: business.website, // opt
+        productDescription: googlePayload.productDescription, // optional
       };
 
       const promises: Promise<any>[] = [];
       if (googleSelected && !googleCreativesPresent) {
         // generate google creatives
         const googleCreativePromise = this.getCreativesWithAmplifyAi({
-          ...data,
+          ...googlePayload,
           channel: 'GOOGLE',
         })
           .then((resp) => {
@@ -280,73 +296,96 @@ export class CampaignService {
                 : 'Undetermined Error';
             }
             this.logger.debug(
-              `Unable to generate creative, channel- GOOGLE, error- ${errorMessage}`,
+              `Unable to generate creative, campaignId- ${campaignDoc._id.toString()}, product- ${i} channel- GOOGLE, error- ${errorMessage}`,
             );
             throw error;
           });
         promises.push(googleCreativePromise);
       }
+
       if (facebookSelected && !facebookCreativesPresent) {
         // generate facebook creatives
-        // const facebookCreativesPromise = this.getCreativesWithAmplifyAi({
-        //   ...data,
-        //   channel: 'FACEBOOK',
-        // })
-        //   .then((resp) => {
-        //     console.log(
-        //       'I GOT SOME CREATIVES FOR FACEBOOK- ADD THEM TO CAMPAIGN DOC',
-        //       resp,
-        //     );
-        //     const creative = {
-        //       data: resp.data.map((d) => JSON.stringify(d)),
-        //       channel: 'facebook' as const,
-        //     };
-        //     campaignDoc.products[i].creatives.push(creative);
-        //   })
-        //   .catch((error) => {
-        //     let errorMessage = 'Something went wrong';
-        //     if (error instanceof AxiosError) {
-        //       errorMessage = error.response?.data
-        //         ? JSON.stringify({ error: error.response?.data })
-        //         : 'Undetermined Error';
-        //     }
-        //     this.logger.debug(
-        //       `Unable to generate creative, channel- FACEBOOK, error- ${errorMessage}`,
-        //     );
-        //     throw error;
-        //   });
-        // promises.push(facebookCreativesPromise);
+        const facebookCreativesPromise = this.n8nCall({
+          ...fbIgPayload,
+          channel: 'FACEBOOK',
+        })
+          .then((resp) => {
+            if (resp.status === '400' || resp.status === '401') {
+              throw new Error(
+                `Failed to get creative set id. Failed with status ${resp.status}, channel facebook`,
+              );
+            }
+            if (!resp.creativeSetId) {
+              throw new Error(
+                `Failed to get creative set id. creativeSetId not present, channel facebook`,
+              );
+            }
+            const creative = {
+              channel: 'facebook' as const,
+              id: resp.creativeSetId,
+              status: 'pending' as const,
+              data: [],
+            };
+            campaignDoc.products[i].creatives.push(creative);
+          })
+          .catch((error) => {
+            let errorMessage = 'Something went wrong';
+            if (error instanceof AxiosError) {
+              errorMessage = error.response?.data
+                ? JSON.stringify({ error: error.response?.data })
+                : 'Undetermined Error';
+            }
+            if (error instanceof Error) {
+              errorMessage = error.message;
+            }
+            this.logger.debug(
+              `Unable to generate creative, campaignId- ${campaignDoc._id.toString()}, product- ${i}, channel- FACEBOOK, error- ${errorMessage}`,
+            );
+            throw error;
+          });
+        promises.push(facebookCreativesPromise);
       }
       if (instagramSelected && !instagramCreativesPresent) {
         // generate instagram creatives
-        // const instagramCreatives = this.getCreativesWithAmplifyAi({
-        //   ...data,
-        //   channel: 'INSTAGRAM',
-        // })
-        //   .then((resp) => {
-        //     console.log(
-        //       'I GOT SOME CREATIVES FOR INSTAGRAM- ADD THEM TO CAMPAIGN DOC',
-        //       resp,
-        //     );
-        //     const creative = {
-        //       data: resp.data.map((d) => JSON.stringify(d)),
-        //       channel: 'instagram' as const,
-        //     };
-        //     campaignDoc.products[i].creatives.push(creative);
-        //   })
-        //   .catch((error) => {
-        //     let errorMessage = 'Something went wrong';
-        //     if (error instanceof AxiosError) {
-        //       errorMessage = error.response?.data
-        //         ? JSON.stringify({ error: error.response?.data })
-        //         : 'Undetermined Error';
-        //     }
-        //     this.logger.debug(
-        //       `Unable to generate creative, channel- INSTAGRAM, error- ${errorMessage}`,
-        //     );
-        //     throw error;
-        //   });
-        // promises.push(instagramCreatives);
+        const instagramCreatives = this.n8nCall({
+          ...fbIgPayload,
+          channel: 'INSTAGRAM',
+        })
+          .then((resp) => {
+            if (resp.status === '400' || resp.status === '401') {
+              throw new Error(
+                `Failed to get creative set id. Failed with status ${resp.status}, channel facebook`,
+              );
+            }
+            if (!resp.creativeSetId) {
+              throw new Error(
+                `Failed to get creative set id. creativeSetId not present, channel facebook`,
+              );
+            }
+            const creative = {
+              channel: 'instagram' as const,
+              id: resp.creativeSetId,
+              status: 'pending' as const,
+              data: [],
+            };
+            campaignDoc.products[i].creatives.push(creative);
+          })
+          .catch((error) => {
+            let errorMessage = 'Something went wrong';
+            if (error instanceof AxiosError) {
+              errorMessage = error.response?.data
+                ? JSON.stringify({ error: error.response?.data })
+                : 'Undetermined Error';
+            }
+            if (error instanceof Error) {
+              errorMessage = error.message;
+            }
+            this.logger.debug(
+              `::: Unable to generate creative, campaignId- ${campaignDoc._id.toString()}, product- ${i}, channel- INSTAGRAM, error- ${errorMessage}:::`,
+            );
+            throw error;
+          });
+        promises.push(instagramCreatives);
       }
 
       const results = await Promise.allSettled(promises);
@@ -366,11 +405,199 @@ export class CampaignService {
 
     if (failedToGenerateSomeCreatives) {
       this.logger.error(
-        `::: Failed to generate creatives for campaign one or more- ${campaignDoc._id.toString()} :::`,
+        `::: Failed to generate creatives for campaign one or more products- ${campaignDoc._id.toString()} :::`,
+      );
+    }
+  }
+
+  private async getGoogleCampaignMetrics(campaignResourceName: string) {
+    try {
+      const resourceComponents =
+        this.utilsService.extractIdsFromGoogleResourceName(
+          campaignResourceName,
+        );
+
+      if (!resourceComponents) {
+        throw new BadRequestException('Invalid Google Campaign Resource Name');
+      }
+
+      const { customerId, resourceId: campaignId } = resourceComponents;
+
+      const url = `${this.config.get('INTEGRATION_API_URL')}/api/google-ads/campaigns/get-metrics`;
+
+      const res = await axios.post<GetGoogleCampaignMetrics>(
+        url,
+        {
+          customerId,
+          campaignId,
+        },
+        {
+          headers: { 'x-api-key': this.config.get('INTEGRATION_API_KEY') },
+        },
+      );
+
+      return res.data;
+    } catch (error) {
+      this.logger.error(
+        `::: Unable to fetch google campaign metrics, campaignResourceName- ${campaignResourceName}- ${error.message} :::`,
       );
       throw new InternalServerErrorException(
-        'Failed to generate creatives for campaign',
+        'Unable to fetch google campaign metrics',
       );
+    }
+  }
+  /**
+    @description- this function checks if all creatives are present for all platforms and creatives are present for each platform. If platform not included in campaign, all{{platform}}Creatives returns Undefined. just check the return statement
+  */
+  checkIfAllCreativesPresent(campaignDoc: CampaignDocument) {
+    const googleSelected = campaignDoc.platforms.includes(
+      CampaignPlatform.GOOGLE,
+    );
+    const facebookSelected = campaignDoc.platforms.includes(
+      CampaignPlatform.FACEBOOK,
+    );
+    const instagramSelected = campaignDoc.platforms.includes(
+      CampaignPlatform.INSTAGRAM,
+    );
+
+    const checkChannelCreatives = (
+      creatives: CampaignDocument['products'][0]['creatives'],
+    ) => {
+      let googleCreativesPresent = false;
+      let instagramCreativesPresent = false;
+      let facebookCreativesPresent = false;
+
+      creatives.forEach((creative) => {
+        //TODO parse creative.data ??? check if has url to be true
+        if (creative.channel === 'instagram' && creative.data.length > 0) {
+          instagramCreativesPresent = true;
+        }
+        if (creative.channel === 'facebook' && creative.data.length > 0) {
+          facebookCreativesPresent = true;
+        }
+
+        if (creative.channel === 'google') {
+          googleCreativesPresent = true;
+        }
+      });
+      return {
+        googleCreativesPresent,
+        instagramCreativesPresent,
+        facebookCreativesPresent,
+      };
+    };
+
+    let [
+      allCreativesPresent,
+      allGoogleCreativesPresent,
+      allFacebookCreativesPresent,
+      allInstagramCreativesPresent,
+    ] = [true, true, true, true];
+
+    /* begin loop */
+    for (let i = 0; i < campaignDoc.products.length; i++) {
+      const product = campaignDoc.products[i];
+      if (!product.creatives) {
+        campaignDoc.products[i].creatives = [];
+      }
+      const {
+        googleCreativesPresent,
+        instagramCreativesPresent,
+        facebookCreativesPresent,
+      } = checkChannelCreatives(product.creatives);
+
+      const googleCreativesNeeded = googleSelected && !googleCreativesPresent;
+      const facebookCreativesNeeded =
+        facebookSelected && !facebookCreativesPresent;
+      const instagramCreativesNeeded =
+        instagramSelected && !instagramCreativesPresent;
+
+      const productNeedsCreatives =
+        googleCreativesNeeded ||
+        facebookCreativesNeeded ||
+        instagramCreativesNeeded;
+
+      allCreativesPresent &&= !productNeedsCreatives;
+      allGoogleCreativesPresent &&= !googleCreativesNeeded;
+      allFacebookCreativesPresent &&= !facebookCreativesNeeded;
+      allInstagramCreativesPresent &&= !instagramCreativesNeeded;
+    }
+
+    return {
+      allCreativesPresent,
+      allGoogleCreativesPresent: !googleSelected
+        ? undefined
+        : allGoogleCreativesPresent,
+      allFacebookCreativesPresent: !facebookSelected
+        ? undefined
+        : allFacebookCreativesPresent,
+      allInstagramCreativesPresent: !instagramSelected
+        ? undefined
+        : allInstagramCreativesPresent,
+    };
+  }
+
+  async publishCampaignToAllRespectiveQueues(campaignDoc: CampaignDocument) {
+    const messagePromises = campaignDoc.platforms.map((platform) => {
+      this.logger.log(`Initiating message send for platform: ${platform}`);
+      return this.publishCampaignToPlatformQueue(campaignDoc, platform);
+    });
+
+    //
+    try {
+      await Promise.all(messagePromises);
+      this.logger.log(
+        `All messages for campaign ${campaignDoc._id.toString()} were successfully accepted by SQS.`,
+      );
+    } catch (error) {
+      this.logger.error(
+        `One or more messages failed to send for campaign ${campaignDoc._id.toString()}.`,
+        error,
+      );
+
+      campaignDoc.status = CampaignStatus.FAILED_TO_LAUNCH;
+      await campaignDoc.save();
+
+      throw error;
+    }
+  }
+
+  async publishCampaignToPlatformQueue(
+    campaignDoc: CampaignDocument,
+    platform: CampaignDocument['platforms'][0],
+  ) {
+    if (!campaignDoc.platforms.includes(platform)) {
+      return;
+    }
+    try {
+      if (platform === CampaignPlatform.GOOGLE) {
+        const googleCampaign = await this.googleAdsCampaignModel.findOne({
+          campaign: campaignDoc._id,
+        });
+
+        if (
+          googleCampaign &&
+          googleCampaign.processingStatus === GoogleAdsProcessingStatus.LAUNCHED
+        ) {
+          return;
+        }
+      }
+
+      /* TODO- Add conditions for facebook and instagram- ignore if retry safe */
+      await this.sqsProducer.sendMessage(campaignDoc, platform);
+      this.logger.log(
+        `${platform} message for campaign ${campaignDoc._id.toString()} was successfully accepted by SQS.`,
+      );
+    } catch (error) {
+      this.logger.error(
+        `${platform} message failed to send to sqs for campaign ${campaignDoc._id.toString()}`,
+        error,
+      );
+
+      campaignDoc.status = CampaignStatus.FAILED_TO_LAUNCH;
+      await campaignDoc.save();
+
+      throw error;
     }
   }
 
@@ -384,10 +611,7 @@ export class CampaignService {
         userId: userId.toString(),
       });
 
-      if (
-        validation.status !== 'ready_to_launch' &&
-        validation.status !== 'pending_assets'
-      ) {
+      if (validation.code !== 'ready_to_launch') {
         throw new ForbiddenException(validation);
       }
 
@@ -410,33 +634,31 @@ export class CampaignService {
       const newCampaign = await this.campaignModel.create({
         ...createCampaignDto,
         status: CampaignStatus.READY_TO_LAUNCH,
-        createdBy: new Types.ObjectId(userId),
-        shopifyAccountId: business.integrations.shopify.shopifyAccount,
+        createdBy: userId,
+        shopifyAccountId: business.integrations?.shopify?.shopifyAccount,
         _id: campaignId,
       });
 
-      const messagePromises = newCampaign.platforms.map((platform) => {
-        this.logger.log(`Initiating message send for platform: ${platform}`);
-        return this.sqsProducer.sendMessage(newCampaign, platform);
+      // generate creatives or creatives set ids of products without any
+      await this.generateCreativesForAllProducts({
+        campaignDoc: newCampaign,
+        business,
       });
 
-      //
-      try {
-        await this.generateCreativesForAllProducts(newCampaign);
-        await Promise.all(messagePromises);
-        newCampaign.status = CampaignStatus.LAUNCHING;
-        await newCampaign.save();
-        this.logger.log(
-          `All messages for campaign ${newCampaign._id.toString()} were successfully accepted by SQS.`,
-        );
-      } catch (error) {
-        this.logger.error(
-          `One or more messages failed to send for campaign ${newCampaign._id.toString()}.`,
-          error,
-        );
+      const { allCreativesPresent, allGoogleCreativesPresent } =
+        this.checkIfAllCreativesPresent(newCampaign);
 
-        throw error;
+      if (allGoogleCreativesPresent === false) {
+        this.logger.debug(
+          `::: Unable to generate google creatives for ${newCampaign._id.toString()}`,
+        );
       }
+
+      if (allCreativesPresent) {
+        newCampaign.status = CampaignStatus.PROCESSED;
+        await this.publishCampaignToAllRespectiveQueues(newCampaign);
+      }
+      await newCampaign.save();
 
       return newCampaign;
     } catch (error) {
@@ -502,6 +724,94 @@ export class CampaignService {
     }
   }
 
+  private async calculateMetricsForCampaign(campaignDoc: CampaignDocument) {
+    // populate data from necessary collections
+    const campaignMetrics: CampaignDocument['metrics'] = {
+      totalClicks: 0,
+      totalConversionsValue: 0,
+      totalConversions: 0,
+      totalCost: 0,
+      totalImpressions: 0,
+    };
+    const staleTimeInMs = 2 * 60 * 60 * 1000; // 2 hours
+    await campaignDoc.populate('googleAdsCampaign');
+    const metricsLastUpdatedAt =
+      campaignDoc.googleAdsCampaign?.metricsLastUpdatedAt;
+
+    let googleCampaignMetrics = campaignDoc.googleAdsCampaign?.metrics;
+    // let facebookCampaignMetrics = campaignDoc.facebookCampaign?.metrics;
+    // let instagramCampaignMetrics = campaignDoc.instagramCampaign?.metrics;
+    const now = new Date();
+    // metrics stale when campaign has never been updated or last update was more than 2 hours ago
+    const isGoogleMetricsStale =
+      !metricsLastUpdatedAt ||
+      now.getTime() - metricsLastUpdatedAt.getTime() > staleTimeInMs;
+
+    // update google metrics if google campaign exists and metrics are stale
+    if (
+      campaignDoc.googleAdsCampaign?.campaignResourceName &&
+      isGoogleMetricsStale
+    ) {
+      this.logger.log(
+        `google metrics are stale for campaign ${campaignDoc._id.toString()}. Retrieving fresh metrics.`,
+      );
+      const metricsResult = await this.getGoogleCampaignMetrics(
+        campaignDoc.googleAdsCampaign.campaignResourceName,
+      );
+      googleCampaignMetrics = metricsResult.results[0].metrics;
+      if (metricsResult.results.length && googleCampaignMetrics) {
+        await this.googleAdsCampaignModel.findOneAndUpdate(
+          { campaign: campaignDoc._id },
+          {
+            $set: {
+              metrics: googleCampaignMetrics,
+              metricsLastUpdatedAt: new Date(),
+            },
+          },
+          { new: true },
+        );
+      }
+    }
+
+    if (googleCampaignMetrics) {
+      campaignMetrics.totalClicks += Number(googleCampaignMetrics.clicks);
+      campaignMetrics.totalConversionsValue +=
+        googleCampaignMetrics.conversionsValue;
+      campaignMetrics.totalConversions += googleCampaignMetrics.conversions;
+      campaignMetrics.totalCost +=
+        Number(googleCampaignMetrics.costMicros) / 1_000_000;
+      campaignMetrics.totalImpressions += Number(
+        googleCampaignMetrics.impressions,
+      );
+    }
+    // if (facebookCampaignMetrics) {
+    //   campaignMetrics.totalClicks += Number(facebookCampaignMetrics.clicks);
+    //   campaignMetrics.totalConversionsValue +=
+    //     facebookCampaignMetrics.conversionsValue;
+    //   campaignMetrics.totalConversions += facebookCampaignMetrics.conversions;
+    //   campaignMetrics.totalCost +=
+    //     Number(facebookCampaignMetrics.costMicros) / 1_000_000;
+    //   campaignMetrics.totalImpressions += Number(
+    //     facebookCampaignMetrics.impressions,
+    //   );
+    // }
+
+    // if (instagramCampaignMetrics) {
+    //   campaignMetrics.totalClicks += Number(facebookCampaignMetrics.clicks);
+    //   campaignMetrics.totalConversionsValue +=
+    //     facebookCampaignMetrics.conversionsValue;
+    //   campaignMetrics.totalConversions += facebookCampaignMetrics.conversions;
+    //   campaignMetrics.totalCost +=
+    //     Number(facebookCampaignMetrics.costMicros) / 1_000_000;
+    //   campaignMetrics.totalImpressions += Number(
+    //     facebookCampaignMetrics.impressions,
+    //   );
+    // }
+
+    campaignDoc.metrics = campaignMetrics;
+    await campaignDoc.save();
+  }
+
   async findAll(listCampaignsDto: ListCampaignsDto, userId: string) {
     const { page, perPage, status, type, platforms, sortBy } = listCampaignsDto;
 
@@ -534,24 +844,24 @@ export class CampaignService {
         .find(filter)
         .sort(sortOptions)
         .skip(skip)
-        .limit(perPage)
-        .exec(),
+        .limit(perPage),
       this.campaignModel.countDocuments(filter).exec(),
     ]);
 
-    // 5. Construct the paginated response
-    const totalPages = Math.ceil(total / perPage);
+    // retrieve metrics for all google campaigns in the list
+    for (let i = 0; i < campaigns.length; i++) {
+      await this.calculateMetricsForCampaign(campaigns[i]);
+    }
 
+    // 5. Construct the paginated response
+    const pagination = this.utilsService.getPaginationMeta({
+      total,
+      page,
+      perPage,
+    });
     return {
-      data: campaigns,
-      pagination: {
-        total,
-        page,
-        perPage,
-        totalPages,
-        hasNextPage: page < totalPages,
-        hasPrevPage: page > 1,
-      },
+      campaigns,
+      pagination,
     };
   }
 
@@ -627,5 +937,59 @@ export class CampaignService {
 
       throw new BadRequestException(message);
     }
+  }
+
+  private async n8nCall(data: FbIgCreativeGenBody) {
+    try {
+      const url = `${this.config.get('AMPLIFY_N8N_API_URL')}/webhook/4032ad24-63b4-474c-8609-a3500b06b8bc`;
+
+      const response = await axios.post<{
+        creativeSetId: string;
+        status: string;
+        message?: string;
+      }>(url, data, {
+        headers: {
+          Authorization: `Bearer ${this.config.get('AMPLIFY_N8N_API_KEY')}`,
+        },
+      });
+      return response.data;
+    } catch (error: any) {
+      this.logger.error(
+        `Error calling n8n- ${JSON.stringify(error.response?.data || error.response)}`,
+      );
+      throw new InternalServerErrorException(
+        'Unable to load creatives at the moment',
+      );
+    }
+  }
+
+  async generateMediaCreatives(
+    userId: Types.ObjectId,
+    body: GenerateMediaCreativesDto,
+  ) {
+    const business = await this.businessModel.findOne({ userId });
+
+    if (!business) {
+      throw new BadRequestException(`Business not found for this user`);
+    }
+
+    return await this.n8nCall({
+      ...body,
+      approach: 'AI',
+      businessId: business?._id.toString(),
+    });
+  }
+
+  async generateGoogleCreatives(
+    userId: Types.ObjectId,
+    body: GenerateGoogleCreativesDto,
+  ) {
+    const business = await this.businessModel.findOne({ userId });
+
+    if (!business) {
+      throw new BadRequestException(`Business not found for this user`);
+    }
+
+    return await this.getCreativesWithAmplifyAi({ ...body, channel: 'GOOGLE' });
   }
 }
