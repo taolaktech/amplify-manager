@@ -56,7 +56,7 @@ type GoogleCreativeGenBody = {
   tone: string;
   productCategory: string;
   brandName: string;
-  channel: string;
+  channel: 'GOOGLE';
   productImage: string;
   productLink: string;
   campaignType: string;
@@ -152,10 +152,10 @@ export class CampaignService {
   private async getCreativesWithAmplifyAi(data: GoogleCreativeGenBody) {
     try {
       const url = `${this.config.get('AMPLIFY_AI_API_URL')}/api/creatives`;
-      const response = await axios.post<{ success: boolean; data: any[] }>(
-        url,
-        data,
-      );
+      const response = await axios.post<{
+        success: boolean;
+        data: { headline: string; description: string }[];
+      }>(url, data);
       return response.data;
     } catch (error: any) {
       if (error instanceof AxiosError) {
@@ -249,7 +249,7 @@ export class CampaignService {
         tone: campaignDoc.tone,
         productCategory: product.category,
         brandName: product.title,
-        channel: 'GOOGLE', // default to facebook for now
+        channel: 'GOOGLE',
         productImage: product.imageLinks[0],
         productLink: product.productLink,
         campaignType: campaignDoc.type,
@@ -990,6 +990,6 @@ export class CampaignService {
       throw new BadRequestException(`Business not found for this user`);
     }
 
-    return await this.getCreativesWithAmplifyAi(body);
+    return await this.getCreativesWithAmplifyAi({ ...body, channel: 'GOOGLE' });
   }
 }

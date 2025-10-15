@@ -3,6 +3,7 @@ import { InternalCampaignService } from './campaign.service';
 import { ApiOperation, ApiResponse, ApiSecurity } from '@nestjs/swagger';
 
 import { SaveGoogleAdsCampaignDataDto } from './dto/save-googleads-campaign.dto';
+import { N8nWebhookPayloadDto } from './dto';
 
 @ApiSecurity('x-api-key')
 @Controller('internal/campaign')
@@ -56,7 +57,7 @@ export class InternalCampaignController {
   }
 
   @Post('/campaign-creatives/webhook')
-  async campaignCreativesWebhook(@Body() payload) {
+  async campaignCreativesWebhook(@Body() payload: N8nWebhookPayloadDto) {
     await this.internalCampaignService.campaignCreativesWebhook(payload);
     return {
       message: 'Webhook received successfully',

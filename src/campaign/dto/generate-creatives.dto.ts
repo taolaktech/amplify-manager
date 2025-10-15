@@ -210,15 +210,6 @@ export class GenerateGoogleCreativesDto {
   brandName: string;
 
   @ApiProperty({
-    example: 'Google',
-    description:
-      'The ad channel where this creative will be used (e.g., Google, Meta, TikTok).',
-  })
-  @IsNotEmpty()
-  @IsString()
-  channel: string;
-
-  @ApiProperty({
     example: 'https://example.com/images/simone-pants-set.jpg',
     description: 'URL of the product image to be used in the creative.',
   })
@@ -235,7 +226,7 @@ export class GenerateGoogleCreativesDto {
   productLink: string;
 
   @ApiProperty({
-    example: 'Performance Max',
+    example: 'Product Launch',
     description:
       'The campaign type under which this creative will be generated.',
   })

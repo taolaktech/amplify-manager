@@ -2,21 +2,13 @@ import { Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
 import { CampaignDocument, GoogleAdsCampaignDoc } from 'src/database/schema';
-import { SaveGoogleAdsCampaignDataDto } from './dto';
+import { N8nWebhookPayloadDto, SaveGoogleAdsCampaignDataDto } from './dto';
 import {
   CampaignPlatform,
   CampaignStatus,
   GoogleAdsProcessingStatus,
 } from 'src/enums/campaign';
 import { CampaignService } from 'src/campaign/campaign.service';
-
-type N8nWebhookPayload = {
-  creativeSetId: string;
-  campaignId: string;
-  status: 'completed' | 'failed';
-  keys: string[];
-  creatives: string[];
-};
 
 @Injectable()
 export class InternalCampaignService {
@@ -95,7 +87,7 @@ export class InternalCampaignService {
     }
   }
 
-  async campaignCreativesWebhook(payload: N8nWebhookPayload) {
+  async campaignCreativesWebhook(payload: N8nWebhookPayloadDto) {
     const { campaignId, status, creativeSetId, creatives } = payload;
 
     if (status !== 'completed') {
@@ -112,8 +104,8 @@ export class InternalCampaignService {
       );
       return;
     }
-    let productIndex: number | undefined;
-    let creativeIndex: number | undefined;
+    let productIndex = -1;
+    let creativeIndex = -1;
     let channel: undefined | 'facebook' | 'instagram' | 'google';
 
     for (let i = 0; i < campaign.products.length; i++) {
@@ -134,7 +126,7 @@ export class InternalCampaignService {
       }
     }
 
-    if (!productIndex || !creativeIndex || !channel) {
+    if (productIndex === -1 || creativeIndex === -1 || !channel) {
       this.logger.debug(
         `creativeSetId ${creativeSetId} not found on campaign ${campaign._id.toString()}`,
       );
@@ -142,6 +134,7 @@ export class InternalCampaignService {
     }
 
     campaign.products[productIndex].creatives[creativeIndex].data = creatives;
+    campaign.products[productIndex].creatives[creativeIndex].status = 'created';
     await campaign.save();
 
     const {
