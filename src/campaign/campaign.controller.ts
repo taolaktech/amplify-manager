@@ -21,7 +21,10 @@ import { Campaign, GoogleAdsCampaign, UserDoc } from 'src/database/schema';
 import { UpdateCampaignDto } from './dto/update-campaign.dto';
 import { ListCampaignsDto } from './dto/list-campaigns.dto';
 import { CampaignToUpDto } from './dto/campaign-top-up.dto';
-import { GenerateMediaCreativesDto } from './dto/generate-media-creatives.dto';
+import {
+  GenerateGoogleCreativesDto,
+  GenerateMediaCreativesDto,
+} from './dto/generate-creatives.dto';
 
 class PaginationMeta {
   @ApiProperty()
@@ -255,7 +258,18 @@ export class CampaignController {
   }
 
   @Post('/generate-media-creatives')
-  async generateMediaCreatives(@Body() dto: GenerateMediaCreativesDto) {
-    return await this.campaignService.generateMediaCreatives(dto);
+  async generateMediaCreatives(
+    @GetUser() user: UserDoc,
+    @Body() dto: GenerateMediaCreativesDto,
+  ) {
+    return await this.campaignService.generateMediaCreatives(user._id, dto);
+  }
+
+  @Post('/generate-google-creatives')
+  async generateGoogleCreatives(
+    @GetUser() user: UserDoc,
+    @Body() dto: GenerateGoogleCreativesDto,
+  ) {
+    return await this.campaignService.generateGoogleCreatives(user._id, dto);
   }
 }

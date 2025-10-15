@@ -21,11 +21,19 @@ import { SqsProducerService } from './sqs-producer.service';
 import { ListCampaignsDto } from './dto/list-campaigns.dto';
 import { AmplifyWalletService } from './services/wallet.service';
 import { CampaignToUpDto } from './dto/campaign-top-up.dto';
-import { CampaignPlatform, CampaignStatus } from 'src/enums/campaign';
+import {
+  CampaignPlatform,
+  CampaignStatus,
+  GoogleAdsProcessingStatus,
+} from 'src/enums/campaign';
 import { AppConfigService } from 'src/config/config.service';
 import axios, { AxiosError } from 'axios';
 import { UtilsService } from 'src/utils/utils.service';
 import { GetGoogleCampaignMetrics } from './types/google-campaign-metrics-resp';
+import {
+  GenerateGoogleCreativesDto,
+  GenerateMediaCreativesDto,
+} from './dto/generate-creatives.dto';
 
 type CampaignValidationCode =
   | 'ready_to_launch'
@@ -56,13 +64,13 @@ type GoogleCreativeGenBody = {
 
 type FbIgCreativeGenBody = {
   businessId: string;
-  campaignId: string;
   productName: string;
   productFeatures: string[];
   brandName: string;
   channel: string;
   approach: 'AI';
   productImages: string[];
+  campaignType: string;
   type: string;
   productDescription?: string;
   productCategory?: string;
@@ -70,7 +78,7 @@ type FbIgCreativeGenBody = {
   brandAccent?: string;
   tone?: string;
   siteUrl?: string;
-  campaignType: string;
+  campaignId?: string;
 };
 
 @Injectable()
@@ -532,7 +540,7 @@ export class CampaignService {
   async publishCampaignToAllRespectiveQueues(campaignDoc: CampaignDocument) {
     const messagePromises = campaignDoc.platforms.map((platform) => {
       this.logger.log(`Initiating message send for platform: ${platform}`);
-      return this.sqsProducer.sendMessage(campaignDoc, platform);
+      return this.publishCampaignToPlatformQueue(campaignDoc, platform);
     });
 
     //
@@ -562,6 +570,20 @@ export class CampaignService {
       return;
     }
     try {
+      if (platform === CampaignPlatform.GOOGLE) {
+        const googleCampaign = await this.googleAdsCampaignModel.findOne({
+          campaign: campaignDoc._id,
+        });
+
+        if (
+          googleCampaign &&
+          googleCampaign.processingStatus === GoogleAdsProcessingStatus.LAUNCHED
+        ) {
+          return;
+        }
+      }
+
+      /* TODO- Add conditions for facebook and instagram- ignore if retry safe */
       await this.sqsProducer.sendMessage(campaignDoc, platform);
       this.logger.log(
         `${platform} message for campaign ${campaignDoc._id.toString()} was successfully accepted by SQS.`,
@@ -941,7 +963,33 @@ export class CampaignService {
     }
   }
 
-  async generateMediaCreatives(body: any) {
-    return await this.n8nCall(body);
+  async generateMediaCreatives(
+    userId: Types.ObjectId,
+    body: GenerateMediaCreativesDto,
+  ) {
+    const business = await this.businessModel.findOne({ userId });
+
+    if (!business) {
+      throw new BadRequestException(`Business not found for this user`);
+    }
+
+    return await this.n8nCall({
+      ...body,
+      approach: 'AI',
+      businessId: business?._id.toString(),
+    });
+  }
+
+  async generateGoogleCreatives(
+    userId: Types.ObjectId,
+    body: GenerateGoogleCreativesDto,
+  ) {
+    const business = await this.businessModel.findOne({ userId });
+
+    if (!business) {
+      throw new BadRequestException(`Business not found for this user`);
+    }
+
+    return await this.getCreativesWithAmplifyAi(body);
   }
 }

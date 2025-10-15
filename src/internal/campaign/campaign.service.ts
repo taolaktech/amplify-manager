@@ -149,6 +149,13 @@ export class InternalCampaignService {
       allFacebookCreativesPresent,
       allInstagramCreativesPresent,
     } = this.campaignService.checkIfAllCreativesPresent(campaign);
+    if (
+      allCreativesPresent &&
+      campaign.status === CampaignStatus.READY_TO_LAUNCH
+    ) {
+      campaign.status = CampaignStatus.PROCESSED;
+      await campaign.save();
+    }
 
     if (allFacebookCreativesPresent && channel === 'facebook') {
       await this.campaignService.publishCampaignToPlatformQueue(
@@ -156,19 +163,12 @@ export class InternalCampaignService {
         CampaignPlatform.FACEBOOK,
       );
     }
+
     if (allInstagramCreativesPresent && channel === 'instagram') {
       await this.campaignService.publishCampaignToPlatformQueue(
         campaign,
         CampaignPlatform.INSTAGRAM,
       );
-    }
-
-    if (
-      allCreativesPresent &&
-      campaign.status === CampaignStatus.READY_TO_LAUNCH
-    ) {
-      campaign.status = CampaignStatus.PROCESSED;
-      await campaign.save();
     }
   }
 }
