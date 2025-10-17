@@ -12,7 +12,7 @@ import { GoogleAdsCampaign } from './google-ads-campaign.schema';
 export type CampaignDocument = HydratedDocument<Campaign>;
 
 @Schema({ _id: false, timestamps: false })
-export class Creative {
+class Creative {
   @ApiProperty({
     example: '1234567890',
     description: 'Unique identifier for the creative.',
@@ -39,7 +39,7 @@ export class Creative {
   data: string[];
 }
 
-export const CreativeSchema = SchemaFactory.createForClass(Creative);
+const CreativeSchema = SchemaFactory.createForClass(Creative);
 
 @Schema({ _id: false }) // Using _id: false as it's a simple value object
 export class Location {

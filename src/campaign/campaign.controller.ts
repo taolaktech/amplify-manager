@@ -272,4 +272,12 @@ export class CampaignController {
   ) {
     return await this.campaignService.generateGoogleCreatives(user._id, dto);
   }
+
+  @Get('/creatives/:creativeSetId')
+  async getCreative(
+    @GetUser() user: UserDoc,
+    @Param('creativeSetId') creativeSetId: string,
+  ) {
+    return await this.campaignService.getCreative(user._id, creativeSetId);
+  }
 }

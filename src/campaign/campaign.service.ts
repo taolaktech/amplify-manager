@@ -13,6 +13,7 @@ import {
   BusinessDoc,
   CampaignDocument,
   CampaignTopUpRequestDoc,
+  CreativeDoc,
   GoogleAdsCampaignDoc,
 } from 'src/database/schema';
 import { CreateCampaignDto } from './dto/create-campaign.dto';
@@ -90,6 +91,7 @@ export class CampaignService {
     @InjectModel('google-ads-campaigns')
     private googleAdsCampaignModel: Model<GoogleAdsCampaignDoc>,
     @InjectModel('business') private businessModel: Model<BusinessDoc>,
+    @InjectModel('creatives') private creativeModel: Model<CreativeDoc>,
     @InjectModel('campaign-top-up-requests')
     private topUpRequestModel: Model<CampaignTopUpRequestDoc>,
     private readonly sqsProducer: SqsProducerService,
@@ -991,5 +993,32 @@ export class CampaignService {
     }
 
     return await this.getCreativesWithAmplifyAi({ ...body, channel: 'GOOGLE' });
+  }
+
+  async getCreative(userId: Types.ObjectId, creativeSetId: string) {
+    const business = await this.businessModel.findOne({ userId });
+
+    if (!business) {
+      throw new BadRequestException(`Business not found for this user`);
+    }
+
+    const creativeSet = await this.creativeModel.findOne({ creativeSetId });
+
+    if (!creativeSet) {
+      throw new NotFoundException(
+        `creativeSet with creativeSetId ${creativeSetId} not found`,
+      );
+    }
+
+    if (creativeSet.businessId?.toString() !== business._id.toString()) {
+      throw new ForbiddenException();
+    }
+
+    const urls = creativeSet.creatives.map(
+      (c) =>
+        `https://${this.config.get('S3_BUCKET')}/creatives/${business._id.toString()}/${creativeSetId}/${c.key}.png`,
+    );
+
+    return { ...creativeSet.toObject(), urls };
   }
 }
