@@ -1016,7 +1016,7 @@ export class CampaignService {
 
     const urls = creativeSet.creatives.map(
       (c) =>
-        `https://${this.config.get('S3_BUCKET')}/creatives/${business._id.toString()}/${creativeSetId}/${c.key}.png`,
+        `https://${this.config.get('S3_BUCKET')}.s3.${this.config.get('AWS_REGION')}.amazonaws.com/creatives/${business._id.toString()}/${creativeSetId}/${c.key}.png`,
     );
 
     return { ...creativeSet.toObject(), urls };
