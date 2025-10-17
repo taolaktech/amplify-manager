@@ -7,3 +7,4 @@ export * from './campaign.schema';
 export * from './google-ads-campaign.schema';
 export * from './wallet.schema';
 export * from './campaign-top-up-request.schema';
+export * from './creative.schema';
