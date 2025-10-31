@@ -1,6 +1,11 @@
-import { Injectable, Logger, NotFoundException } from '@nestjs/common';
+import {
+  Injectable,
+  InternalServerErrorException,
+  Logger,
+  NotFoundException,
+} from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
-import { Model } from 'mongoose';
+import { FilterQuery, Model, PipelineStage } from 'mongoose';
 import { CampaignDocument, GoogleAdsCampaignDoc } from 'src/database/schema';
 import { N8nWebhookPayloadDto, SaveGoogleAdsCampaignDataDto } from './dto';
 import {
@@ -9,6 +14,11 @@ import {
   GoogleAdsProcessingStatus,
 } from 'src/enums/campaign';
 import { CampaignService } from 'src/campaign/campaign.service';
+import { UtilsService } from 'src/utils/utils.service';
+import { AppConfigService } from 'src/config/config.service';
+import axios from 'axios';
+import { GoogleCampaignBatchMetricsResponse } from './types/google-campaign-batch-metrics';
+import pLimit from 'p-limit';
 
 @Injectable()
 export class InternalCampaignService {
@@ -18,7 +28,9 @@ export class InternalCampaignService {
     @InjectModel('campaigns') private campaignModel: Model<CampaignDocument>,
     @InjectModel('google-ads-campaigns')
     private googleAdsCampaignModel: Model<GoogleAdsCampaignDoc>,
+    private config: AppConfigService,
     private campaignService: CampaignService,
+    private utilService: UtilsService,
   ) {}
 
   async findOne(id: string): Promise<CampaignDocument> {
@@ -162,6 +174,175 @@ export class InternalCampaignService {
         campaign,
         CampaignPlatform.INSTAGRAM,
       );
+    }
+  }
+
+  private async getGoogleCampaignBatchMetrics(body: {
+    customerId: string;
+    campaignIds: string[];
+  }) {
+    try {
+      const url = `${this.config.get('INTEGRATION_API_URL')}/api/google-ads/campaigns/get-metrics/batch`;
+
+      const res = await axios.post<GoogleCampaignBatchMetricsResponse[]>(
+        url,
+        body,
+        {
+          headers: { 'x-api-key': this.config.get('INTEGRATION_API_KEY') },
+        },
+      );
+
+      return res.data;
+    } catch (error) {
+      this.logger.error(
+        `::: Unable to fetch google campaign metrics:::`,
+        error,
+      );
+      throw new InternalServerErrorException(
+        'Unable to fetch google campaign metrics',
+      );
+    }
+  }
+
+  refreshAllOngoingCampaignMetrics() {
+    this.refreshAllOngoingGoogleCampaignMetrics().catch((error) => {
+      this.logger.error(
+        `Error refreshing ongoing Google campaign metrics: ${error.message}`,
+      );
+    });
+  }
+
+  private async refreshAllOngoingGoogleCampaignMetrics() {
+    this.logger.log('Starting refresh of all campaign metrics...');
+
+    const now = new Date();
+    const queryObject: FilterQuery<CampaignDocument> = {
+      status: CampaignStatus.LIVE,
+      startDate: { $lte: now },
+      endDate: { $gte: now },
+      platforms: { $in: [CampaignPlatform.GOOGLE] },
+    };
+
+    const totalCount = await this.campaignModel.countDocuments(queryObject);
+    this.logger.log(
+      `Found ${totalCount} ongoing campaigns. ${totalCount > 0 ? 'Refreshing metrics...' : ''}`,
+    );
+    if (totalCount === 0) return;
+
+    let page = 0;
+    const limit = 100;
+
+    while (true) {
+      page += 1;
+      const skip = (page - 1) * limit;
+      const pipeline: PipelineStage[] = [
+        {
+          $lookup: {
+            from: 'campaigns',
+            localField: 'campaign',
+            foreignField: '_id',
+            as: 'campaign',
+          },
+        },
+        {
+          $unwind: {
+            path: '$campaign',
+            includeArrayIndex: '0',
+            preserveNullAndEmptyArrays: false,
+          },
+        },
+        {
+          $match: {
+            'campaign.startDate': {
+              $lte: now,
+            },
+            'campaign.endDate': {
+              $gte: now,
+            },
+            processingStatus: 'LAUNCHED',
+          },
+        },
+
+        {
+          $sort: {
+            metricsLastUpdatedAt: 1,
+            _id: 1,
+          },
+        },
+        {
+          $project: {
+            campaignResourceName: 1,
+            _id: 1,
+          },
+        },
+        {
+          $skip: skip,
+        },
+        {
+          $limit: limit,
+        },
+      ];
+
+      const result = await this.googleAdsCampaignModel.aggregate(pipeline);
+
+      const googleCampaigns: { campaignResourceName: string; _id: string }[] =
+        result || [];
+
+      if (googleCampaigns.length === 0) {
+        break;
+      }
+
+      const googleCustomerMap = new Map<
+        string,
+        { _id: string; googleCampaignId: string }[]
+      >();
+
+      const googleCampaignIdToAmplifyId = new Map<string, string>();
+      for (const g of googleCampaigns) {
+        const props = this.utilService.extractIdsFromGoogleResourceName(
+          g.campaignResourceName,
+        );
+        if (!props) continue;
+        googleCampaignIdToAmplifyId.set(props.resourceId, g._id);
+        const group = googleCustomerMap.get(props.customerId) ?? [];
+        group.push({ _id: g._id, googleCampaignId: props.resourceId });
+        googleCustomerMap.set(props.customerId, group);
+      }
+
+      const concurrencyLimit = pLimit(5); // Limit to 5 concurrent requests
+      const customerOps = Array.from(googleCustomerMap.entries()).map(
+        ([customerId, group]) =>
+          concurrencyLimit(async () => {
+            const metricsResponse = await this.getGoogleCampaignBatchMetrics({
+              customerId,
+              campaignIds: group.map((g) => g.googleCampaignId),
+            });
+
+            const results = metricsResponse[0].results;
+
+            const bulkOps = results.map((r) => ({
+              updateOne: {
+                filter: {
+                  _id: googleCampaignIdToAmplifyId.get(r.campaign.id),
+                },
+                update: {
+                  $set: {
+                    metrics: r.metrics,
+                    metricsLastUpdatedAt: new Date(),
+                  },
+                },
+              },
+            }));
+
+            if (bulkOps.length) {
+              await this.googleAdsCampaignModel.bulkWrite(bulkOps, {
+                ordered: false,
+              });
+            }
+          }),
+      );
+
+      await Promise.allSettled(customerOps);
     }
   }
 }

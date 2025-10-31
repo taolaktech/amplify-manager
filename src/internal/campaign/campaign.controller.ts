@@ -64,4 +64,13 @@ export class InternalCampaignController {
       success: true,
     };
   }
+
+  @Get('/metrics/refresh')
+  async refreshAllCampaignMetrics() {
+    await this.internalCampaignService.refreshAllOngoingCampaignMetrics();
+    return {
+      message: 'Campaign metrics refresh initiated successfully',
+      success: true,
+    };
+  }
 }
