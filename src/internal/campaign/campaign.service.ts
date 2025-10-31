@@ -210,6 +210,9 @@ export class InternalCampaignService {
         `Error refreshing ongoing Google campaign metrics: ${error.message}`,
       );
     });
+    this.addUpCampaignMetrics().catch((error) => {
+      this.logger.error(`Error adding up campaign metrics: ${error.message}`);
+    });
   }
 
   private async refreshAllOngoingGoogleCampaignMetrics() {
@@ -344,5 +347,85 @@ export class InternalCampaignService {
 
       await Promise.allSettled(customerOps);
     }
+  }
+
+  private async addUpCampaignMetrics() {
+    this.logger.log('Starting refresh of all campaign metrics...');
+    const now = new Date();
+
+    const query: FilterQuery<CampaignDocument> = {
+      status: CampaignStatus.LIVE,
+      startDate: { $lte: now },
+      endDate: { $gte: now },
+    };
+
+    const limit = pLimit(5); // controls concurrent saves
+    const batchSize = 100; // number of campaigns processed per round
+
+    const cursor = this.campaignModel
+      .find(query)
+      .populate('googleAdsCampaign')
+      // .populate('facebookCampaign')
+      // .populate('instagramCampaign')
+      .cursor();
+
+    let batch: CampaignDocument[] = [];
+
+    for await (const campaignDoc of cursor) {
+      batch.push(campaignDoc);
+
+      if (batch.length >= batchSize) {
+        await this.processCampaignBatch(batch, limit);
+        batch = []; // clear for next round
+      }
+    }
+
+    // handle last batch
+    if (batch.length > 0) {
+      await this.processCampaignBatch(batch, limit);
+    }
+
+    this.logger.log('✅ Completed refresh of all campaign metrics.');
+  }
+
+  private async processCampaignBatch(
+    batch: CampaignDocument[],
+    limit: ReturnType<typeof pLimit>,
+  ) {
+    await Promise.all(
+      batch.map((campaignDoc) =>
+        limit(async () => {
+          const metrics: CampaignDocument['metrics'] = {
+            totalClicks: 0,
+            totalConversionsValue: 0,
+            totalConversions: 0,
+            totalCost: 0,
+            totalImpressions: 0,
+          };
+
+          const googleMetrics = campaignDoc.googleAdsCampaign?.metrics;
+          // const facebookMetrics = campaignDoc.facebookCampaign?.metrics;
+          // const instagramMetrics = campaignDoc.instagramCampaign?.metrics;
+
+          if (googleMetrics) {
+            metrics.totalClicks += Number(googleMetrics.clicks) || 0;
+            metrics.totalConversionsValue +=
+              googleMetrics.conversionsValue || 0;
+            metrics.totalConversions += googleMetrics.conversions || 0;
+            metrics.totalCost +=
+              (Number(googleMetrics.costMicros) || 0) / 1_000_000;
+            metrics.totalImpressions += Number(googleMetrics.impressions) || 0;
+          }
+
+          // Add facebook + instagram logic here later
+
+          campaignDoc.metrics = metrics;
+          campaignDoc.metricsLastUpdatedAt = new Date();
+          await campaignDoc.save();
+        }),
+      ),
+    );
+
+    this.logger.log(`Processed batch of ${batch.length}`);
   }
 }

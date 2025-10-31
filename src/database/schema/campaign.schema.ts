@@ -279,6 +279,13 @@ export class Campaign {
   @Prop({ type: MetricsSchema, default: () => {} })
   metrics: Metrics;
 
+  @ApiProperty({
+    type: Date,
+    description: 'The last date when metrics were updated.',
+  })
+  @Prop({ type: Date })
+  metricsLastUpdatedAt: Date;
+
   /**
    * Populated virtual for the associated Google Ads campaign.
    * This is set when using .populate('googleAdsCampaign').
