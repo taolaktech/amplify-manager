@@ -30,7 +30,7 @@ export type Product = {
   description: string;
   features: string[];
   category: string;
-  imageLink: string;
+  imageLinks: string;
   productLink: string;
   creatives: Creative[];
 };

@@ -86,11 +86,11 @@ export class InternalCampaignService {
     }
 
     if (campaign.platforms.includes(CampaignPlatform.FACEBOOK)) {
-      launchedOnAllPlatforms &&= false;
+      launchedOnAllPlatforms &&= false; // TODO
     }
 
     if (campaign.platforms.includes(CampaignPlatform.INSTAGRAM)) {
-      launchedOnAllPlatforms &&= false;
+      launchedOnAllPlatforms &&= false; // TODO
     }
 
     if (launchedOnAllPlatforms) {
@@ -375,20 +375,20 @@ export class InternalCampaignService {
       batch.push(campaignDoc);
 
       if (batch.length >= batchSize) {
-        await this.processCampaignBatch(batch, limit);
+        await this.processCampaignMetricsBatch(batch, limit);
         batch = []; // clear for next round
       }
     }
 
     // handle last batch
     if (batch.length > 0) {
-      await this.processCampaignBatch(batch, limit);
+      await this.processCampaignMetricsBatch(batch, limit);
     }
 
     this.logger.log('✅ Completed refresh of all campaign metrics.');
   }
 
-  private async processCampaignBatch(
+  private async processCampaignMetricsBatch(
     batch: CampaignDocument[],
     limit: ReturnType<typeof pLimit>,
   ) {
@@ -404,8 +404,8 @@ export class InternalCampaignService {
           };
 
           const googleMetrics = campaignDoc.googleAdsCampaign?.metrics;
-          // const facebookMetrics = campaignDoc.facebookCampaign?.metrics;
-          // const instagramMetrics = campaignDoc.instagramCampaign?.metrics;
+          // const facebookMetrics = campaignDoc.facebookCampaign?.metrics; TODO- populate from the function calling it
+          // const instagramMetrics = campaignDoc.instagramCampaign?.metrics; TODO
 
           if (googleMetrics) {
             metrics.totalClicks += Number(googleMetrics.clicks) || 0;
@@ -417,11 +417,12 @@ export class InternalCampaignService {
             metrics.totalImpressions += Number(googleMetrics.impressions) || 0;
           }
 
-          // Add facebook + instagram logic here later
+          // TODO Add facebook + instagram logic here later
 
-          campaignDoc.metrics = metrics;
-          campaignDoc.metricsLastUpdatedAt = new Date();
-          await campaignDoc.save();
+          await this.campaignModel.findByIdAndUpdate(campaignDoc._id, {
+            metrics,
+            metricsLastUpdatedAt: new Date(),
+          });
         }),
       ),
     );

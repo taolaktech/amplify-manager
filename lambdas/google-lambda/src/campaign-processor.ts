@@ -38,27 +38,25 @@ import {
   formatCampaignName,
 } from './utils.js';
 
-const getAdAssetsFromCampaign = ({
-  campaignInfo,
+const getAdAssetsFromCampaignProduct = ({
+  product,
 }: {
-  campaignInfo: CampaignInfoType;
+  product: CampaignInfoType['products'][0];
 }) => {
   const headlines = [];
   const descriptions = [];
   const finalUrls = [];
 
-  for (const product of campaignInfo.products) {
-    finalUrls.push(product.productLink);
-    for (const creative of product.creatives) {
-      if (creative.channel === 'google') {
-        for (const d of creative.data) {
-          const datum = JSON.parse(d);
-          if (datum.headline) {
-            headlines.push(trimHeadline(datum.headline, 30));
-          }
-          if (datum.description) {
-            descriptions.push(trimDescription(datum.description, 90));
-          }
+  finalUrls.push(product.productLink);
+  for (const creative of product.creatives) {
+    if (creative.channel === 'google') {
+      for (const d of creative.data) {
+        const datum = JSON.parse(d);
+        if (datum.headline) {
+          headlines.push(trimHeadline(datum.headline, 30));
+        }
+        if (datum.description) {
+          descriptions.push(trimDescription(datum.description, 90));
         }
       }
     }
@@ -271,18 +269,21 @@ const handleAdGroupsCreation = async ({
   G_CAMPAIGN_NAME,
   CAMPAIGN_RESOURCE_NAME,
   CUSTOMER_ID,
+  campaignInfo,
 }: {
   G_CAMPAIGN_NAME: string;
   CAMPAIGN_RESOURCE_NAME: string;
   CUSTOMER_ID: string;
+  campaignInfo: CampaignInfoType;
 }) => {
-  const NUMBER_OF_AD_GROUPS = 1;
+  const NUMBER_OF_AD_GROUPS = campaignInfo.products.length;
   const adGroups = [];
   console.log(`\nCreating ${NUMBER_OF_AD_GROUPS} ad-groups...`);
 
   for (let i = 1; i <= NUMBER_OF_AD_GROUPS; i++) {
     console.log(`\ncreating ad-group-${i} for ${G_CAMPAIGN_NAME}...`);
-    const adGroupName = `ad_group_${i}`;
+    const adGroupName =
+      `ad_group_${i}_${campaignInfo.products[i - 1].title}`.slice(0, 100);
     console.log(
       `\nchecking if adgroup ${adGroupName} already exists... getting ad group`,
     );
@@ -317,46 +318,40 @@ const handleKeywordGenAndAdditionToAdGroups = async ({
   campaignInfo,
   CUSTOMER_ID,
   adGroups,
-  SHOPIFY_URL,
 }: {
   campaignInfo: CampaignInfoType;
   businessInfo: BusinessInfoType;
   CUSTOMER_ID: string;
   adGroups: { adGroupName: string; adGroupResourceName: string }[];
-  SHOPIFY_URL: string | undefined;
 }) => {
-  console.log(`\ngetting shopify account from business`);
+  console.log(`\ngetting shopify account from business...`);
 
   const adGroupResourceNames = adGroups.map(
     (adGroup) => adGroup.adGroupResourceName,
   );
 
-  if (!SHOPIFY_URL) {
-    throw new Error(`shopify url not found`);
-  }
-
   console.log('\ngenerating keyword ideas...');
-  const generatedKeywords = await generateKeywordIdeas(
-    {
-      customerId: CUSTOMER_ID,
-      url: SHOPIFY_URL,
-      keywords: [],
-    },
-    { pageSize: 25 },
-  );
-
-  const keywordTexts = generatedKeywords.results.map((result) => result.text);
-
-  const assignments: string[][] = adGroupResourceNames.map(() => []);
-
-  keywordTexts.forEach((keyword, index) => {
-    const groupIndex = index % adGroupResourceNames.length;
-    assignments[groupIndex].push(keyword);
-  });
-
-  console.log('\nadding keywords to ad groups...');
-
   for (const [index, adGroupResourceName] of adGroupResourceNames.entries()) {
+    const generatedKeywords = await generateKeywordIdeas(
+      {
+        customerId: CUSTOMER_ID,
+        url: campaignInfo.products[index].productLink,
+        keywords: [],
+      },
+      { pageSize: 30 },
+    );
+
+    const keywordTexts = generatedKeywords.results.map((result) => result.text);
+
+    const assignments: string[][] = adGroupResourceNames.map(() => []);
+
+    keywordTexts.forEach((keyword, index) => {
+      const groupIndex = index % adGroupResourceNames.length;
+      assignments[groupIndex].push(keyword);
+    });
+
+    console.log('\nadding keywords to ad groups...');
+
     console.log(`\nadding keywords to ${adGroupResourceName}...`);
     await addKeywordsToAdGroup({
       adGroupResourceName,
@@ -384,59 +379,25 @@ const handleAdGroupAdCreation = async ({
   console.log(
     `\ncreating ${NUMBER_OF_AD_GROUP_ADS_PER_ADGROUP} ads per ad group...`,
   );
-  const { headlines, descriptions, finalUrls } = getAdAssetsFromCampaign({
-    campaignInfo,
-  });
-
-  if (headlines.length < NUMBER_OF_AD_GROUP_ADS_PER_ADGROUP * 3) {
-    throw new Error(
-      `Not enough headlines for ad creation, need at least 6, got ${headlines.length}`,
-    );
-  }
-  if (descriptions.length < NUMBER_OF_AD_GROUP_ADS_PER_ADGROUP * 3) {
-    throw new Error(
-      `Not enough descriptions for ad creation, need at least 6, got ${descriptions.length}`,
-    );
-  }
-
-  function getRange(i: number, totalAds: number, totalAssets: number) {
-    /*
-      The function divides totalAssets across totalAds.
-      Each ad gets at least 3 assets.
-      Extra assets (from uneven division) are given to the first few ads.
-      For each ad i, it returns the start (a) and end (b) indexes to slice assets from an array.
-
-      i=1; 0, 3 -headlines[0:3]
-      i=2; 3, 6 -headlines[3:6]
-    */
-    if (i <= 0 || !Number.isInteger(i)) {
-      throw new Error('i must be a positive integer');
-    }
-
-    // Divide equally
-    const baseSize = Math.floor(totalAssets / totalAds);
-    const extra = totalAssets % totalAds; // leftover assets to distribute
-    const minSize = 3; // each ad must have at least 3 headlines // description
-
-    // Calculate size for this ad
-    let size = baseSize + (i <= extra ? 1 : 0);
-    if (size < minSize) size = minSize;
-
-    // Start index = sum of all previous sizes
-    let start = 0;
-    for (let j = 1; j < i; j++) {
-      let prevSize = baseSize + (j <= extra ? 1 : 0);
-      if (prevSize < minSize) prevSize = minSize;
-      start += prevSize;
-    }
-
-    const end = start + size;
-
-    return { a: start, b: end };
-  }
 
   const adGroupsToSave = [];
-  for (const adGroup of adGroups) {
+  for (let i = 0; i < adGroups.length; i++) {
+    const { headlines, descriptions, finalUrls } =
+      getAdAssetsFromCampaignProduct({
+        product: campaignInfo.products[i],
+      });
+
+    if (headlines.length < NUMBER_OF_AD_GROUP_ADS_PER_ADGROUP * 3) {
+      throw new Error(
+        `Not enough headlines for ad creation, need at least 6, got ${headlines.length}`,
+      );
+    }
+    if (descriptions.length < NUMBER_OF_AD_GROUP_ADS_PER_ADGROUP * 3) {
+      throw new Error(
+        `Not enough descriptions for ad creation, need at least 6, got ${descriptions.length}`,
+      );
+    }
+    const adGroup = adGroups[i];
     const adGroupInfo = {
       resourceName: adGroup.adGroupResourceName,
       name: adGroup.adGroupName,
@@ -447,23 +408,13 @@ const handleAdGroupAdCreation = async ({
     // 3 headlines and 3 descriptions per adGroupAd
     for (let i = 1; i <= NUMBER_OF_AD_GROUP_ADS_PER_ADGROUP; i++) {
       const adGroupAdName = `${adGroup.adGroupName}_adGroupAd_${i}`;
-      const { a: headlineStart, b: headlineEnd } = getRange(
-        i,
-        NUMBER_OF_AD_GROUP_ADS_PER_ADGROUP,
-        headlines.length,
-      );
-      const { a: descripionStart, b: descriptionEnd } = getRange(
-        i,
-        NUMBER_OF_AD_GROUP_ADS_PER_ADGROUP,
-        descriptions.length,
-      );
       console.log(`\ncreating adGroupAd ${adGroupAdName}...`);
       const adGroupAdRes = await createAdGroupAd({
         adGroupAdName,
         adGroupResourceName: adGroup.adGroupResourceName,
-        finalUrls: SHOPIFY_URL ? [SHOPIFY_URL, ...finalUrls] : [...finalUrls],
-        headlines: headlines.slice(headlineStart, headlineEnd),
-        descriptions: descriptions.slice(descripionStart, descriptionEnd),
+        finalUrls: SHOPIFY_URL ? [...finalUrls, SHOPIFY_URL] : [...finalUrls],
+        headlines: headlines.slice((i - 1) * 3, i * 3),
+        descriptions: descriptions.slice((i - 1) * 3, i * 3),
       });
       const adGroupAdResourceName =
         extractResourceNameFromCreateResponse(adGroupAdRes);
@@ -604,6 +555,7 @@ export const processCampaign = async (campaignId: string) => {
     G_CAMPAIGN_NAME,
     CAMPAIGN_RESOURCE_NAME,
     CUSTOMER_ID,
+    campaignInfo,
   });
   await saveProcessingStatus(
     campaignInfo._id,
@@ -633,7 +585,6 @@ export const processCampaign = async (campaignId: string) => {
     businessInfo,
     CUSTOMER_ID,
     adGroups,
-    SHOPIFY_URL,
   });
   await saveProcessingStatus(
     campaignInfo._id,
