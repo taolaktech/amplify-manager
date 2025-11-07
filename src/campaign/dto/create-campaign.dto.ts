@@ -17,7 +17,7 @@ import {
 } from 'class-validator';
 import { Type } from 'class-transformer';
 import { CampaignPlatform, CampaignType } from 'src/enums/campaign';
-import { IsAtLeastTomorrowConstraint } from './is-atleast-tommorrow.constraint';
+import { IsAtLeastTodayConstraint } from './is-atleast-tommorrow.constraint';
 import { IsAfterDate } from './is-after-date.constraint';
 
 enum CreativeChannel {
@@ -214,7 +214,7 @@ export class CreateCampaignDto {
     description: 'The start date and time for the campaign in ISO 8601 format.',
     example: '2024-10-01T09:00:00Z',
   })
-  @Validate(IsAtLeastTomorrowConstraint, {
+  @Validate(IsAtLeastTodayConstraint, {
     message: 'start date must be at least tomorrow',
   })
   @IsDateString({}, { message: 'A valid start date must be provided.' })

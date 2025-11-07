@@ -4,20 +4,14 @@ import {
 } from 'class-validator';
 
 @ValidatorConstraint({ name: 'isAtLeastTomorrow', async: false })
-export class IsAtLeastTomorrowConstraint
-  implements ValidatorConstraintInterface
-{
+export class IsAtLeastTodayConstraint implements ValidatorConstraintInterface {
   validate(dateString: string) {
     const date = new Date(dateString);
     if (isNaN(date.getTime())) return false;
 
     // Get "tomorrow" at midnight
     const now = new Date();
-    const tomorrow = new Date(
-      now.getFullYear(),
-      now.getMonth(),
-      now.getDate() + 1,
-    );
+    const tomorrow = new Date(now.getFullYear(), now.getMonth(), now.getDate());
 
     return date.getTime() >= tomorrow.getTime();
   }

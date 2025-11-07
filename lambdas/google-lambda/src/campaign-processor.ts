@@ -38,6 +38,31 @@ import {
   formatCampaignName,
 } from './utils.js';
 
+const getGoogleAdsCampaignDates = (
+  startDt: string,
+  endDt: string,
+): { startDate?: string; endDate: string } => {
+  const today = new Date();
+  const tomorrow = new Date(
+    today.getFullYear(),
+    today.getMonth(),
+    today.getDate() + 1,
+  );
+
+  let startDate: string | undefined = undefined;
+  const endDate = new Date(endDt).toISOString().split('T')[0];
+
+  if (startDt) {
+    const start = new Date(startDt);
+
+    // Only set startDate if it is tomorrow or later
+    if (start >= tomorrow) {
+      startDate = start.toISOString().split('T')[0]; // format YYYY-MM-DD
+    }
+  }
+
+  return { startDate, endDate };
+};
 const getAdAssetsFromCampaignProduct = ({
   product,
 }: {
@@ -71,11 +96,11 @@ const calculateDailyBudget = ({
   endDate,
 }: {
   totalBudget: number;
-  startDate: string;
-  endDate: string;
+  startDate: Date;
+  endDate: Date;
 }) => {
-  const start = new Date(startDate);
-  const end = new Date(endDate);
+  const start = startDate; // startDate may be undefined if same day campaign
+  const end = endDate;
 
   if (isNaN(start.getTime()) || isNaN(end.getTime())) {
     throw new Error('Invalid date string');
@@ -141,7 +166,7 @@ const handleCustomerAndConversionActionCreation = async ({
     tagSnippets?.[0].eventSnippet,
   );
 
-  console.log('saving customer and conversion action details...');
+  console.log('\nsaving customer and conversion action details...');
   await saveGoogleIntegrationsInfo(BUSINESS_ID, {
     customerId: customerId,
     customerName,
@@ -153,7 +178,7 @@ const handleCustomerAndConversionActionCreation = async ({
     tagSnippets,
   });
 
-  console.log('customer creation successful...');
+  console.log('\ncustomer creation successful...');
   return { customerId };
 };
 
@@ -166,8 +191,12 @@ const handleCampaignCreation = async ({
   campaignInfo: CampaignInfoType;
   CUSTOMER_ID: string;
 }) => {
-  const START_DATE = campaignInfo.startDate;
-  const END_DATE = campaignInfo.endDate;
+  const { startDate, endDate } = getGoogleAdsCampaignDates(
+    campaignInfo.startDate,
+    campaignInfo.endDate,
+  );
+
+  console.log('\nCampaign Dates...', { startDate, endDate });
 
   const G_CAMPAIGN_NAME = formatCampaignName(
     `${campaignInfo.name ?? ''}_${campaignInfo._id}`,
@@ -177,17 +206,25 @@ const handleCampaignCreation = async ({
 
   const CAMPAIGN_BUDGET_AMOUNT = calculateDailyBudget({
     totalBudget: googleAdsBudgetAmount,
-    startDate: START_DATE,
-    endDate: END_DATE,
+    startDate: startDate ? new Date(startDate) : new Date(),
+    endDate: new Date(endDate),
   });
 
+  console.log('\nDaily budget: ', `$_${CAMPAIGN_BUDGET_AMOUNT}`);
   // target roas
   const targetRoasRes = await getTargetRoas(businessInfo._id, {
     budget: googleAdsBudgetAmount,
   });
+
   const TARGET_ROAS = Math.min(+targetRoasRes.targetRoas['googleSearch'], 1000);
   const CPC_BID_CEILING = Math.ceil((CAMPAIGN_BUDGET_AMOUNT * 0.8) / 10);
   const CPC_BID_FLOOR = Math.ceil((CAMPAIGN_BUDGET_AMOUNT * 0.2) / 10);
+
+  console.log('\nBidding Strategy Info', {
+    TARGET_ROAS,
+    CPC_BID_CEILING,
+    CPC_BID_FLOOR,
+  });
 
   console.log('\nchecking if campaign exists on account...');
   let campaignRes = await getCampaignByNameOrId({
@@ -245,8 +282,8 @@ const handleCampaignCreation = async ({
       campaignName: G_CAMPAIGN_NAME,
       budgetResourceName,
       biddingStrategy: biddingStrategyResourceName,
-      startDate: START_DATE,
-      endDate: END_DATE,
+      startDate: startDate,
+      endDate: endDate,
     });
 
     campaignResourceName = extractResourceNameFromCreateResponse(campaignRes);
@@ -332,15 +369,19 @@ const handleKeywordGenAndAdditionToAdGroups = async ({
 
   console.log('\ngenerating keyword ideas...');
   for (const [index, adGroupResourceName] of adGroupResourceNames.entries()) {
-    const generatedKeywords = await generateKeywordIdeas(
-      {
-        customerId: CUSTOMER_ID,
-        url: campaignInfo.products[index].productLink,
-        keywords: [],
-      },
-      { pageSize: 30 },
-    );
+    const keywordGenPayload = {
+      customerId: CUSTOMER_ID,
+      url: campaignInfo.products[index].productLink,
+      keywords: [],
+    };
+    console.log(`keyword gen body`, keywordGenPayload);
+    const generatedKeywords = await generateKeywordIdeas(keywordGenPayload, {
+      pageSize: 30,
+    });
 
+    console.log(`\nGenerated keywords for ${adGroupResourceName}`, {
+      generatedKeywords: JSON.stringify(generatedKeywords),
+    });
     const keywordTexts = generatedKeywords.results.map((result) => result.text);
 
     const assignments: string[][] = adGroupResourceNames.map(() => []);
@@ -565,18 +606,6 @@ export const processCampaign = async (campaignId: string) => {
   //save processing status
   await saveProcessingStatus(
     campaignInfo._id,
-    GoogleAdsProcessingStatus.CREATING_AD_GROUP_ADS,
-  );
-  console.log('\ncreating adGroupAd for each adGroup...');
-  await handleAdGroupAdCreation({ adGroups, SHOPIFY_URL, campaignInfo });
-  await saveProcessingStatus(
-    campaignInfo._id,
-    GoogleAdsProcessingStatus.AD_GROUP_ADS_CREATED,
-  );
-
-  //save processing status
-  await saveProcessingStatus(
-    campaignInfo._id,
     GoogleAdsProcessingStatus.GENERATING_KEYWORDS,
   );
   console.log('\ngenerating keywords and adding them to adgroups...');
@@ -594,6 +623,18 @@ export const processCampaign = async (campaignId: string) => {
   //save processing status
   await saveProcessingStatus(
     campaignInfo._id,
+    GoogleAdsProcessingStatus.CREATING_AD_GROUP_ADS,
+  );
+  console.log('\ncreating adGroupAd for each adGroup...');
+  await handleAdGroupAdCreation({ adGroups, SHOPIFY_URL, campaignInfo });
+  await saveProcessingStatus(
+    campaignInfo._id,
+    GoogleAdsProcessingStatus.AD_GROUP_ADS_CREATED,
+  );
+
+  //save processing status
+  await saveProcessingStatus(
+    campaignInfo._id,
     GoogleAdsProcessingStatus.ADDING_GEO_TARGETING,
   );
 
@@ -603,7 +644,7 @@ export const processCampaign = async (campaignId: string) => {
     campaignResourceName: CAMPAIGN_RESOURCE_NAME,
   });
 
-  console.log(`\nenabling(launching) campaign on google....`);
+  console.log(`\nenabling(activating) campaign on google....`);
   await updateGoogleCampaignStatus({
     campaignResourceName: CAMPAIGN_RESOURCE_NAME,
     status: 'ENABLED',
