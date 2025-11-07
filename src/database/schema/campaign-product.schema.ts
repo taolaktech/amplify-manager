@@ -3,7 +3,7 @@
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
 import { HydratedDocument, Types } from 'mongoose';
 
-export type CampaignProductDocument = HydratedDocument<CampaignProduct>;
+export type CampaignProductDoc = HydratedDocument<CampaignProduct>;
 
 @Schema({ _id: false })
 class Metrics {
@@ -30,17 +30,17 @@ export class CampaignProduct {
   @Prop({ type: Types.ObjectId, ref: 'campaigns', required: true })
   campaignId: Types.ObjectId;
 
-  @Prop({ type: Types.ObjectId, required: true })
-  productId: Types.ObjectId;
-
   @Prop({ required: true })
-  googleAdGroupResourceName: string;
+  productId: string;
+
+  @Prop()
+  googleAdGroupResourceName?: string;
 
   @Prop({ type: MetricsSchema, default: () => {} })
   googleMetrics?: Metrics;
 
   @Prop()
-  googleMetricsLastUpdatedAt: Date;
+  googleMetricsLastUpdatedAt?: Date;
 }
 
 export const CampaignProductSchema =

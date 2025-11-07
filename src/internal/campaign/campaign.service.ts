@@ -6,7 +6,11 @@ import {
 } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { FilterQuery, Model, PipelineStage } from 'mongoose';
-import { CampaignDocument, GoogleAdsCampaignDoc } from 'src/database/schema';
+import {
+  CampaignDocument,
+  CampaignProductDoc,
+  GoogleAdsCampaignDoc,
+} from 'src/database/schema';
 import { N8nWebhookPayloadDto, SaveGoogleAdsCampaignDataDto } from './dto';
 import {
   CampaignPlatform,
@@ -26,6 +30,8 @@ export class InternalCampaignService {
 
   constructor(
     @InjectModel('campaigns') private campaignModel: Model<CampaignDocument>,
+    @InjectModel('campaign-products')
+    private campaignProductModel: Model<CampaignProductDoc>,
     @InjectModel('google-ads-campaigns')
     private googleAdsCampaignModel: Model<GoogleAdsCampaignDoc>,
     private config: AppConfigService,
@@ -64,6 +70,25 @@ export class InternalCampaignService {
       googleAdsCampaign.processingStatus === GoogleAdsProcessingStatus.LAUNCHED
     ) {
       await this.updateCampaignLaunchState(campaign);
+    }
+
+    if (dto.adGroups && dto.adGroups.length > 0) {
+      const ops = dto.adGroups.map((adG) => ({
+        updateOne: {
+          filter: {
+            campaignId: campaign._id,
+            productId: adG.productId,
+          },
+          update: {
+            $set: {
+              googleAdGroupResourceName: adG.resourceName,
+            },
+          },
+          upsert: true,
+        },
+      }));
+
+      await this.campaignProductModel.bulkWrite(ops);
     }
 
     return googleAdsCampaign;

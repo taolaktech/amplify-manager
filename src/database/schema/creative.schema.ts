@@ -10,6 +10,9 @@ export class CreativeItem {
 
   @Prop({ required: true })
   productUrl: string;
+
+  @Prop()
+  caption: string;
 }
 
 export const CreativeItemSchema = SchemaFactory.createForClass(CreativeItem);
