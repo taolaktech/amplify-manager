@@ -60,7 +60,7 @@ export class Location {
 }
 export const LocationSchema = SchemaFactory.createForClass(Location);
 
-@Schema({ timestamps: false })
+@Schema({ _id: false, timestamps: false })
 export class Product {
   @ApiProperty({
     example: '1234567890',

@@ -66,8 +66,9 @@ export class InternalCampaignController {
   }
 
   @Get('/metrics/refresh')
-  async refreshAllCampaignMetrics() {
-    await this.internalCampaignService.refreshAllOngoingCampaignMetrics();
+  refreshAllCampaignMetrics() {
+    this.internalCampaignService.refreshAllOngoingCampaignMetrics();
+
     return {
       message: 'Campaign metrics refresh initiated successfully',
       success: true,

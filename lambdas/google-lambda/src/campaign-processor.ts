@@ -319,8 +319,10 @@ const handleAdGroupsCreation = async ({
 
   for (let i = 1; i <= NUMBER_OF_AD_GROUPS; i++) {
     console.log(`\ncreating ad-group-${i} for ${G_CAMPAIGN_NAME}...`);
-    const adGroupName =
-      `ad_group_${i}_${campaignInfo.products[i - 1].title}`.slice(0, 100);
+    const adGroupName = `${i}_${campaignInfo.products[i - 1].title}`.slice(
+      0,
+      100,
+    );
     console.log(
       `\nchecking if adgroup ${adGroupName} already exists... getting ad group`,
     );
@@ -379,10 +381,14 @@ const handleKeywordGenAndAdditionToAdGroups = async ({
       pageSize: 30,
     });
 
-    console.log(`\nGenerated keywords for ${adGroupResourceName}`, {
-      generatedKeywords: JSON.stringify(generatedKeywords),
-    });
-    const keywordTexts = generatedKeywords.results.map((result) => result.text);
+    console.log(`\nGenerated keywords for ${adGroupResourceName}`);
+    const keywordTexts = generatedKeywords.results?.map(
+      (result) => result.text,
+    );
+
+    if (keywordTexts.length === 0) {
+      throw new Error('No keywords found while generating keywords');
+    }
 
     const assignments: string[][] = adGroupResourceNames.map(() => []);
 
@@ -442,9 +448,10 @@ const handleAdGroupAdCreation = async ({
     const adGroupInfo = {
       resourceName: adGroup.adGroupResourceName,
       name: adGroup.adGroupName,
+      productId: campaignInfo.products[i].shopifyId,
       status: 'ENABLED',
       type: 'SEARCH_STANDARD',
-      ads: [] as { resourceName?: string; name?: string; status?: string }[],
+      ads: [] as { resourceName: string; name: string; status?: string }[],
     };
     // 3 headlines and 3 descriptions per adGroupAd
     for (let i = 1; i <= NUMBER_OF_AD_GROUP_ADS_PER_ADGROUP; i++) {

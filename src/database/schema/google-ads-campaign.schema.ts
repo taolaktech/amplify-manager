@@ -27,6 +27,9 @@ class AdGroup {
   name: string;
 
   @Prop()
+  productId: string;
+
+  @Prop()
   type: string;
 
   @Prop()
