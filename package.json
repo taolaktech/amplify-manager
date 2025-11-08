@@ -21,9 +21,9 @@
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.850.0",
+    "@aws-sdk/client-sqs": "^3.855.0",
     "@aws-sdk/lib-storage": "^3.850.0",
     "@aws-sdk/s3-request-presigner": "^3.850.0",
-    "@aws-sdk/client-sqs": "^3.855.0",
     "@nestjs/common": "^11.0.1",
     "@nestjs/config": "^4.0.1",
     "@nestjs/core": "^11.0.1",
@@ -41,6 +41,7 @@
     "luxon": "^3.5.0",
     "mongoose": "^8.13.0",
     "nodemailer": "^6.10.0",
+    "p-limit": "^7.2.0",
     "reflect-metadata": "^0.2.2",
     "rxjs": "^7.8.1",
     "zod": "^3.24.2"

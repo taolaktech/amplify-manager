@@ -64,4 +64,14 @@ export class InternalCampaignController {
       success: true,
     };
   }
+
+  @Get('/metrics/refresh')
+  refreshAllCampaignMetrics() {
+    this.internalCampaignService.refreshAllOngoingCampaignMetrics();
+
+    return {
+      message: 'Campaign metrics refresh initiated successfully',
+      success: true,
+    };
+  }
 }

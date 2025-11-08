@@ -209,7 +209,7 @@ export const createSearchCampaign = async ({
   campaignName: string;
   budgetResourceName: string;
   biddingStrategy: string;
-  startDate: string;
+  startDate?: string;
   endDate: string;
 }) => {
   try {

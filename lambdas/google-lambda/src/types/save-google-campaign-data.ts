@@ -1,12 +1,13 @@
 type AdGroupAd = {
-  resourceName?: string;
-  name?: string;
+  resourceName: string;
+  name: string;
   status?: string;
 };
 
 type AdGroup = {
-  resourceName?: string;
-  name?: string;
+  resourceName: string;
+  productId: string;
+  name: string;
   status?: string;
   type?: string;
   ads?: AdGroupAd[];

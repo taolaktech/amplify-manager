@@ -12,6 +12,7 @@ import { FilterQuery, Model, SortOrder, Types } from 'mongoose';
 import {
   BusinessDoc,
   CampaignDocument,
+  CampaignProductDoc,
   CampaignTopUpRequestDoc,
   CreativeDoc,
   GoogleAdsCampaignDoc,
@@ -30,7 +31,6 @@ import {
 import { AppConfigService } from 'src/config/config.service';
 import axios, { AxiosError } from 'axios';
 import { UtilsService } from 'src/utils/utils.service';
-import { GetGoogleCampaignMetrics } from './types/google-campaign-metrics-resp';
 import {
   GenerateGoogleCreativesDto,
   GenerateMediaCreativesDto,
@@ -88,6 +88,8 @@ export class CampaignService {
 
   constructor(
     @InjectModel('campaigns') private campaignModel: Model<CampaignDocument>,
+    @InjectModel('campaign-products')
+    private campaignProducts: Model<CampaignProductDoc>,
     @InjectModel('google-ads-campaigns')
     private googleAdsCampaignModel: Model<GoogleAdsCampaignDoc>,
     @InjectModel('business') private businessModel: Model<BusinessDoc>,
@@ -192,6 +194,12 @@ export class CampaignService {
       CampaignPlatform.INSTAGRAM,
     );
 
+    /**
+     * @description- helper function to check if creative generations is necessary for a product. Creative generation
+     *  may have already been initiated from the front end
+     * @param creatives
+     * @returns
+     */
     const checkChannelsIfCreativeGenNeeded = (
       creatives: CampaignDocument['products'][0]['creatives'],
     ) => {
@@ -217,12 +225,38 @@ export class CampaignService {
       };
     };
 
+    /**
+     * @description. Helper Function This ties every creative set generated. Precaution for frontend creative generation
+     * @param creatives
+     * @returns
+     */
+    const tieEveryCreativeSetIdToCampaign = async (
+      campaignId: string,
+      creatives: CampaignDocument['products'][0]['creatives'],
+    ) => {
+      const updatePromises = creatives.map(async (creative) => {
+        if (creative.id) {
+          return await this.creativeModel.findOneAndUpdate(
+            { creativeSetId: creative.id },
+            { campaignId },
+          );
+        }
+      });
+      await Promise.all(updatePromises);
+    };
+
     /* begin loop */
     for (let i = 0; i < campaignDoc.products.length; i++) {
       const product = campaignDoc.products[i];
       if (!product.creatives) {
         campaignDoc.products[i].creatives = [];
       }
+
+      await tieEveryCreativeSetIdToCampaign(
+        campaignDoc._id.toString(),
+        product.creatives,
+      );
+
       const {
         googleCreativesPresent,
         instagramCreativesPresent,
@@ -412,42 +446,6 @@ export class CampaignService {
     }
   }
 
-  private async getGoogleCampaignMetrics(campaignResourceName: string) {
-    try {
-      const resourceComponents =
-        this.utilsService.extractIdsFromGoogleResourceName(
-          campaignResourceName,
-        );
-
-      if (!resourceComponents) {
-        throw new BadRequestException('Invalid Google Campaign Resource Name');
-      }
-
-      const { customerId, resourceId: campaignId } = resourceComponents;
-
-      const url = `${this.config.get('INTEGRATION_API_URL')}/api/google-ads/campaigns/get-metrics`;
-
-      const res = await axios.post<GetGoogleCampaignMetrics>(
-        url,
-        {
-          customerId,
-          campaignId,
-        },
-        {
-          headers: { 'x-api-key': this.config.get('INTEGRATION_API_KEY') },
-        },
-      );
-
-      return res.data;
-    } catch (error) {
-      this.logger.error(
-        `::: Unable to fetch google campaign metrics, campaignResourceName- ${campaignResourceName}- ${error.message} :::`,
-      );
-      throw new InternalServerErrorException(
-        'Unable to fetch google campaign metrics',
-      );
-    }
-  }
   /**
     @description- this function checks if all creatives are present for all platforms and creatives are present for each platform. If platform not included in campaign, all{{platform}}Creatives returns Undefined. just check the return statement
   */
@@ -581,6 +579,9 @@ export class CampaignService {
           googleCampaign &&
           googleCampaign.processingStatus === GoogleAdsProcessingStatus.LAUNCHED
         ) {
+          this.logger.debug(
+            `campaign with id ${campaignDoc._id.toString()} already launched on google`,
+          );
           return;
         }
       }
@@ -662,6 +663,8 @@ export class CampaignService {
       }
       await newCampaign.save();
 
+      await this.createCampaignProducts(newCampaign);
+
       return newCampaign;
     } catch (error) {
       this.logger.error(`Error creating campaign: ${error.message}`);
@@ -672,6 +675,21 @@ export class CampaignService {
         `Error creating campaign: ${error.message}`,
       );
     }
+  }
+
+  private async createCampaignProducts(campaign: CampaignDocument) {
+    const campaignProductsToSave = campaign.products.map((product) => ({
+      insertOne: {
+        document: {
+          productId: product.shopifyId,
+          campaignId: campaign._id,
+        },
+      },
+    }));
+
+    if (!campaignProductsToSave.length) return;
+
+    await this.campaignProducts.bulkWrite(campaignProductsToSave);
   }
 
   async findOne(id: string): Promise<CampaignDocument> {
@@ -726,94 +744,6 @@ export class CampaignService {
     }
   }
 
-  private async calculateMetricsForCampaign(campaignDoc: CampaignDocument) {
-    // populate data from necessary collections
-    const campaignMetrics: CampaignDocument['metrics'] = {
-      totalClicks: 0,
-      totalConversionsValue: 0,
-      totalConversions: 0,
-      totalCost: 0,
-      totalImpressions: 0,
-    };
-    const staleTimeInMs = 2 * 60 * 60 * 1000; // 2 hours
-    await campaignDoc.populate('googleAdsCampaign');
-    const metricsLastUpdatedAt =
-      campaignDoc.googleAdsCampaign?.metricsLastUpdatedAt;
-
-    let googleCampaignMetrics = campaignDoc.googleAdsCampaign?.metrics;
-    // let facebookCampaignMetrics = campaignDoc.facebookCampaign?.metrics;
-    // let instagramCampaignMetrics = campaignDoc.instagramCampaign?.metrics;
-    const now = new Date();
-    // metrics stale when campaign has never been updated or last update was more than 2 hours ago
-    const isGoogleMetricsStale =
-      !metricsLastUpdatedAt ||
-      now.getTime() - metricsLastUpdatedAt.getTime() > staleTimeInMs;
-
-    // update google metrics if google campaign exists and metrics are stale
-    if (
-      campaignDoc.googleAdsCampaign?.campaignResourceName &&
-      isGoogleMetricsStale
-    ) {
-      this.logger.log(
-        `google metrics are stale for campaign ${campaignDoc._id.toString()}. Retrieving fresh metrics.`,
-      );
-      const metricsResult = await this.getGoogleCampaignMetrics(
-        campaignDoc.googleAdsCampaign.campaignResourceName,
-      );
-      googleCampaignMetrics = metricsResult.results[0].metrics;
-      if (metricsResult.results.length && googleCampaignMetrics) {
-        await this.googleAdsCampaignModel.findOneAndUpdate(
-          { campaign: campaignDoc._id },
-          {
-            $set: {
-              metrics: googleCampaignMetrics,
-              metricsLastUpdatedAt: new Date(),
-            },
-          },
-          { new: true },
-        );
-      }
-    }
-
-    if (googleCampaignMetrics) {
-      campaignMetrics.totalClicks += Number(googleCampaignMetrics.clicks);
-      campaignMetrics.totalConversionsValue +=
-        googleCampaignMetrics.conversionsValue;
-      campaignMetrics.totalConversions += googleCampaignMetrics.conversions;
-      campaignMetrics.totalCost +=
-        Number(googleCampaignMetrics.costMicros) / 1_000_000;
-      campaignMetrics.totalImpressions += Number(
-        googleCampaignMetrics.impressions,
-      );
-    }
-    // if (facebookCampaignMetrics) {
-    //   campaignMetrics.totalClicks += Number(facebookCampaignMetrics.clicks);
-    //   campaignMetrics.totalConversionsValue +=
-    //     facebookCampaignMetrics.conversionsValue;
-    //   campaignMetrics.totalConversions += facebookCampaignMetrics.conversions;
-    //   campaignMetrics.totalCost +=
-    //     Number(facebookCampaignMetrics.costMicros) / 1_000_000;
-    //   campaignMetrics.totalImpressions += Number(
-    //     facebookCampaignMetrics.impressions,
-    //   );
-    // }
-
-    // if (instagramCampaignMetrics) {
-    //   campaignMetrics.totalClicks += Number(facebookCampaignMetrics.clicks);
-    //   campaignMetrics.totalConversionsValue +=
-    //     facebookCampaignMetrics.conversionsValue;
-    //   campaignMetrics.totalConversions += facebookCampaignMetrics.conversions;
-    //   campaignMetrics.totalCost +=
-    //     Number(facebookCampaignMetrics.costMicros) / 1_000_000;
-    //   campaignMetrics.totalImpressions += Number(
-    //     facebookCampaignMetrics.impressions,
-    //   );
-    // }
-
-    campaignDoc.metrics = campaignMetrics;
-    await campaignDoc.save();
-  }
-
   async findAll(listCampaignsDto: ListCampaignsDto, userId: string) {
     const { page, perPage, status, type, platforms, sortBy } = listCampaignsDto;
 
@@ -849,11 +779,6 @@ export class CampaignService {
         .limit(perPage),
       this.campaignModel.countDocuments(filter).exec(),
     ]);
-
-    // retrieve metrics for all google campaigns in the list
-    for (let i = 0; i < campaigns.length; i++) {
-      await this.calculateMetricsForCampaign(campaigns[i]);
-    }
 
     // 5. Construct the paginated response
     const pagination = this.utilsService.getPaginationMeta({

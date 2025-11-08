@@ -4,6 +4,7 @@ import {
   IsArray,
   IsBoolean,
   IsEnum,
+  IsNotEmpty,
   IsNumber,
   IsOptional,
   IsString,
@@ -30,24 +31,29 @@ class AdGroupAd {
 
 class AdGroup {
   @ApiProperty()
-  @IsOptional()
+  @IsNotEmpty()
   @IsString()
-  resourceName?: string;
+  resourceName: string;
 
   @ApiProperty()
-  @IsOptional()
+  @IsNotEmpty()
   @IsString()
   name: string;
 
   @ApiProperty()
-  @IsOptional()
+  @IsNotEmpty()
   @IsString()
-  status: string;
+  productId: string;
 
   @ApiProperty()
   @IsOptional()
   @IsString()
-  type: string;
+  status?: string;
+
+  @ApiProperty()
+  @IsOptional()
+  @IsString()
+  type?: string;
 
   @ApiProperty({ type: [AdGroupAd], required: false })
   @IsOptional()
