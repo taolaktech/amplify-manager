@@ -1,11 +1,7 @@
 import { ApiProperty } from '@nestjs/swagger';
 import { IsEnum, IsInt, IsOptional, IsString, Max, Min } from 'class-validator';
 import { Type, Transform } from 'class-transformer';
-import {
-  CampaignStatus,
-  CampaignType,
-  CampaignPlatform,
-} from 'src/enums/campaign';
+import { CampaignStatus, CampaignPlatform } from 'src/enums/campaign';
 
 export class ListCampaignsDto {
   @ApiProperty({
@@ -43,12 +39,11 @@ export class ListCampaignsDto {
 
   @ApiProperty({
     description: 'Filter campaigns by type.',
-    enum: CampaignType,
     required: false,
   })
   @IsOptional()
-  @IsEnum(CampaignType)
-  type?: CampaignType;
+  @IsString()
+  type?: string;
 
   @ApiProperty({
     description: 'Filter campaigns by one or more platforms.',

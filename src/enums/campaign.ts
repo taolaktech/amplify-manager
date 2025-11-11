@@ -1,16 +1,3 @@
-export enum CampaignType {
-  PRODUCT_LAUNCH = 'Product Launch',
-  FLASH_SALE = 'Flash Sale / Limited Time',
-  ABANDONED_CART = 'Abandoned Cart Recovery',
-  UPSELL_CROSS_SELL = 'Upsell / Cross-sell',
-  SEASONAL = 'Seasonal Campaigns',
-  FREE_SHIPPING = 'Free Shipping Promo',
-  CUSTOMER_REACTIVATION = 'Customer Reactivation',
-  BESTSELLER_BOOST = 'Bestseller Boost',
-  HIGH_ROAS_BOOSTER = 'High ROAS Booster',
-  SLOW_MOVER_PUSH = 'Slow-Mover Inventory Push',
-}
-
 export enum CampaignStatus {
   DRAFT = 'DRAFT',
   ACTIVE = 'ACTIVE',
@@ -46,6 +33,5 @@ export enum GoogleAdsProcessingStatus {
   ADDING_GEO_TARGETING = 'GEO_TARGETING_ADDED',
   LAUNCHING = 'LAUNCHING',
   LAUNCHED = 'LAUNCHED',
-  ACTIVE = 'ACTIVE',
   FAILED = 'FAILED',
 }

@@ -12,7 +12,19 @@ export class CreativeItem {
   productUrl: string;
 
   @Prop()
-  caption: string;
+  caption?: string;
+
+  @Prop()
+  title?: string;
+
+  @Prop()
+  bodyText?: string;
+
+  @Prop()
+  description?: string;
+
+  @Prop()
+  url?: string;
 }
 
 export const CreativeItemSchema = SchemaFactory.createForClass(CreativeItem);

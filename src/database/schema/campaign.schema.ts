@@ -2,11 +2,7 @@
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
 import { ApiProperty } from '@nestjs/swagger';
 import { HydratedDocument, Types } from 'mongoose';
-import {
-  CampaignStatus,
-  CampaignType,
-  CampaignPlatform,
-} from '../../enums/campaign';
+import { CampaignStatus, CampaignPlatform } from '../../enums/campaign';
 import { GoogleAdsCampaign } from './google-ads-campaign.schema';
 
 export type CampaignDocument = HydratedDocument<Campaign>;
@@ -204,12 +200,11 @@ export class Campaign {
   name: string;
 
   @ApiProperty({
-    enum: CampaignType,
-    example: CampaignType.PRODUCT_LAUNCH,
+    example: 'PRODUCT LAUNCH',
     description: 'The type of campaign.',
   })
-  @Prop({ type: String, enum: CampaignType, required: true })
-  type: CampaignType;
+  @Prop({ type: String, required: true })
+  type: string;
 
   @ApiProperty({ example: '#3b5998', description: 'Primary campaign color.' })
   @Prop()

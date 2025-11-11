@@ -9,6 +9,7 @@ import { FilterQuery, Model, PipelineStage } from 'mongoose';
 import {
   CampaignDocument,
   CampaignProductDoc,
+  CreativeDoc,
   GoogleAdsCampaignDoc,
 } from 'src/database/schema';
 import { N8nWebhookPayloadDto, SaveGoogleAdsCampaignDataDto } from './dto';
@@ -34,6 +35,7 @@ export class InternalCampaignService {
     private campaignProductModel: Model<CampaignProductDoc>,
     @InjectModel('google-ads-campaigns')
     private googleAdsCampaignModel: Model<GoogleAdsCampaignDoc>,
+    @InjectModel('creatives') private creativeModel: Model<CreativeDoc>,
     private config: AppConfigService,
     private campaignService: CampaignService,
     private utilService: UtilsService,
@@ -125,19 +127,42 @@ export class InternalCampaignService {
   }
 
   async campaignCreativesWebhook(payload: N8nWebhookPayloadDto) {
-    const { campaignId, status, creativeSetId, creatives } = payload;
+    const { status, creativeSetId } = payload;
 
     if (status !== 'completed') {
       this.logger.warn(
-        `status ${status} from n8n, campaignId: ${campaignId}, creativeSetId: ${creativeSetId}`,
+        `status ${status} from n8n, creativeSetId: ${creativeSetId}`,
       );
       return;
     }
+
+    const creativeSet = await this.creativeModel.findOne({ creativeSetId });
+
+    if (!creativeSet) {
+      throw new NotFoundException(
+        `creativeSet with creativeSetId ${creativeSetId} not found`,
+      );
+    }
+
+    if (!creativeSet.campaignId) {
+      this.logger.error(
+        `creativeSet with id ${creativeSetId} does not have a campaign attached`,
+      );
+      return;
+    }
+
+    creativeSet.creatives.forEach((c, i) => {
+      creativeSet.creatives[i].url =
+        `https://${this.config.get('S3_BUCKET')}.s3.${this.config.get('AWS_REGION')}.amazonaws.com/creatives/${creativeSet.businessId.toString()}/${creativeSetId}/${c.key}.png`;
+    });
+
+    await creativeSet.save();
+
     // find campaign by id
-    const campaign = await this.campaignModel.findById(campaignId);
+    const campaign = await this.campaignModel.findById(creativeSet.campaignId);
     if (!campaign) {
       this.logger.warn(
-        `::: campaign ${campaignId} not found to insert creatives :::`,
+        `::: campaign ${creativeSet.campaignId} not found to insert creatives :::`,
       );
       return;
     }
@@ -152,7 +177,7 @@ export class InternalCampaignService {
           creativeIndex = j;
           channel = campaign.products[i].creatives[j].channel;
           this.logger.log(
-            `creatives gotten for campaign- ${campaignId}, product- ${i}, platform- ${channel}`,
+            `creatives gotten for campaign- ${creativeSet.campaignId}, product- ${i}, platform- ${channel}`,
           );
           break;
         }
@@ -169,9 +194,14 @@ export class InternalCampaignService {
       );
       return;
     }
-
-    campaign.products[productIndex].creatives[creativeIndex].data = creatives;
     campaign.products[productIndex].creatives[creativeIndex].status = 'created';
+
+    creativeSet.creatives.forEach((c) => {
+      campaign.products[productIndex].creatives[creativeIndex].data.push(
+        JSON.stringify(c),
+      );
+    });
+
     await campaign.save();
 
     const {
