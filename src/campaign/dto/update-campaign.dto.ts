@@ -2,24 +2,22 @@ import { ApiProperty } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
 import {
   IsDateString,
-  IsEnum,
   IsHexColor,
   IsNotEmpty,
   IsOptional,
+  IsString,
   MinDate,
 } from 'class-validator';
 import { IsAfter } from 'src/common/validators/date-comparison.validator';
-import { CampaignType } from 'src/enums/campaign';
 
 export class UpdateCampaignDto {
   @IsOptional()
   @ApiProperty({
-    enum: CampaignType,
     description: 'The type of the campaign.',
-    example: CampaignType.PRODUCT_LAUNCH,
+    example: 'PRODUCT LAUNCH',
   })
-  @IsEnum(CampaignType, { message: 'A valid campaign type must be provided.' })
-  type?: CampaignType;
+  @IsString()
+  type?: string;
 
   @IsOptional()
   @ApiProperty({
