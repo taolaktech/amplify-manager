@@ -239,6 +239,7 @@ export class CampaignService {
           return await this.creativeModel.findOneAndUpdate(
             { creativeSetId: creative.id },
             { campaignId },
+            { upsert: true },
           );
         }
       });

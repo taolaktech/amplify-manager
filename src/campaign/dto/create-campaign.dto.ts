@@ -49,12 +49,12 @@ export class CreativeDto {
     example: ['https://example.com/image1.jpg', 'Summer Sale!'],
   })
   @IsArray({ message: 'Creative data must be an array.' })
-  @ArrayMinSize(1, { message: 'Creative data must contain at least one item.' })
   @IsString({
     each: true,
     message: 'Each item in creative data must be a string.',
   })
-  data: string[];
+  @IsOptional()
+  data?: string[];
 }
 
 export class LocationDto {
@@ -214,7 +214,7 @@ export class CreateCampaignDto {
     example: '2024-10-01T09:00:00Z',
   })
   @Validate(IsAtLeastTodayConstraint, {
-    message: 'start date must be at least tomorrow',
+    message: 'start date must be at least today',
   })
   @IsDateString({}, { message: 'A valid start date must be provided.' })
   @IsNotEmpty()
