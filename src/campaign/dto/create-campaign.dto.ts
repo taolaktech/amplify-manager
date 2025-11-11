@@ -54,7 +54,7 @@ export class CreativeDto {
     message: 'Each item in creative data must be a string.',
   })
   @IsOptional()
-  data?: string[];
+  data?: string[]; // '{ url: string, caption: string}'[]
 }
 
 export class LocationDto {

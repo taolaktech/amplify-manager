@@ -940,11 +940,17 @@ export class CampaignService {
       throw new ForbiddenException();
     }
 
-    const urls = creativeSet.creatives.map(
-      (c) =>
-        `https://${this.config.get('S3_BUCKET')}.s3.${this.config.get('AWS_REGION')}.amazonaws.com/creatives/${business._id.toString()}/${creativeSetId}/${c.key}.png`,
-    );
+    if (creativeSet.status === 'pending') {
+      return creativeSet;
+    }
 
-    return { ...creativeSet.toObject(), urls };
+    creativeSet.creatives.forEach((c, i) => {
+      creativeSet.creatives[i].url =
+        `https://${this.config.get('S3_BUCKET')}.s3.${this.config.get('AWS_REGION')}.amazonaws.com/creatives/${business._id.toString()}/${creativeSetId}/${c.key}.png`;
+    });
+
+    await creativeSet.save();
+
+    return creativeSet;
   }
 }
