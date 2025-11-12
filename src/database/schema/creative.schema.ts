@@ -37,7 +37,7 @@ export class Creative {
   @Prop({ ref: 'business', type: Types.ObjectId })
   businessId: Types.ObjectId;
 
-  @Prop({ required: true })
+  @Prop()
   campaignId: string;
 
   @Prop({
