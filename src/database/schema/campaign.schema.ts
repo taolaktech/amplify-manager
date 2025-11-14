@@ -295,3 +295,10 @@ CampaignSchema.virtual('googleAdsCampaign', {
   foreignField: 'campaign',
   justOne: true,
 });
+
+CampaignSchema.virtual('campaignProducts', {
+  ref: 'campaign-products',
+  localField: '_id',
+  foreignField: 'campaignId',
+  justOne: true,
+});

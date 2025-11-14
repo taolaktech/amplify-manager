@@ -129,6 +129,10 @@ export class InternalCampaignService {
   async campaignCreativesWebhook(payload: N8nWebhookPayloadDto) {
     const { status, creativeSetId } = payload;
 
+    this.logger.log(
+      `Received creative webhook payload from N8N- ${JSON.stringify(payload)}`,
+    );
+
     if (status !== 'completed') {
       this.logger.warn(
         `status ${status} from n8n, creativeSetId: ${creativeSetId}`,
@@ -420,8 +424,8 @@ export class InternalCampaignService {
     const cursor = this.campaignModel
       .find(query)
       .populate('googleAdsCampaign')
-      // .populate('facebookCampaign')
       // .populate('instagramCampaign')
+      // .populate('facebookCampaign')
       .cursor();
 
     let batch: CampaignDocument[] = [];
