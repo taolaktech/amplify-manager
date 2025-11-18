@@ -208,10 +208,16 @@ export class CampaignService {
       let facebookCreativesPresent = false;
 
       creatives.forEach((creative) => {
-        if (creative.channel === 'instagram' && creative.id) {
+        if (
+          creative.channel === 'instagram' &&
+          (creative.id || creative.data.length > 0)
+        ) {
           instagramCreativesPresent = true;
         }
-        if (creative.channel === 'facebook' && creative.id) {
+        if (
+          creative.channel === 'facebook' &&
+          (creative.id || creative.data.length > 0)
+        ) {
           facebookCreativesPresent = true;
         }
         if (creative.channel === 'google' && creative.data.length > 0) {
@@ -340,30 +346,44 @@ export class CampaignService {
         promises.push(googleCreativePromise);
       }
 
-      if (facebookSelected && !facebookCreativesPresent) {
+      if (
+        (facebookSelected || instagramSelected) &&
+        (!instagramCreativesPresent || !facebookCreativesPresent)
+      ) {
         // generate facebook creatives
-        const facebookCreativesPromise = this.n8nCall({
+        const fbIgCreativesPromise = this.n8nCall({
           ...fbIgPayload,
           channel: 'FACEBOOK',
         })
           .then((resp) => {
             if (resp.status === '400' || resp.status === '401') {
               throw new Error(
-                `Failed to get creative set id. Failed with status ${resp.status}, channel facebook`,
+                `Failed to get creative set id. Failed with status ${resp.status}, channel facebook/instagram`,
               );
             }
             if (!resp.creativeSetId) {
               throw new Error(
-                `Failed to get creative set id. creativeSetId not present, channel facebook`,
+                `Failed to get creative set id. creativeSetId not present, channel facebook/instagram`,
               );
             }
-            const creative = {
-              channel: 'facebook' as const,
-              id: resp.creativeSetId,
-              status: 'pending' as const,
-              data: [],
-            };
-            campaignDoc.products[i].creatives.push(creative);
+            if (facebookSelected && !facebookCreativesPresent) {
+              const creative = {
+                channel: 'facebook' as const,
+                id: resp.creativeSetId,
+                status: 'pending' as const,
+                data: [],
+              };
+              campaignDoc.products[i].creatives.push(creative);
+            }
+            if (instagramSelected && !instagramCreativesPresent) {
+              const creative = {
+                channel: 'instagram' as const,
+                id: resp.creativeSetId,
+                status: 'pending' as const,
+                data: [],
+              };
+              campaignDoc.products[i].creatives.push(creative);
+            }
           })
           .catch((error) => {
             let errorMessage = 'Something went wrong';
@@ -380,49 +400,7 @@ export class CampaignService {
             );
             throw error;
           });
-        promises.push(facebookCreativesPromise);
-      }
-      if (instagramSelected && !instagramCreativesPresent) {
-        // generate instagram creatives
-        const instagramCreatives = this.n8nCall({
-          ...fbIgPayload,
-          channel: 'INSTAGRAM',
-        })
-          .then((resp) => {
-            if (resp.status === '400' || resp.status === '401') {
-              throw new Error(
-                `Failed to get creative set id. Failed with status ${resp.status}, channel facebook`,
-              );
-            }
-            if (!resp.creativeSetId) {
-              throw new Error(
-                `Failed to get creative set id. creativeSetId not present, channel facebook`,
-              );
-            }
-            const creative = {
-              channel: 'instagram' as const,
-              id: resp.creativeSetId,
-              status: 'pending' as const,
-              data: [],
-            };
-            campaignDoc.products[i].creatives.push(creative);
-          })
-          .catch((error) => {
-            let errorMessage = 'Something went wrong';
-            if (error instanceof AxiosError) {
-              errorMessage = error.response?.data
-                ? JSON.stringify({ error: error.response?.data })
-                : 'Undetermined Error';
-            }
-            if (error instanceof Error) {
-              errorMessage = error.message;
-            }
-            this.logger.debug(
-              `::: Unable to generate creative, campaignId- ${campaignDoc._id.toString()}, product- ${i}, channel- INSTAGRAM, error- ${errorMessage}:::`,
-            );
-            throw error;
-          });
-        promises.push(instagramCreatives);
+        promises.push(fbIgCreativesPromise);
       }
 
       const results = await Promise.allSettled(promises);

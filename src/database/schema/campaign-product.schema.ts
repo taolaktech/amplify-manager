@@ -6,7 +6,7 @@ import { HydratedDocument, Types } from 'mongoose';
 export type CampaignProductDoc = HydratedDocument<CampaignProduct>;
 
 @Schema({ _id: false })
-class Metrics {
+class GoogleMetrics {
   @Prop({ default: '0' })
   clicks: string;
 
@@ -23,7 +23,7 @@ class Metrics {
   impressions: string;
 }
 
-const MetricsSchema = SchemaFactory.createForClass(Metrics);
+const GoogleMetricsSchema = SchemaFactory.createForClass(GoogleMetrics);
 
 @Schema({ timestamps: true })
 export class CampaignProduct {
@@ -36,8 +36,8 @@ export class CampaignProduct {
   @Prop()
   googleAdGroupResourceName?: string;
 
-  @Prop({ type: MetricsSchema, default: () => {} })
-  googleMetrics?: Metrics;
+  @Prop({ type: GoogleMetricsSchema, default: () => {} })
+  googleMetrics?: GoogleMetrics;
 
   @Prop()
   googleMetricsLastUpdatedAt?: Date;
