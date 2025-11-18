@@ -224,7 +224,7 @@ export class BusinessService {
     }
     const budgetPerPlatform = dto.budget / dto.platforms.length;
 
-    const aov = await this.shopifyService.calculateAOV(userId);
+    const aov = await this.shopifyService.getAOV(userId);
 
     if (!business.industry) {
       throw new InternalServerErrorException('Business industry not set');

@@ -73,7 +73,7 @@ export class InternalBusinessService {
       throw new NotFoundException(`business with id ${businessId} not found`);
     }
 
-    const aov = await this.shopifyService.calculateAOV(business.userId);
+    const aov = await this.shopifyService.getAOV(business.userId);
 
     if (!business.industry) {
       throw new NotFoundException(`Business industry not set`);
