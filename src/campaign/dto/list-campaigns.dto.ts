@@ -38,6 +38,14 @@ export class ListCampaignsDto {
   status?: CampaignStatus;
 
   @ApiProperty({
+    description: 'Filter campaigns by campaign name.',
+    required: false,
+  })
+  @IsOptional()
+  @IsString()
+  name?: string;
+
+  @ApiProperty({
     description: 'Filter campaigns by type.',
     required: false,
   })

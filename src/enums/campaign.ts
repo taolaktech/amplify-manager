@@ -1,7 +1,7 @@
+// READY_TO_LAUNCH -> PROCESSED -> LIVE ->
 export enum CampaignStatus {
-  DRAFT = 'DRAFT',
-  ACTIVE = 'ACTIVE',
-  PAUSED = 'PAUSED',
+  // ACTIVE = 'ACTIVE', // not used for now
+  PAUSED = 'PAUSED', //
   COMPLETED = 'COMPLETED',
   READY_TO_LAUNCH = 'READY_TO_LAUNCH',
   PROCESSED = 'PROCESSED',

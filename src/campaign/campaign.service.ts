@@ -746,7 +746,8 @@ export class CampaignService {
   }
 
   async findAll(listCampaignsDto: ListCampaignsDto, userId: string) {
-    const { page, perPage, status, type, platforms, sortBy } = listCampaignsDto;
+    const { page, perPage, status, type, platforms, sortBy, name } =
+      listCampaignsDto;
 
     // 1. Build the filter query, now including the createdBy field
     const filter: FilterQuery<CampaignDocument> = {
@@ -760,6 +761,9 @@ export class CampaignService {
     }
     if (platforms && platforms.length > 0) {
       filter.platforms = { $all: platforms };
+    }
+    if (name) {
+      filter.name = { $regex: name, $options: 'i' };
     }
 
     // 2. Build the sort query - with the TypeScript fix
@@ -794,6 +798,62 @@ export class CampaignService {
     return {
       campaigns,
       pagination,
+    };
+  }
+
+  async getCampaignStatusCounts(userId: Types.ObjectId) {
+    const statusMap = {
+      pending: [CampaignStatus.READY_TO_LAUNCH, CampaignStatus.PROCESSED],
+      active: [CampaignStatus.LIVE],
+      paused: [CampaignStatus.PAUSED],
+      completed: [CampaignStatus.COMPLETED],
+    };
+
+    const pendingCountPromise = this.campaignModel.countDocuments({
+      status: { $in: statusMap.pending },
+      createdBy: userId,
+    });
+
+    const activeCountPromise = this.campaignModel.countDocuments({
+      status: { $in: statusMap.active },
+      createdBy: userId,
+    });
+
+    const pausedCountPromise = this.campaignModel.countDocuments({
+      status: { $in: statusMap.paused },
+      createdBy: userId,
+    });
+
+    const completedCountPromise = this.campaignModel.countDocuments({
+      status: { $in: statusMap.completed },
+      createdBy: userId,
+    });
+
+    const archivedCountPromise = this.campaignModel.countDocuments({
+      archivedAt: { $exists: true, $ne: null },
+      createdBy: userId,
+    });
+
+    const [
+      pendingCount,
+      activeCount,
+      pausedCount,
+      completedCount,
+      archivedCount,
+    ] = await Promise.all([
+      pendingCountPromise,
+      activeCountPromise,
+      pausedCountPromise,
+      completedCountPromise,
+      archivedCountPromise,
+    ]);
+
+    return {
+      pendingCount,
+      activeCount,
+      pausedCount,
+      completedCount,
+      archivedCount,
     };
   }
 
