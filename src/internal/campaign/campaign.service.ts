@@ -171,39 +171,48 @@ export class InternalCampaignService {
       return;
     }
     let productIndex = -1;
-    let creativeIndex = -1;
     let channel: undefined | 'facebook' | 'instagram' | 'google';
 
+    const creativeIndexes: number[] = [];
     for (let i = 0; i < campaign.products.length; i++) {
       for (let j = 0; j < campaign.products[i].creatives.length; j++) {
         if (campaign.products[i].creatives[j].id === creativeSetId) {
           productIndex = i;
-          creativeIndex = j;
+          creativeIndexes.push(j);
           channel = campaign.products[i].creatives[j].channel;
           this.logger.log(
             `creatives gotten for campaign- ${creativeSet.campaignId}, product- ${i}, platform- ${channel}`,
           );
-          break;
         }
       }
-      if (productIndex && creativeIndex) {
-        //early return
-        break;
+
+      if (i === productIndex) {
+        break; // early return
       }
     }
 
-    if (productIndex === -1 || creativeIndex === -1 || !channel) {
+    if (productIndex === -1 || creativeIndexes.length === 0 || !channel) {
       this.logger.debug(
         `creativeSetId ${creativeSetId} not found on campaign ${campaign._id.toString()}`,
       );
       return;
     }
-    campaign.products[productIndex].creatives[creativeIndex].status = 'created';
 
-    creativeSet.creatives.forEach((c) => {
-      campaign.products[productIndex].creatives[creativeIndex].data.push(
-        JSON.stringify(c),
-      );
+    creativeIndexes.forEach((creativeIndex) => {
+      campaign.products[productIndex].creatives[creativeIndex].status =
+        'created';
+
+      creativeSet.creatives.forEach((cs) => {
+        const channel =
+          campaign.products[productIndex].creatives[creativeIndex].channel;
+
+        if (channel === 'instagram' && !cs.caption) {
+          cs.caption = cs.bodyText;
+        }
+        campaign.products[productIndex].creatives[creativeIndex].data.push(
+          JSON.stringify(cs),
+        );
+      });
     });
 
     await campaign.save();
