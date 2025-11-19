@@ -12,6 +12,7 @@ import { TopLevelFolder, topLevelFolders } from './constants/buckets';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 import * as path from 'path';
 import { v4 as uuidv4 } from 'uuid';
+import { AppConfigService } from 'src/config/config.service';
 
 export interface Credentials {
   /**
@@ -54,7 +55,10 @@ export class UploadService {
    */
   // private basePath: string;
 
-  constructor(private readonly configService: ConfigService) {}
+  constructor(
+    private readonly configService: ConfigService,
+    private readonly config: AppConfigService,
+  ) {}
 
   private initializeClient(credentials: Credentials) {
     this.bucketName = credentials.bucketName;
@@ -162,6 +166,19 @@ export class UploadService {
       this.initializeClient(credentials);
     }
     return this.getPresignedSignedUrl(key);
+  }
+
+  /**
+   * Retrieves actual url from S3.
+   *
+   * Generates an s3 url of the key
+   *
+   * @param key - The key of the file in S3 for which the public URL is requested.
+   * @param credentials - The credentials required to access the S3 service.
+   * @returns A promise that resolves to the public URL of the specified file.
+   */
+  getUrl(key: string): string {
+    return `https://${this.config.get('S3_BUCKET')}.s3.${this.config.get('AWS_REGION')}.amazonaws.com/${key}`;
   }
 
   /**
