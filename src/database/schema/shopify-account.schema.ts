@@ -35,6 +35,12 @@ export class ShopifyAccount {
 
   @Prop()
   disconnectedAt: Date;
+
+  @Prop()
+  aov: number;
+
+  @Prop()
+  aovLastUpdatedAt: Date;
 }
 
 export const ShopifyAccountSchema =

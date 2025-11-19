@@ -64,38 +64,22 @@ export class BrandAssetService {
       await business.save();
     }
 
-    // Regenerate URLs only for assets that exist
-    const urlGenerationPromises: Promise<void>[] = [];
-
     if (brandAsset.primaryLogoKey) {
-      urlGenerationPromises.push(
-        this.uploadService
-          .getPublicUrl(brandAsset.primaryLogoKey, this.awsCredentials)
-          .then((url) => {
-            brandAsset.primaryLogoUrl = url;
-          }),
+      brandAsset.primaryLogoUrl = this.uploadService.getUrl(
+        brandAsset.primaryLogoKey,
       );
     }
     if (brandAsset.secondaryLogoKey) {
-      urlGenerationPromises.push(
-        this.uploadService
-          .getPublicUrl(brandAsset.secondaryLogoKey, this.awsCredentials)
-          .then((url) => {
-            brandAsset.secondaryLogoUrl = url;
-          }),
+      brandAsset.secondaryLogoUrl = this.uploadService.getUrl(
+        brandAsset.secondaryLogoKey,
       );
     }
     if (brandAsset.brandGuideKey) {
-      urlGenerationPromises.push(
-        this.uploadService
-          .getPublicUrl(brandAsset.brandGuideKey, this.awsCredentials)
-          .then((url) => {
-            brandAsset.brandGuideUrl = url;
-          }),
+      brandAsset.brandGuideUrl = this.uploadService.getUrl(
+        brandAsset.brandGuideKey,
       );
     }
 
-    await Promise.all(urlGenerationPromises);
     await brandAsset.save();
 
     return brandAsset;

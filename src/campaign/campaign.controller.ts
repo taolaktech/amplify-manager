@@ -187,6 +187,17 @@ export class CampaignController {
     };
   }
 
+  @Get('/status-counts')
+  @ApiOperation({ summary: 'count of campaigns with a particular status' })
+  @ApiResponse({
+    status: 200,
+    description: 'different status counts',
+  })
+  async getStatusCounts(@GetUser() user: UserDoc) {
+    const data = await this.campaignService.getCampaignStatusCounts(user._id);
+    return data;
+  }
+
   @Get(':campaignId')
   @ApiOperation({
     summary: 'Get a single campaign by ID',

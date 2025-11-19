@@ -162,7 +162,11 @@ class Metrics {
 }
 export const MetricsSchema = SchemaFactory.createForClass(Metrics);
 
-@Schema({ timestamps: true, virtuals: true })
+@Schema({
+  timestamps: true,
+  toJSON: { virtuals: true },
+  toObject: { virtuals: true },
+})
 export class Campaign {
   @Prop({ type: Types.ObjectId, ref: 'users', required: true })
   createdBy: Types.ObjectId;
@@ -174,7 +178,7 @@ export class Campaign {
   @Prop({
     type: String,
     enum: CampaignStatus,
-    default: CampaignStatus.DRAFT,
+    default: CampaignStatus.READY_TO_LAUNCH,
   })
   status: CampaignStatus;
 
@@ -280,6 +284,12 @@ export class Campaign {
   @Prop({ type: Date })
   metricsLastUpdatedAt: Date;
 
+  @ApiProperty({
+    type: Date,
+    description: 'Date when the campaign was archived',
+  })
+  archivedAt?: Date;
+
   /**
    * Populated virtual for the associated Google Ads campaign.
    * This is set when using .populate('googleAdsCampaign').
@@ -300,5 +310,5 @@ CampaignSchema.virtual('campaignProducts', {
   ref: 'campaign-products',
   localField: '_id',
   foreignField: 'campaignId',
-  justOne: true,
+  justOne: false,
 });

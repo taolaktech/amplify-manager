@@ -245,22 +245,11 @@ export class ShopifyService {
   }
 
   private async getShopifyOrders(
-    businessId: Types.ObjectId,
+    shopifyAccountId: Types.ObjectId,
     query: GetShopifyOrdersQuery,
   ) {
-    const business = await this.businessModel.findById(businessId);
-
-    if (!business) {
-      throw new NotFoundException(`no business found for this user`);
-    }
-
-    if (!business.integrations?.shopify?.shopifyAccount) {
-      throw new BadRequestException('No shopify account linked yet');
-    }
-
-    const shopifyAccount = await this.shopifyAccountModel.findById(
-      business.integrations.shopify.shopifyAccount,
-    );
+    const shopifyAccount =
+      await this.shopifyAccountModel.findById(shopifyAccountId);
 
     if (!shopifyAccount) {
       throw new BadRequestException(ErrorCode.SHOPIFY_ACCOUNT_NOT_FOUND);
@@ -278,12 +267,54 @@ export class ShopifyService {
     return ordersRes;
   }
 
-  async calculateAOV(userId: Types.ObjectId) {
+  async getAOV(userId: Types.ObjectId) {
     const business = await this.businessModel.findOne({ userId });
 
     if (!business) {
       throw new NotFoundException(`no business found for this user`);
     }
+
+    if (!business.integrations?.shopify?.shopifyAccount) {
+      throw new BadRequestException('No shopify account linked yet');
+    }
+
+    const shopifyAccount = await this.shopifyAccountModel.findById(
+      business.integrations.shopify.shopifyAccount,
+    );
+
+    if (!shopifyAccount) {
+      throw new BadRequestException(ErrorCode.SHOPIFY_ACCOUNT_NOT_FOUND);
+    }
+
+    const aovIsStale =
+      shopifyAccount.aovLastUpdatedAt &&
+      DateTime.fromJSDate(shopifyAccount.aovLastUpdatedAt).diffNow().days > 7;
+
+    if (!aovIsStale && shopifyAccount.aov) {
+      return shopifyAccount.aov;
+    }
+
+    this.logger.log(
+      `AOV stale or not present, recalculating aov for shopify account ${shopifyAccount._id.toString()}`,
+    );
+
+    const aov = await this.calculateAOV(shopifyAccount._id);
+
+    await this.shopifyAccountModel.findByIdAndUpdate(
+      shopifyAccount._id,
+      {
+        $set: {
+          aov,
+          aovLastUpdatedAt: new Date(),
+        },
+      },
+      { new: true },
+    );
+
+    return shopifyAccount.aov;
+  }
+
+  private async calculateAOV(shopifyAccountId: Types.ObjectId) {
     const oneMonthAgo = DateTime.now()
       .minus({ months: 1 })
       .toISODate()
@@ -295,7 +326,7 @@ export class ShopifyService {
     let currency = 'USD';
 
     do {
-      const ordersRes = await this.getShopifyOrders(business._id, {
+      const ordersRes = await this.getShopifyOrders(shopifyAccountId, {
         first: 20,
         after: endCursor,
         query: `financial_status:paid created_at:>=${oneMonthAgo}`,
@@ -313,7 +344,7 @@ export class ShopifyService {
 
     const aov = totalOrders
       ? totalRevenue / totalOrders
-      : await this.calculateAverageProductPrice(business._id);
+      : await this.calculateAverageProductPrice(shopifyAccountId);
 
     if (currency === 'CAD') {
       return aov * 0.73; // convert to USD
@@ -322,20 +353,9 @@ export class ShopifyService {
     return aov;
   }
 
-  private async calculateAverageProductPrice(businessId: Types.ObjectId) {
-    const business = await this.businessModel.findById(businessId);
-
-    if (!business) {
-      throw new NotFoundException(`no business found for this user`);
-    }
-
-    if (!business.integrations?.shopify?.shopifyAccount) {
-      throw new BadRequestException('No shopify account linked yet');
-    }
-
-    const shopifyAccount = await this.shopifyAccountModel.findById(
-      business.integrations.shopify.shopifyAccount,
-    );
+  private async calculateAverageProductPrice(shopifyAccountId: Types.ObjectId) {
+    const shopifyAccount =
+      await this.shopifyAccountModel.findById(shopifyAccountId);
 
     if (!shopifyAccount) {
       throw new BadRequestException(ErrorCode.SHOPIFY_ACCOUNT_NOT_FOUND);
