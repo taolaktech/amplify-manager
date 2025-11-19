@@ -24,6 +24,7 @@ import { AppConfigService } from 'src/config/config.service';
 import axios from 'axios';
 import { GoogleCampaignBatchMetricsResponse } from './types/google-campaign-batch-metrics';
 import pLimit from 'p-limit';
+import { GoogleAdGroupMetricsResponse } from './types/google-adgroup-metrics-response';
 
 @Injectable()
 export class InternalCampaignService {
@@ -272,6 +273,30 @@ export class InternalCampaignService {
     }
   }
 
+  private async getGoogleAdgroupMetrics(body: {
+    customerId: string;
+    campaignResourceName: string;
+    adGroupId: string;
+  }) {
+    try {
+      const url = `${this.config.get('INTEGRATION_API_URL')}/api/google-ads/ad-groups/metrics`;
+
+      const res = await axios.post<GoogleAdGroupMetricsResponse>(url, body, {
+        headers: { 'x-api-key': this.config.get('INTEGRATION_API_KEY') },
+      });
+
+      return res.data;
+    } catch (error) {
+      this.logger.error(
+        `::: Unable to fetch google adGroup metrics :::`,
+        error,
+      );
+      throw new InternalServerErrorException(
+        'Unable to fetch google adGroup metrics',
+      );
+    }
+  }
+
   refreshAllOngoingCampaignMetrics() {
     this.refreshAllOngoingGoogleCampaignMetrics().catch((error) => {
       this.logger.error(
@@ -280,6 +305,12 @@ export class InternalCampaignService {
     });
     this.addUpCampaignMetrics().catch((error) => {
       this.logger.error(`Error adding up campaign metrics: ${error.message}`);
+    });
+
+    this.refreshAllOngoingGoogleCampaignAdGroupMetrics().catch((error) => {
+      this.logger.error(
+        `Error refreshing ongoing Google campaign adGroup metrics: ${error.message}`,
+      );
     });
   }
 
@@ -415,6 +446,141 @@ export class InternalCampaignService {
 
       await Promise.allSettled(customerOps);
     }
+  }
+
+  private async refreshAllOngoingGoogleCampaignAdGroupMetrics() {
+    this.logger.log('Starting refresh of all google adgroup metrics...');
+
+    const now = new Date();
+
+    let page = 0;
+    const limit = 100;
+
+    while (true) {
+      page += 1;
+      const skip = (page - 1) * limit;
+      const pipeline: PipelineStage[] = [
+        {
+          $match: {
+            googleAdGroupResourceName: { $exists: true },
+          },
+        },
+        {
+          $lookup: {
+            from: 'campaigns',
+            localField: 'campaignId',
+            foreignField: '_id',
+            pipeline: [
+              {
+                $match: {
+                  status: CampaignStatus.LIVE,
+                  startDate: { $lte: now },
+                  endDate: { $gte: now },
+                },
+              },
+            ],
+            as: 'campaign',
+          },
+        },
+        {
+          $unwind: {
+            path: '$campaign',
+            includeArrayIndex: '0',
+            preserveNullAndEmptyArrays: false,
+          },
+        },
+        {
+          $lookup: {
+            from: 'google-ads-campaigns',
+            localField: 'campaignId',
+            foreignField: 'campaign',
+            as: 'googleAdsCampaign',
+          },
+        },
+        {
+          $unwind: {
+            path: '$googleAdsCampaign',
+            includeArrayIndex: '0',
+            preserveNullAndEmptyArrays: false,
+          },
+        },
+        {
+          $project: {
+            googleAdGroupResourceName: 1,
+            'googleAdsCampaign.campaignResourceName': 1,
+            _id: 1,
+          },
+        },
+        {
+          $skip: skip,
+        },
+        {
+          $limit: limit,
+        },
+      ];
+      const result = await this.campaignProductModel.aggregate(pipeline);
+
+      const campaignProductsResult: {
+        _id: string;
+        googleAdGroupResourceName: string;
+        googleAdsCampaign: { campaignResourceName: string };
+      }[] = result || [];
+
+      if (campaignProductsResult.length === 0) {
+        this.logger.log(
+          'No ongoing campaigns. No campaign products to track googleAdGroupMetrics',
+        );
+        break;
+      }
+
+      const concurrencyLimit = pLimit(5); // Limit to 5 concurrent requests
+      let bulkOps: any[] = [];
+      const adGroupOps = campaignProductsResult.map((cpRes) =>
+        concurrencyLimit(async () => {
+          const props = this.utilService.extractIdsFromGoogleResourceName(
+            cpRes.googleAdGroupResourceName,
+          );
+          if (!props) {
+            return;
+          }
+          const metricsResponse = await this.getGoogleAdgroupMetrics({
+            customerId: props.customerId,
+            campaignResourceName: cpRes.googleAdsCampaign.campaignResourceName,
+            adGroupId: props.resourceId,
+          });
+
+          const adGroupResult = metricsResponse.results[0];
+
+          if (!adGroupResult) {
+            this.logger.error(`No adGroup result for ${JSON.stringify(cpRes)}`);
+            return;
+          }
+
+          bulkOps.push({
+            updateOne: {
+              filter: {
+                _id: cpRes._id,
+              },
+              update: {
+                $set: {
+                  googleMetrics: adGroupResult.metrics,
+                  googleMetricsLastUpdatedAt: new Date(),
+                },
+              },
+            },
+          });
+        }),
+      );
+
+      await Promise.allSettled(adGroupOps);
+      if (bulkOps.length) {
+        await this.campaignProductModel.bulkWrite(bulkOps, {
+          ordered: false,
+        });
+        bulkOps = [];
+      }
+    }
+    this.logger.log('✅ Completed refresh of all google adGroup metrics.');
   }
 
   private async addUpCampaignMetrics() {
