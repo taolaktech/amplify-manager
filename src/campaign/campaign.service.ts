@@ -758,10 +758,10 @@ export class CampaignService {
       this.campaignModel
         .find(filter)
         .sort(sortOptions)
-        .populate('googleAdsCampaign')
+        .populate('googleAdsCampaign', 'campaignStatus')
         // .populate('instagramCampaign')
         // .populate('facebookCampaign')
-        .populate('campaignProducts')
+        .populate('campaignProducts', '-__v')
         .skip(skip)
         .limit(perPage),
       this.campaignModel.countDocuments(filter).exec(),
