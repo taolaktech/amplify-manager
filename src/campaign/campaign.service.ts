@@ -298,6 +298,12 @@ export class CampaignService {
         campaignType: campaignDoc.type,
       };
 
+      const productImages = product.imageLinks;
+
+      while (productImages.length < 5) {
+        productImages.push(product.imageLinks[0]);
+      }
+
       const fbIgPayload: FbIgCreativeGenBody = {
         approach: 'AI', // req
         campaignId: campaignDoc._id.toString(),
@@ -307,7 +313,7 @@ export class CampaignService {
         productFeatures: googlePayload.productFeatures,
         brandName: googlePayload.brandName,
         channel: 'INSTAGRAM',
-        productImages: product.imageLinks,
+        productImages,
         type: 'IMAGE',
         productCategory: googlePayload.productCategory, //opt
         tone: googlePayload.tone, // opt
@@ -447,7 +453,6 @@ export class CampaignService {
       let facebookCreativesPresent = false;
 
       creatives.forEach((creative) => {
-        //TODO parse creative.data ??? check if has url to be true
         if (creative.channel === 'instagram' && creative.data.length > 0) {
           instagramCreativesPresent = true;
         }
@@ -758,10 +763,10 @@ export class CampaignService {
       this.campaignModel
         .find(filter)
         .sort(sortOptions)
-        .populate('googleAdsCampaign')
+        .populate('googleAdsCampaign', 'campaignStatus')
         // .populate('instagramCampaign')
         // .populate('facebookCampaign')
-        .populate('campaignProducts')
+        .populate('campaignProducts', '-__v')
         .skip(skip)
         .limit(perPage),
       this.campaignModel.countDocuments(filter).exec(),
@@ -982,13 +987,11 @@ export class CampaignService {
       throw new ForbiddenException();
     }
 
-    if (creativeSet.status === 'pending') {
-      return creativeSet;
-    }
-
-    creativeSet.creatives.forEach((c, i) => {
-      creativeSet.creatives[i].url =
-        `https://${this.config.get('S3_BUCKET')}.s3.${this.config.get('AWS_REGION')}.amazonaws.com/creatives/${business._id.toString()}/${creativeSetId}/${c.key}.png`;
+    creativeSet.creatives?.forEach((c, i) => {
+      if (!creativeSet.creatives[i].url) {
+        creativeSet.creatives[i].url =
+          `https://${this.config.get('S3_BUCKET')}.s3.${this.config.get('AWS_REGION')}.amazonaws.com/creatives/${business._id.toString()}/${creativeSetId}/${c.key}.png`;
+      }
     });
 
     await creativeSet.save();
