@@ -298,6 +298,12 @@ export class CampaignService {
         campaignType: campaignDoc.type,
       };
 
+      const productImages = product.imageLinks;
+
+      while (productImages.length < 5) {
+        productImages.push(product.imageLinks[0]);
+      }
+
       const fbIgPayload: FbIgCreativeGenBody = {
         approach: 'AI', // req
         campaignId: campaignDoc._id.toString(),
@@ -307,7 +313,7 @@ export class CampaignService {
         productFeatures: googlePayload.productFeatures,
         brandName: googlePayload.brandName,
         channel: 'INSTAGRAM',
-        productImages: product.imageLinks,
+        productImages,
         type: 'IMAGE',
         productCategory: googlePayload.productCategory, //opt
         tone: googlePayload.tone, // opt
@@ -447,7 +453,6 @@ export class CampaignService {
       let facebookCreativesPresent = false;
 
       creatives.forEach((creative) => {
-        //TODO parse creative.data ??? check if has url to be true
         if (creative.channel === 'instagram' && creative.data.length > 0) {
           instagramCreativesPresent = true;
         }
