@@ -987,13 +987,11 @@ export class CampaignService {
       throw new ForbiddenException();
     }
 
-    if (creativeSet.status === 'pending') {
-      return creativeSet;
-    }
-
-    creativeSet.creatives.forEach((c, i) => {
-      creativeSet.creatives[i].url =
-        `https://${this.config.get('S3_BUCKET')}.s3.${this.config.get('AWS_REGION')}.amazonaws.com/creatives/${business._id.toString()}/${creativeSetId}/${c.key}.png`;
+    creativeSet.creatives?.forEach((c, i) => {
+      if (!creativeSet.creatives[i].url) {
+        creativeSet.creatives[i].url =
+          `https://${this.config.get('S3_BUCKET')}.s3.${this.config.get('AWS_REGION')}.amazonaws.com/creatives/${business._id.toString()}/${creativeSetId}/${c.key}.png`;
+      }
     });
 
     await creativeSet.save();
