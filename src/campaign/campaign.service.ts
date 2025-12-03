@@ -999,7 +999,7 @@ export class CampaignService {
     return creativeSet;
   }
 
-  private async pauseGoogleCampaignApiCall(body: {
+  private async updateGoogleCampaignStatusApiCall(body: {
     campaignResourceName: string;
     status: string;
   }) {
@@ -1045,19 +1045,19 @@ export class CampaignService {
 
     // api cause to pause on all platforms
     const googleCampaign = await this.googleAdsCampaignModel.findOne({
-      campaignId,
+      campaign: campaign._id,
     });
 
     if (googleCampaign && googleCampaign.campaignResourceName) {
       this.logger.log(
         `Pausing campaign for ${campaign._id.toString()}, google campaignResourceName ${googleCampaign.campaignResourceName} `,
       );
-      await this.pauseGoogleCampaignApiCall({
+      await this.updateGoogleCampaignStatusApiCall({
         campaignResourceName: googleCampaign.campaignResourceName,
         status: 'PAUSED',
       });
       await this.googleAdsCampaignModel.findOneAndUpdate(
-        { campaignId },
+        { campaign: campaign._id },
         {
           $set: {
             campaignStatus: 'PAUSED',
@@ -1074,6 +1074,66 @@ export class CampaignService {
       {
         $set: {
           status: CampaignStatus.PAUSED,
+        },
+      },
+      { new: true },
+    );
+
+    return { campaign };
+  }
+
+  async enableCampaign(userId: Types.ObjectId, campaignId: string) {
+    const business = await this.businessModel.findOne({ userId });
+
+    if (!business) {
+      throw new NotFoundException(`business not found for this user`);
+    }
+
+    let campaign = await this.campaignModel.findById(campaignId);
+
+    if (!campaign) {
+      throw new NotFoundException(`campaign with id ${campaignId} not found`);
+    }
+
+    if (campaign.businessId.toString() !== business._id.toString()) {
+      throw new ForbiddenException(
+        `You are not allowed to perform this action`,
+      );
+    }
+
+    this.logger.log(`Enabling campaign with id ${campaignId} on all platforms`);
+
+    // api cause to pause on all platforms
+    const googleCampaign = await this.googleAdsCampaignModel.findOne({
+      campaign: campaign._id,
+    });
+
+    if (googleCampaign && googleCampaign.campaignResourceName) {
+      this.logger.log(
+        `Enabling campaign for ${campaign._id.toString()}, google campaignResourceName ${googleCampaign.campaignResourceName} `,
+      );
+      await this.updateGoogleCampaignStatusApiCall({
+        campaignResourceName: googleCampaign.campaignResourceName,
+        status: 'ENABLED',
+      });
+      await this.googleAdsCampaignModel.findOneAndUpdate(
+        { campaign: campaign._id },
+        {
+          $set: {
+            campaignStatus: 'ENABLED',
+          },
+        },
+      );
+    }
+
+    // TODO- add facebook and instagram logic to pause campaign- consider promise.all()
+    // TODO- pause on google and other platforms
+
+    campaign = await this.campaignModel.findByIdAndUpdate(
+      campaignId,
+      {
+        $set: {
+          status: CampaignStatus.LIVE,
         },
       },
       { new: true },

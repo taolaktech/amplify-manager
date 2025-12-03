@@ -292,11 +292,27 @@ export class CampaignController {
     return await this.campaignService.getCreative(user._id, creativeSetId);
   }
 
+  @ApiOperation({
+    summary: 'Pause campaign on all platforms',
+    description: 'Pause campaign on all platfoms',
+  })
   @Get('/:campaignId/pause-campaign')
   async pauseCampaign(
     @GetUser() user: UserDoc,
     @Param('campaignId') campaignId: string,
   ) {
     return await this.campaignService.pauseCampaign(user._id, campaignId);
+  }
+
+  @ApiOperation({
+    summary: 'Enable campaign on all platforms',
+    description: 'Enables campaign on all platfoms',
+  })
+  @Get('/:campaignId/enable-campaign')
+  async enableCampaign(
+    @GetUser() user: UserDoc,
+    @Param('campaignId') campaignId: string,
+  ) {
+    return await this.campaignService.enableCampaign(user._id, campaignId);
   }
 }
