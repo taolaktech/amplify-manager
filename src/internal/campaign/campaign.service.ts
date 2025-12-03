@@ -430,6 +430,7 @@ export class InternalCampaignService {
                 update: {
                   $set: {
                     metrics: r.metrics,
+                    campaignStatus: r.campaign.status,
                     metricsLastUpdatedAt: new Date(),
                   },
                 },

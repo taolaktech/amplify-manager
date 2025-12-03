@@ -65,8 +65,6 @@ export class BusinessService {
         companyName: dto.companyName,
         companyRole: dto.companyRole,
         description: dto.description,
-        contactEmail: dto.contactEmail,
-        contactPhone: dto.contactPhone,
         website: dto.website,
         industry: dto.industry,
         teamSize: { min: dto.teamSize.min, max: dto.teamSize.max },

@@ -291,4 +291,12 @@ export class CampaignController {
   ) {
     return await this.campaignService.getCreative(user._id, creativeSetId);
   }
+
+  @Get('/:campaignId/pause-campaign')
+  async pauseCampaign(
+    @GetUser() user: UserDoc,
+    @Param('campaignId') campaignId: string,
+  ) {
+    return await this.campaignService.pauseCampaign(user._id, campaignId);
+  }
 }
