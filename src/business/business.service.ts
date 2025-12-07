@@ -47,7 +47,7 @@ export class BusinessService {
     try {
       const apiKey = this.configService.get('GOOGLE_MAPS_API_KEY');
       const res = await axios.get<GoogleMapsAutoCompleteResponse>(
-        `https://maps.googleapis.com/maps/api/place/autocomplete/json?input=${input}&types=(cities)&components=country:us|country:ca&key=${apiKey}`,
+        `https://maps.googleapis.com/maps/api/place/autocomplete/json?input=${input}&types=(cities)&key=${apiKey}`,
       );
       return res.data;
     } catch {
