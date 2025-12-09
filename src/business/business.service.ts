@@ -43,11 +43,15 @@ export class BusinessService {
     };
   }
 
-  private async getCitesFromGoogleCall(input: string) {
+  private async getCitesFromGoogleCall(
+    input: string,
+    options?: { components: string },
+  ) {
     try {
       const apiKey = this.configService.get('GOOGLE_MAPS_API_KEY');
+      const components = options?.components ? options.components : '';
       const res = await axios.get<GoogleMapsAutoCompleteResponse>(
-        `https://maps.googleapis.com/maps/api/place/autocomplete/json?input=${input}&types=(cities)&key=${apiKey}`,
+        `https://maps.googleapis.com/maps/api/place/autocomplete/json?input=${input}&types=(cities)&components=${components}&key=${apiKey}`,
       );
       return res.data;
     } catch {
@@ -160,8 +164,12 @@ export class BusinessService {
     return businessDetails.businessGoals;
   }
 
-  async getCities(input: string) {
-    const data = await this.getCitesFromGoogleCall(input);
+  async getCities(input: string, options?: { ca_us_only: boolean }) {
+    let components = '';
+    if (options?.ca_us_only) {
+      components = 'country:us|country:ca';
+    }
+    const data = await this.getCitesFromGoogleCall(input, { components });
     return data.predictions;
   }
 
