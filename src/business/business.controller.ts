@@ -4,6 +4,7 @@ import {
   Get,
   Patch,
   Post,
+  Query,
   UploadedFile,
   UseInterceptors,
 } from '@nestjs/common';
@@ -18,7 +19,13 @@ import {
 } from './dto';
 import { Types } from 'mongoose';
 import { GetUser } from 'src/auth/decorators';
-import { ApiBearerAuth, ApiBody, ApiConsumes } from '@nestjs/swagger';
+import {
+  ApiBearerAuth,
+  ApiBody,
+  ApiConsumes,
+  ApiOperation,
+  ApiQuery,
+} from '@nestjs/swagger';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { createMulterOptions } from 'src/common/create-multer-options';
 
@@ -86,8 +93,23 @@ export class BusinessController {
   }
 
   @Post('/cities')
-  async getCities(@Body() dto: GetCitiesDto) {
-    const predictions = await this.businessService.getCities(dto.input);
+  @ApiOperation({
+    summary: 'Get cities from Google Places API',
+    description: 'Get city predictions based on input string',
+  })
+  @ApiQuery({
+    name: 'ca_us_only',
+    required: false,
+    description: 'Set to true to restrict results to Canada and US only',
+    example: 'true',
+  })
+  async getCities(
+    @Body() dto: GetCitiesDto,
+    @Query('ca_us_only') ca_us_only: string,
+  ) {
+    const predictions = await this.businessService.getCities(dto.input, {
+      ca_us_only: ca_us_only === 'true',
+    });
     return predictions;
   }
 

@@ -75,8 +75,9 @@ export class BrandAssetService {
       );
     }
     if (brandAsset.brandGuideKey) {
-      brandAsset.brandGuideUrl = this.uploadService.getUrl(
+      brandAsset.brandGuideUrl = await this.uploadService.getPublicUrl(
         brandAsset.brandGuideKey,
+        this.awsCredentials,
       );
     }
 
