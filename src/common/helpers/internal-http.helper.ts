@@ -1,4 +1,4 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Global, Injectable, Logger } from '@nestjs/common';
 import axios, {
   AxiosInstance,
   AxiosRequestConfig,
@@ -7,6 +7,7 @@ import axios, {
 } from 'axios';
 import { ServiceRegistryService } from '../services/service-registry.service';
 import { ServiceName } from '../types/service.types';
+import { AppConfigService } from 'src/config/config.service';
 
 export interface InternalRequestOptions {
   headers?: Record<string, string>;
@@ -18,9 +19,12 @@ export class InternalHttpHelper {
   private readonly logger = new Logger(InternalHttpHelper.name);
   private axiosInstance: AxiosInstance;
   private baseUrl: string;
-  private serviceName: string;
+  private serviceName: ServiceName;
 
-  constructor(private serviceRegistry: ServiceRegistryService) {
+  constructor(
+    private serviceRegistry: ServiceRegistryService,
+    private configService: AppConfigService,
+  ) {
     this.axiosInstance = axios.create({
       timeout: 10000,
     });
@@ -54,17 +58,24 @@ export class InternalHttpHelper {
 
     const requestId = `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
 
-    const config: AxiosRequestConfig = {
+    let config: AxiosRequestConfig = {
       method,
       url: fullUrl,
       headers: {
         'Content-Type': 'application/json',
-        Authorization: `Internal ${process.env.INTERNAL_REQUEST_TOKEN}`,
+        Authorization: `Internal ${this.configService.get('INTERNAL_REQUEST_TOKEN')}`,
         'X-Request-ID': requestId,
         ...options.headers,
       },
       timeout: options.timeout || 10000,
     };
+
+    if (this.serviceName === 'amplify-integrations') {
+      config.headers = {
+        ...config.headers,
+        'x-api-key': this.configService.get('INTERNAL_REQUEST_TOKEN'),
+      };
+    }
 
     if (['POST', 'PUT', 'PATCH'].includes(method) && data) {
       config.data = data;

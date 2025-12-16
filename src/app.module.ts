@@ -15,6 +15,7 @@ import { BrandAssetModule } from './brand-asset/brand-asset.module';
 import { CampaignModule } from './campaign/campaign.module';
 import { InternalModule } from './internal/internal.module';
 import { ApiKeyGuard } from './internal/auth/api-key.guard';
+import { CommonModule } from './common/common.module';
 
 @Module({
   imports: [
@@ -29,6 +30,7 @@ import { ApiKeyGuard } from './internal/auth/api-key.guard';
     BrandAssetModule,
     CampaignModule,
     InternalModule,
+    CommonModule,
   ],
   controllers: [AppController],
   providers: [

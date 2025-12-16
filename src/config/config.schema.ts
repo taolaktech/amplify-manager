@@ -11,11 +11,11 @@ export const configSchema = z.object({
     .default('3333'),
   API_URL: z.string().url(),
 
-  API_KEY: z.string(), // for internal endpoints
+  INTERNAL_REQUEST_TOKEN: z.string(),
 
-  // amplify integration
-  INTEGRATION_API_URL: z.string(),
-  INTEGRATION_API_KEY: z.string(),
+  AMPLIFY_INTEGRATIONS_HOST: z.string(),
+
+  API_KEY: z.string(), // for internal endpoints
 
   // amplify ai
   AMPLIFY_AI_API_URL: z.string(),

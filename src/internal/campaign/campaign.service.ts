@@ -25,6 +25,7 @@ import axios from 'axios';
 import { GoogleCampaignBatchMetricsResponse } from './types/google-campaign-batch-metrics';
 import pLimit from 'p-limit';
 import { GoogleAdGroupMetricsResponse } from './types/google-adgroup-metrics-response';
+import { InternalHttpHelper } from 'src/common/helpers/internal-http.helper';
 
 @Injectable()
 export class InternalCampaignService {
@@ -37,6 +38,7 @@ export class InternalCampaignService {
     @InjectModel('google-ads-campaigns')
     private googleAdsCampaignModel: Model<GoogleAdsCampaignDoc>,
     @InjectModel('creatives') private creativeModel: Model<CreativeDoc>,
+    private internalHttpHelper: InternalHttpHelper,
     private config: AppConfigService,
     private campaignService: CampaignService,
     private utilService: UtilsService,
@@ -251,17 +253,14 @@ export class InternalCampaignService {
     campaignIds: string[];
   }) {
     try {
-      const url = `${this.config.get('INTEGRATION_API_URL')}/api/google-ads/campaigns/get-metrics/batch`;
+      const res = await this.internalHttpHelper
+        .forService('amplify-integrations')
+        .post<GoogleCampaignBatchMetricsResponse>(
+          `/api/google-ads/campaigns/get-metrics/batch`,
+          body,
+        );
 
-      const res = await axios.post<GoogleCampaignBatchMetricsResponse[]>(
-        url,
-        body,
-        {
-          headers: { 'x-api-key': this.config.get('INTEGRATION_API_KEY') },
-        },
-      );
-
-      return res.data;
+      return res;
     } catch (error) {
       this.logger.error(
         `::: Unable to fetch google campaign metrics:::`,
@@ -279,13 +278,14 @@ export class InternalCampaignService {
     adGroupId: string;
   }) {
     try {
-      const url = `${this.config.get('INTEGRATION_API_URL')}/api/google-ads/ad-groups/metrics`;
+      const res = await this.internalHttpHelper
+        .forService('amplify-integrations')
+        .post<GoogleAdGroupMetricsResponse>(
+          `/api/google-ads/ad-groups/metrics`,
+          body,
+        );
 
-      const res = await axios.post<GoogleAdGroupMetricsResponse>(url, body, {
-        headers: { 'x-api-key': this.config.get('INTEGRATION_API_KEY') },
-      });
-
-      return res.data;
+      return res;
     } catch (error) {
       this.logger.error(
         `::: Unable to fetch google adGroup metrics :::`,

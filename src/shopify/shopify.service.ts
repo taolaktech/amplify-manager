@@ -8,7 +8,7 @@ import {
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
 import { BusinessDoc, ShopifyAccountDoc } from 'src/database/schema';
-import axios, { AxiosError } from 'axios';
+import { AxiosError } from 'axios';
 import { AppConfigService } from 'src/config/config.service';
 import { ErrorCode } from 'src/enums';
 import { GetShopifyAuthUrlDto } from './dto';
@@ -20,42 +20,43 @@ import {
   GetShopifyProductsResponse,
 } from './types';
 import { DateTime } from 'luxon';
+import { InternalHttpHelper } from 'src/common/helpers/internal-http.helper';
 
 @Injectable()
 export class ShopifyService {
   private readonly logger = new Logger(ShopifyService.name);
   constructor(
-    private configService: AppConfigService,
+    private internalHttpHelper: InternalHttpHelper,
     @InjectModel('shopify-accounts')
     private shopifyAccountModel: Model<ShopifyAccountDoc>,
     @InjectModel('business')
     private businessModel: Model<BusinessDoc>,
   ) {}
 
-  private integrationsAxiosInstance() {
-    const axiosInstance = axios.create({
-      baseURL: `${this.configService.get('INTEGRATION_API_URL')}/api/shopify`,
-      headers: {
-        'x-api-key': this.configService.get('INTEGRATION_API_KEY'),
-      },
-    });
+  // private integrationsAxiosInstance() {
+  //   const axiosInstance = axios.create({
+  //     baseURL: `${this.configService.get('INTEGRATION_API_URL')}/api/shopify`,
+  //     headers: {
+  //       'x-api-key': this.configService.get('INTEGRATION_API_KEY'),
+  //     },
+  //   });
 
-    return axiosInstance;
-  }
+  //   return axiosInstance;
+  // }
 
   private async getShopifyConnectionUrlCall(
     userId: string,
     params: { shop: string; redirect?: string },
   ) {
     try {
-      const res = await this.integrationsAxiosInstance().post<{ url: string }>(
-        '/auth/url',
-        {
+      const res = await this.internalHttpHelper
+        .forService('amplify-integrations')
+        .post<{ url: string }>(`/api/shopify/auth/url`, {
           ...params,
           userId,
-        },
-      );
-      return res.data.url;
+        });
+
+      return res.url;
     } catch (error: unknown) {
       this.logger.error('::: Unable to retrieve shopify auth url :::');
       if (error instanceof AxiosError) {
@@ -80,16 +81,17 @@ export class ShopifyService {
       const after = query?.after ?? '';
       const last = query?.last ?? '';
       const before = query?.before ?? '';
-      const url = `/products?first=${first}&after=${after}&last=${last}&before=${before}`;
+      const url = `/api/shopify/products?first=${first}&after=${after}&last=${last}&before=${before}`;
 
-      const axios = this.integrationsAxiosInstance();
+      const res = await this.internalHttpHelper
+        .forService('amplify-integrations')
+        .post<GetShopifyProductsResponse>(url, {
+          shop: params.shop,
+          accessToken: params.accessToken,
+          scope: params.scope,
+        });
 
-      const res = await axios.post<GetShopifyProductsResponse>(url, {
-        shop: params.shop,
-        accessToken: params.accessToken,
-        scope: params.scope,
-      });
-      return res.data;
+      return res;
     } catch (error: unknown) {
       this.logger.error(
         `::: Unable to retrieve shopify products url params- ${JSON.stringify(params)} :::`,
@@ -110,7 +112,7 @@ export class ShopifyService {
     handle?: string;
   }) {
     try {
-      const url = `/products/product-by-id`;
+      const url = `/api/shopify/products/product-by-id`;
 
       if (!params.productId && !params.handle) {
         throw new BadRequestException(
@@ -118,12 +120,11 @@ export class ShopifyService {
         );
       }
 
-      const res =
-        await this.integrationsAxiosInstance().post<GetShopifyProductByIdResponse>(
-          url,
-          params,
-        );
-      return res.data;
+      const res = await this.internalHttpHelper
+        .forService('amplify-integrations')
+        .post<GetShopifyProductByIdResponse>(url, params);
+
+      return res;
     } catch (error: unknown) {
       this.logger.error(
         `::: Unable to retrieve shopify product by id or handle- ${JSON.stringify(params)} :::`,
@@ -150,16 +151,17 @@ export class ShopifyService {
       const last = query?.last ?? '';
       const before = query?.before ?? '';
       const searchQuery = query?.query ?? '';
-      const url = `/orders?first=${first}&after=${after}&last=${last}&before=${before}&query=${searchQuery}`;
+      const url = `/api/shopify/orders?first=${first}&after=${after}&last=${last}&before=${before}&query=${searchQuery}`;
 
-      const axios = this.integrationsAxiosInstance();
+      const res = await this.internalHttpHelper
+        .forService('amplify-integrations')
+        .post<GetShopifyOrdersResponse>(url, {
+          shop: params.shop,
+          accessToken: params.accessToken,
+          scope: params.scope,
+        });
 
-      const res = await axios.post<GetShopifyOrdersResponse>(url, {
-        shop: params.shop,
-        accessToken: params.accessToken,
-        scope: params.scope,
-      });
-      return res.data;
+      return res;
     } catch (error: unknown) {
       this.logger.error(
         `::: Unable to retrieve shopify orders- ${JSON.stringify(params)} :::`,

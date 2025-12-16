@@ -6,8 +6,6 @@ import { CampaignWorkerService } from './campaign-worker.service';
 // import { FacebookConsumerService } from './facebook-consumer.service';
 import { JwtService } from '@nestjs/jwt';
 import { AmplifyWalletService } from './services/wallet.service';
-import { InternalHttpHelper } from '../common/helpers/internal-http.helper';
-import { ServiceRegistryService } from '../common/services/service-registry.service';
 
 @Module({
   providers: [
@@ -17,8 +15,6 @@ import { ServiceRegistryService } from '../common/services/service-registry.serv
     // FacebookConsumerService,
     JwtService,
     AmplifyWalletService,
-    InternalHttpHelper,
-    ServiceRegistryService,
   ],
   controllers: [CampaignController],
 })

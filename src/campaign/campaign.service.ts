@@ -759,7 +759,7 @@ export class CampaignService {
     const skip = (page - 1) * perPage;
 
     // 4. Execute queries
-    const [campaigns, total] = await Promise.all([
+    const [campaigns, total, resultCount] = await Promise.all([
       this.campaignModel
         .find(filter)
         .sort(sortOptions)
@@ -769,18 +769,27 @@ export class CampaignService {
         .populate('campaignProducts', '-__v')
         .skip(skip)
         .limit(perPage),
+      this.campaignModel
+        .countDocuments({ createdBy: new Types.ObjectId(userId) })
+        .exec(),
       this.campaignModel.countDocuments(filter).exec(),
     ]);
 
+    /* 
+      total- the total number of campaigns a user has created, 
+      resultCount- the total number of campaigns that match the filter criteria
+    */
+
     // 5. Construct the paginated response
     const pagination = this.utilsService.getPaginationMeta({
-      total,
+      total: resultCount,
       page,
       perPage,
     });
+
     return {
       campaigns,
-      pagination,
+      pagination: { ...pagination, total, resultCount },
     };
   }
 
