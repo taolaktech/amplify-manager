@@ -9,3 +9,4 @@ export * from './wallet.schema';
 export * from './campaign-top-up-request.schema';
 export * from './creative.schema';
 export * from './campaign-product.schema';
+export * from './ad-library.schema';

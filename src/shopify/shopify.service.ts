@@ -206,6 +206,28 @@ export class ShopifyService {
     return productsRes;
   }
 
+  async getShopifyProductsByShopId(shopId: string, query: GetShopifyProductsQuery) {
+    if (!shopId) {
+      throw new BadRequestException('shop_id is required');
+    }
+
+    const shopifyAccount = await this.shopifyAccountModel.findOne({ shopId });
+    if (!shopifyAccount) {
+      throw new NotFoundException('Shopify account not found for shop_id');
+    }
+
+    const productsRes = await this.getProductsCall(
+      {
+        shop: shopifyAccount.shop,
+        accessToken: shopifyAccount.accessToken,
+        scope: shopifyAccount.scope,
+      },
+      query,
+    );
+
+    return productsRes;
+  }
+
   async getShopifyAccountConnectionUrl(
     userId: Types.ObjectId,
     dto: GetShopifyAuthUrlDto,

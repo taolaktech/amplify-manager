@@ -15,6 +15,7 @@ import {
   WalletSchema,
   CampaignTopUpRequestSchema,
   CampaignProductSchema,
+  AdLibrarySchema,
 } from './schema';
 import { FeedbackSchema } from './schema/feedback.schema';
 
@@ -44,6 +45,7 @@ import { FeedbackSchema } from './schema/feedback.schema';
       { name: 'campaign-top-up-requests', schema: CampaignTopUpRequestSchema },
       { name: 'creatives', schema: CreativeSchema },
       { name: 'campaign-products', schema: CampaignProductSchema },
+      { name: 'ad-library', schema: AdLibrarySchema },
     ]),
   ],
   exports: [MongooseModule],
