@@ -5,7 +5,6 @@ export type AdLibraryDoc = HydratedDocument<AdLibrary>;
 
 @Schema({
   timestamps: true,
-  collection: 'ad-library',
   versionKey: false,
 })
 export class AdLibrary {
@@ -17,9 +16,6 @@ export class AdLibrary {
 
   @Prop({ type: Number })
   impressions?: number;
-
-  @Prop({ type: Object })
-  euTransparency?: Record<string, any>;
 
   @Prop({ type: String, index: true })
   libraryId?: string;
