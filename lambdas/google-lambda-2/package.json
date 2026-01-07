@@ -1,0 +1,31 @@
+{
+  "name": "google-lambda",
+  "version": "1.0.0",
+  "description": "",
+  "license": "ISC",
+  "author": "",
+  "type": "module",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "start-local": "node --import 'data:text/javascript,import { register } from \"node:module\"; import { pathToFileURL } from \"node:url\"; register(\"ts-node/esm\", pathToFileURL(\"./\"));' src/local.ts",
+    "build": "tsc -p tsconfig.build.json",
+    "package-win": "npm run build && npm run copy-files-win && cd dist && zip -r ../google-lambda.zip .",
+    "copy-files-win": "xcopy .\\package.json dist\\ /Y && xcopy .\\package-lock.json dist\\ /Y && xcopy .\\node_modules dist\\node_modules /E /I /Y",
+    "package": "npm run build && npm run copy-files && cd dist && zip -r ../google-lambda.zip .",
+    "copy-files": "cp ./package.json ./package-lock.json ./dist/ && cp -r ./node_modules ./dist/"
+  },
+  "dependencies": {
+    "aws-lambda": "^1.0.7",
+    "axios": "^1.11.0",
+    "dotenv": "^17.2.2",
+    "luxon": "^3.7.2"
+  },
+  "devDependencies": {
+    "@types/aws-lambda": "^8.10.152",
+    "@types/luxon": "^3.7.1",
+    "@types/node": "^24.10.0",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.9.2"
+  }
+}

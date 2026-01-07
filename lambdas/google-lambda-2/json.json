@@ -1,0 +1,39 @@
+{
+  "err": {
+    "googleAdsError": {
+      "code": 400,
+      "message": "Request contains an invalid argument.",
+      "status": "INVALID_ARGUMENT",
+      "details": [
+        {
+          "@type": "type.googleapis.com/google.ads.googleads.v20.errors.GoogleAdsFailure",
+          "errors": [
+            {
+              "errorCode": {
+                "resourceCountLimitExceededError": "RESOURCE_LIMIT"
+              },
+              "message": "The request would cause a limit on the number of allowed resources of this type to be exceeded.",
+              "trigger": {
+                "stringValue": "ENABLED_RESPONSIVE_SEARCH_CREATIVES_PER_AD_GROUP"
+              },
+              "location": {
+                "fieldPathElements": [{ "fieldName": "operations", "index": 0 }]
+              },
+              "details": {
+                "resourceCountDetails": {
+                  "enclosingId": "190583379025",
+                  "limit": 3,
+                  "limitType": "RESPONSIVE_SEARCH_ADS_PER_AD_GROUP",
+                  "existingCount": 3,
+                  "enclosingResource": "ad_group"
+                }
+              }
+            }
+          ],
+          "requestId": "gcGwdxWjOVeGHDDOlj6zAg"
+        }
+      ]
+    },
+    "mesage": "Something went wrong while performing operation"
+  }
+}
