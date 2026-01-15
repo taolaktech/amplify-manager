@@ -65,36 +65,27 @@ class ShopifyIntegration {
 }
 
 @Schema({ _id: false })
-class GoogleAdsConversionAction {
-  @Prop()
-  resourceName: string;
-
-  @Prop()
-  id: string;
-
-  @Prop()
-  tag?: string;
-
-  @Prop()
-  label?: string;
-
-  @Prop({ type: mongoose.Schema.Types.Mixed })
-  tagSnippets: any[];
+class GoogleAdsIntegration {
+  @Prop({ type: Types.ObjectId, ref: 'google-ads-accounts' })
+  primaryAdAccountConnection: Types.ObjectId;
 }
 
 @Schema({ _id: false })
-class GoogleAdsIntegration {
+class FacebookIntegration {
   @Prop()
-  customerId: string;
+  adAccountId: string;
 
   @Prop()
-  customerName: string;
+  pageId: string;
+}
+
+@Schema({ _id: false })
+class InstagramIntegration {
+  @Prop()
+  adAccountId: string;
 
   @Prop()
-  customerResourceName: string;
-
-  @Prop()
-  conversionAction: GoogleAdsConversionAction;
+  instagramAccountId: string;
 }
 
 @Schema({ _id: false })
@@ -104,6 +95,12 @@ class Integrations {
 
   @Prop()
   googleAds: GoogleAdsIntegration;
+
+  @Prop()
+  facebook: FacebookIntegration;
+
+  @Prop()
+  instagram: InstagramIntegration;
 }
 
 @Schema({ timestamps: true })
@@ -127,7 +124,7 @@ export class Business {
   logoKey?: string;
 
   @Prop()
-  industry?: Industry;
+  industry: Industry;
 
   @Prop()
   companyRole: string;
