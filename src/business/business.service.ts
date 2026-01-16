@@ -25,6 +25,23 @@ import { ShopifyService } from 'src/shopify/shopify.service';
 export class BusinessService {
   private readonly logger = new Logger(BusinessService.name);
   private awsCredentials: Credentials;
+
+  private readonly blockedCountryValues = new Set([
+    'IR',
+    'AF',
+    'RU',
+    'KP',
+    'CU',
+    'iran',
+    'iran, islamic republic of',
+    'afghanistan',
+    'russia',
+    'russian federation',
+    "korea, democratic people's republic of",
+    'north korea',
+    'cuba',
+    'crimea',
+  ]);
   constructor(
     @InjectModel('users')
     private usersModel: Model<UserDoc>,
@@ -41,6 +58,40 @@ export class BusinessService {
       region: this.configService.get('AWS_REGION'),
       bucketName: this.configService.get('S3_BUCKET'),
     };
+  }
+
+  private normalizeCountryValue(value: string) {
+    return (value || '').trim().toLowerCase();
+  }
+
+  private isBlockedCountryValue(value: string) {
+    const normalized = this.normalizeCountryValue(value);
+    if (!normalized) return false;
+    if (this.blockedCountryValues.has(normalized)) return true;
+    if (
+      normalized.length === 2 &&
+      this.blockedCountryValues.has(normalized.toUpperCase())
+    ) {
+      return true;
+    }
+    return false;
+  }
+
+  private sanitizeInternationalShippingLocations(locations: string[]) {
+    return (locations || []).filter((loc) => !this.isBlockedCountryValue(loc));
+  }
+
+  private sanitizeLocalShippingLocations(
+    locations: {
+      country: string;
+      state: string;
+      city: string;
+      shorthand: string;
+    }[],
+  ) {
+    return (locations || []).filter(
+      (loc) => !this.isBlockedCountryValue(loc.country),
+    );
   }
 
   private async getCitesFromGoogleCall(
@@ -116,6 +167,19 @@ export class BusinessService {
       business.logo = url;
     }
 
+    if (business?.shippingLocations) {
+      business.shippingLocations = {
+        ...business.shippingLocations,
+        localShippingLocations: this.sanitizeLocalShippingLocations(
+          business.shippingLocations.localShippingLocations,
+        ),
+        internationalShippingLocations:
+          this.sanitizeInternationalShippingLocations(
+            business.shippingLocations.internationalShippingLocations,
+          ),
+      };
+    }
+
     return business;
   }
 
@@ -123,12 +187,19 @@ export class BusinessService {
     userId: Types.ObjectId,
     dto: SetShippingLocationsDto,
   ) {
+    const sanitizedLocal = this.sanitizeLocalShippingLocations(
+      dto.localShippingLocations,
+    );
+    const sanitizedIntl = this.sanitizeInternationalShippingLocations(
+      dto.internationalShippingLocations,
+    );
+
     const businessDetails = await this.businessModel.findOneAndUpdate(
       { userId },
       {
         shippingLocations: {
-          localShippingLocations: dto.localShippingLocations,
-          internationalShippingLocations: dto.internationalShippingLocations,
+          localShippingLocations: sanitizedLocal,
+          internationalShippingLocations: sanitizedIntl,
         },
       },
       { new: true, upsert: true },
@@ -141,7 +212,16 @@ export class BusinessService {
       await user.save();
     }
 
-    return businessDetails.shippingLocations;
+    return {
+      ...businessDetails.shippingLocations,
+      localShippingLocations: this.sanitizeLocalShippingLocations(
+        businessDetails.shippingLocations.localShippingLocations,
+      ),
+      internationalShippingLocations:
+        this.sanitizeInternationalShippingLocations(
+          businessDetails.shippingLocations.internationalShippingLocations,
+        ),
+    };
   }
 
   async setBusinessGoals(userId: Types.ObjectId, dto: SetBusinessGoalsDto) {
