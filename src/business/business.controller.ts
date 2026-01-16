@@ -55,14 +55,7 @@ export class BusinessController {
     examples: {
       example_1: {
         value: {
-          localShippingLocations: [
-            {
-              country: 'US',
-              state: 'Florida',
-              city: 'Miami',
-              shorthand: 'Miami Florida, US',
-            },
-          ],
+          shippingCountries: ['US', 'CA'],
           internationalShippingLocations: ['Nigeria'],
         },
       },

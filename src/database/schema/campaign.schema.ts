@@ -39,19 +39,16 @@ const CreativeSchema = SchemaFactory.createForClass(Creative);
 
 @Schema({ _id: false }) // Using _id: false as it's a simple value object
 export class Location {
-  // @Prop({ required: true })
-  // name: string;
-
-  @ApiProperty({ example: 'United States', description: 'The country.' })
-  @Prop({ required: true })
+  @ApiProperty({ example: 'US', description: 'The country.' })
+  @Prop({ required: false })
   country: string;
 
   @ApiProperty({ example: 'Manhattan', description: 'Target city.' })
-  @Prop({ required: true })
+  @Prop({ required: false })
   city: string;
 
   @ApiProperty({ example: 'New York', description: 'Target state.' })
-  @Prop({ required: true })
+  @Prop({ required: false })
   state: string;
 }
 export const LocationSchema = SchemaFactory.createForClass(Location);
