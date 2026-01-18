@@ -95,31 +95,13 @@ export class SetBusinessGoalsDto {
   boostRepeatPurchases: boolean;
 }
 
-class LocalShippingLocations {
-  @ApiProperty()
-  @IsString()
-  country: string;
-
-  @ApiProperty()
-  @IsString()
-  state: string;
-
-  @ApiProperty()
-  @IsString()
-  city: string;
-
-  @ApiProperty()
-  @IsString()
-  shorthand: string;
-}
-
 export class SetShippingLocationsDto {
   @ApiProperty()
   @IsArray()
   @ArrayNotEmpty()
-  @ValidateNested({ each: true })
-  @Type(() => LocalShippingLocations)
-  localShippingLocations: LocalShippingLocations[];
+  @Type(() => String)
+  @IsString({ each: true })
+  shippingCountries: string[];
 
   @ApiProperty()
   @IsArray()

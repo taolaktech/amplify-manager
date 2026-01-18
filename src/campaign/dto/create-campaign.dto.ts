@@ -59,24 +59,9 @@ export class CreativeDto {
 
 export class LocationDto {
   @ApiProperty({
-    description: 'The city of the target location.',
-    example: 'Manhattan',
-  })
-  @IsString()
-  @IsNotEmpty()
-  city: string;
-
-  @ApiProperty({
-    description: 'The name of the target location.',
-    example: 'New York',
-  })
-  @IsString()
-  @IsNotEmpty()
-  state: string;
-
-  @ApiProperty({
     description: 'The country of the target location.',
-    example: 'USA',
+    example: 'US',
+    required: true,
   })
   @IsString()
   @IsNotEmpty()

@@ -81,17 +81,13 @@ export class BusinessService {
     return (locations || []).filter((loc) => !this.isBlockedCountryValue(loc));
   }
 
-  private sanitizeLocalShippingLocations(
-    locations: {
-      country: string;
-      state: string;
-      city: string;
-      shorthand: string;
-    }[],
-  ) {
-    return (locations || []).filter(
-      (loc) => !this.isBlockedCountryValue(loc.country),
-    );
+  private sanitizeShippingCountries(countries: string[]) {
+    return (countries || [])
+      .map((c) => String(c))
+      .map((c) => c.trim())
+      .filter(Boolean)
+      .map((c) => c.toUpperCase())
+      .filter((c) => !this.isBlockedCountryValue(c));
   }
 
   private async getCitesFromGoogleCall(
@@ -170,8 +166,8 @@ export class BusinessService {
     if (business?.shippingLocations) {
       business.shippingLocations = {
         ...business.shippingLocations,
-        localShippingLocations: this.sanitizeLocalShippingLocations(
-          business.shippingLocations.localShippingLocations,
+        shippingCountries: this.sanitizeShippingCountries(
+          business.shippingLocations.shippingCountries,
         ),
         internationalShippingLocations:
           this.sanitizeInternationalShippingLocations(
@@ -187,8 +183,8 @@ export class BusinessService {
     userId: Types.ObjectId,
     dto: SetShippingLocationsDto,
   ) {
-    const sanitizedLocal = this.sanitizeLocalShippingLocations(
-      dto.localShippingLocations,
+    const sanitizedCountries = this.sanitizeShippingCountries(
+      dto.shippingCountries,
     );
     const sanitizedIntl = this.sanitizeInternationalShippingLocations(
       dto.internationalShippingLocations,
@@ -198,7 +194,7 @@ export class BusinessService {
       { userId },
       {
         shippingLocations: {
-          localShippingLocations: sanitizedLocal,
+          shippingCountries: sanitizedCountries,
           internationalShippingLocations: sanitizedIntl,
         },
       },
@@ -214,8 +210,8 @@ export class BusinessService {
 
     return {
       ...businessDetails.shippingLocations,
-      localShippingLocations: this.sanitizeLocalShippingLocations(
-        businessDetails.shippingLocations.localShippingLocations,
+      shippingCountries: this.sanitizeShippingCountries(
+        businessDetails.shippingLocations.shippingCountries,
       ),
       internationalShippingLocations:
         this.sanitizeInternationalShippingLocations(
