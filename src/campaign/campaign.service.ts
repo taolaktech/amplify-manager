@@ -608,14 +608,14 @@ export class CampaignService {
 
       const campaignId = new Types.ObjectId();
       // debit the user wallet for campaign creation
-      await this.walletService.debitForCampaign({
-        userId: userId.toString(),
-        idempotencyKey: campaignId.toString(),
-        amountInCents: createCampaignDto.totalBudget * 100,
-      });
-      this.logger.log(
-        `::: User ${userId.toString()} wallet has been debited ($${createCampaignDto.totalBudget}) for campaign ${campaignId.toString()}`,
-      );
+      // await this.walletService.debitForCampaign({
+      //   userId: userId.toString(),
+      //   idempotencyKey: campaignId.toString(),
+      //   amountInCents: createCampaignDto.totalBudget * 100,
+      // });
+      // this.logger.log(
+      //   `::: User ${userId.toString()} wallet has been debited ($${createCampaignDto.totalBudget}) for campaign ${campaignId.toString()}`,
+      // );
 
       // 1. Save the campaign to the database
       const newCampaign = await this.campaignModel.create({
