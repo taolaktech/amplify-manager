@@ -3,20 +3,21 @@ import {
   ValidatorConstraintInterface,
 } from 'class-validator';
 
-@ValidatorConstraint({ name: 'isAtLeastTomorrow', async: false })
+@ValidatorConstraint({ name: 'isAtLeastToday', async: false })
 export class IsAtLeastTodayConstraint implements ValidatorConstraintInterface {
   validate(dateString: string) {
     const date = new Date(dateString);
     if (isNaN(date.getTime())) return false;
 
-    // Get "tomorrow" at midnight
-    const now = new Date();
-    const tomorrow = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    // Allow "today" (any time today) or any future date.
+    // We compare against the start of the current day in the server's local timezone.
+    const startOfToday = new Date();
+    startOfToday.setHours(0, 0, 0, 0);
 
-    return date.getTime() >= tomorrow.getTime();
+    return date.getTime() >= startOfToday.getTime();
   }
 
   defaultMessage() {
-    return 'date must be at least tomorrow (a valid ISO date string starting from tomorrow)';
+    return 'date must be at least today (a valid ISO date string starting from today)';
   }
 }
