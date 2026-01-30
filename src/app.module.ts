@@ -15,6 +15,7 @@ import { BrandAssetModule } from './brand-asset/brand-asset.module';
 import { CampaignModule } from './campaign/campaign.module';
 import { InternalModule } from './internal/internal.module';
 import { ApiKeyGuard } from './internal/auth/api-key.guard';
+import { AssetsModule } from './assets/assets.module';
 
 @Module({
   imports: [
@@ -27,6 +28,7 @@ import { ApiKeyGuard } from './internal/auth/api-key.guard';
     WaitlistModule,
     FeedbackModule,
     BrandAssetModule,
+    AssetsModule,
     CampaignModule,
     InternalModule,
   ],
