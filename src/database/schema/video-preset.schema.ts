@@ -5,22 +5,25 @@ export type VideoPresetDoc = VideoPreset & Document;
 
 @Schema({ timestamps: true })
 export class VideoPreset {
-  @Prop({ required: true })
+  @Prop()
+  label: string;
+
+  @Prop()
   videoUrl: string;
 
-  @Prop({ required: true })
+  @Prop()
   videoKey: string;
 
-  @Prop({ required: true })
+  @Prop()
   thumbnailImageUrl: string;
 
-  @Prop({ required: true })
+  @Prop()
   thumbnailImageKey: string;
 
-  @Prop({ required: true })
+  @Prop()
   thumbnailVideoUrl: string;
 
-  @Prop({ required: true })
+  @Prop()
   thumbnailVideoKey: string;
 
   @Prop({ required: false })

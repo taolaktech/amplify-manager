@@ -1,5 +1,6 @@
 import {
   BadRequestException,
+  Body,
   Controller,
   Post,
   UploadedFile,
@@ -171,11 +172,7 @@ export class InternalVideoPresetsController {
     try {
       await new Promise<void>((resolve, reject) => {
         ffmpeg(tempVideoPath)
-          .outputOptions([
-            '-t 3',
-            '-movflags +faststart',
-            '-vf scale=640:-2',
-          ])
+          .outputOptions(['-t 3', '-movflags +faststart', '-vf scale=640:-2'])
           .output(outPath)
           .on('end', () => resolve())
           .on('error', (err) => reject(err))
@@ -209,6 +206,7 @@ export class InternalVideoPresetsController {
   )
   @ApiConsumes('multipart/form-data')
   async uploadVideoPreset(
+    @Body() body: UploadVideoPresetRequestDto,
     @UploadedFile() file: Express.Multer.File,
   ): Promise<UploadVideoPresetResponseDto> {
     if (!file) {
@@ -270,6 +268,7 @@ export class InternalVideoPresetsController {
     );
 
     await this.videoPresetsService.create({
+      label: body.label,
       videoUrl: videoResult.url,
       videoKey: videoResult.key,
       thumbnailImageUrl: thumbnailImageResult.url,

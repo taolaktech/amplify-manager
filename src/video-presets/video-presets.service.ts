@@ -44,6 +44,7 @@ export class VideoPresetsService {
   }
 
   async create(data: {
+    label: string;
     videoUrl: string;
     videoKey: string;
     thumbnailImageUrl: string;
