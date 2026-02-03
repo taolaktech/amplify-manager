@@ -16,6 +16,7 @@ import {
   CampaignTopUpRequestSchema,
   CampaignProductSchema,
   AssetSchema,
+  VideoPresetSchema,
 } from './schema';
 import { FeedbackSchema } from './schema/feedback.schema';
 
@@ -46,6 +47,7 @@ import { FeedbackSchema } from './schema/feedback.schema';
       { name: 'creatives', schema: CreativeSchema },
       { name: 'campaign-products', schema: CampaignProductSchema },
       { name: 'assets', schema: AssetSchema },
+      { name: 'video-presets', schema: VideoPresetSchema },
     ]),
   ],
   exports: [MongooseModule],
