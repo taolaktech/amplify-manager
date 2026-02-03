@@ -1,5 +1,6 @@
 import {
   Body,
+  BadRequestException,
   Controller,
   Get,
   Param,
@@ -13,20 +14,27 @@ import {
   ApiConsumes,
   ApiOperation,
   ApiProperty,
+  ApiQuery,
   ApiResponse,
   ApiTags,
+  ApiBody,
 } from '@nestjs/swagger';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { GetUser } from 'src/auth/decorators';
 import { UserDoc } from 'src/database/schema';
-import { AssetsService } from './assets.service';
-import { SaveCampaignAssetDto } from './dto/save-campaign-asset.dto';
 import { createMulterOptions } from 'src/common/create-multer-options';
+import { SaveCampaignAssetDto } from './dto/save-campaign-asset.dto';
+import { UploadVideoRequestDto } from './dto/upload-video.dto';
 import { UploadService, Credentials } from 'src/common/file-upload';
 import { AppConfigService } from 'src/config/config.service';
 import ffmpeg from 'fluent-ffmpeg';
 import ffmpegInstaller from '@ffmpeg-installer/ffmpeg';
 import ffprobeInstaller from '@ffprobe-installer/ffprobe';
+import { AssetsService } from './assets.service';
+import { promises as fs } from 'node:fs';
+import * as os from 'node:os';
+import * as path from 'node:path';
+import { randomUUID } from 'node:crypto';
 
 class SaveCampaignAssetResponseDto {
   @ApiProperty()
@@ -76,65 +84,101 @@ export class AssetsController {
     duration?: number;
     resolution?: string;
   }> {
-    return new Promise((resolve, reject) => {
-      ffmpeg.ffprobe(file.buffer as unknown as string, (err, metadata) => {
-        if (err) {
-          reject(err);
-          return;
-        }
+    const tempPath = await this.writeTempFile(file, 'upload');
+    try {
+      return await new Promise((resolve, reject) => {
+        ffmpeg.ffprobe(tempPath, (err, metadata) => {
+          if (err) {
+            reject(err);
+            return;
+          }
 
-        const duration =
-          typeof metadata?.format?.duration === 'number'
-            ? metadata.format.duration
-            : undefined;
+          const duration =
+            typeof metadata?.format?.duration === 'number'
+              ? metadata.format.duration
+              : undefined;
 
-        const videoStream = metadata?.streams?.find(
-          (s: any) => s?.codec_type === 'video',
-        );
+          const videoStream = metadata?.streams?.find(
+            (s: any) => s?.codec_type === 'video',
+          );
 
-        const width =
-          typeof videoStream?.width === 'number'
-            ? videoStream.width
-            : undefined;
-        const height =
-          typeof videoStream?.height === 'number'
-            ? videoStream.height
-            : undefined;
+          const width =
+            typeof videoStream?.width === 'number'
+              ? videoStream.width
+              : undefined;
+          const height =
+            typeof videoStream?.height === 'number'
+              ? videoStream.height
+              : undefined;
 
-        const resolution = width && height ? `${width}x${height}` : undefined;
+          const resolution = width && height ? `${width}x${height}` : undefined;
 
-        resolve({ duration, resolution });
+          resolve({ duration, resolution });
+        });
       });
-    });
+    } finally {
+      await fs.rm(tempPath, { force: true });
+    }
   }
 
   private async generateThumbnail(file: Express.Multer.File): Promise<Buffer> {
-    // Generate a single PNG frame around 1 second (or first frame if shorter)
-    return new Promise((resolve, reject) => {
-      const chunks: Buffer[] = [];
+    const tempVideoPath = await this.writeTempFile(file, 'upload');
+    const thumbFilename = `${randomUUID()}.png`;
+    const thumbPath = path.join(os.tmpdir(), thumbFilename);
 
-      const command = ffmpeg(file.buffer as unknown as string)
-        .inputFormat('mp4')
-        .outputOptions(['-frames:v 1', '-vf scale=1280:-1', '-f image2'])
-        .outputFormat('image2')
-        .on('error', (err) => reject(err));
+    try {
+      await new Promise<void>((resolve, reject) => {
+        ffmpeg(tempVideoPath)
+          .on('end', () => resolve())
+          .on('error', (err) => reject(err))
+          .screenshots({
+            timestamps: ['00:00:01'],
+            filename: thumbFilename,
+            folder: os.tmpdir(),
+            size: '320x240',
+          });
+      });
+    } catch {
+      // If 1 second is too long (short video), fall back to first frame.
+      await new Promise<void>((resolve, reject) => {
+        ffmpeg(tempVideoPath)
+          .on('end', () => resolve())
+          .on('error', (err) => reject(err))
+          .screenshots({
+            timestamps: ['00:00:00'],
+            filename: thumbFilename,
+            folder: os.tmpdir(),
+            size: '320x240',
+          });
+      });
+    }
 
-      // Seek if possible; ignore seek errors and just try first frame
-      try {
-        command.seekInput(1);
-      } catch {
-        // ignore
-      }
+    try {
+      return await fs.readFile(thumbPath);
+    } finally {
+      await Promise.all([
+        fs.rm(tempVideoPath, { force: true }),
+        fs.rm(thumbPath, { force: true }),
+      ]);
+    }
+  }
 
-      const stream = command.pipe();
-      stream.on('data', (d: Buffer) => chunks.push(d));
-      stream.on('end', () => resolve(Buffer.concat(chunks)));
-      stream.on('error', (err) => reject(err));
-    });
+  private async writeTempFile(
+    file: Express.Multer.File,
+    prefix: string,
+  ): Promise<string> {
+    const original = file?.originalname || '';
+    const ext = path.extname(original) || '.bin';
+    const tempPath = path.join(os.tmpdir(), `${prefix}-${randomUUID()}${ext}`);
+    await fs.writeFile(tempPath, file.buffer);
+    return tempPath;
   }
 
   @Get('assets')
   @ApiOperation({ summary: 'List saved assets' })
+  @ApiQuery({ name: 'campaignId', required: false })
+  @ApiQuery({ name: 'productId', required: false })
+  @ApiQuery({ name: 'type', required: false })
   async listAssets(
     @GetUser() user: UserDoc,
     @Query('campaignId') campaignId?: string,
@@ -186,9 +230,9 @@ export class AssetsController {
   }
 
   @Post('assets/upload/video')
-  @ApiConsumes('multipart/form-data')
   @ApiOperation({ summary: 'Upload a video file and return storage URL' })
   @ApiResponse({ status: 201, type: UploadVideoResponseDto })
+  @ApiBody({ type: UploadVideoRequestDto })
   @UseInterceptors(
     FileInterceptor(
       'file',
@@ -199,10 +243,14 @@ export class AssetsController {
       ]),
     ),
   )
+  @ApiConsumes('multipart/form-data')
   async uploadVideo(
     @GetUser() user: UserDoc,
     @UploadedFile() file: Express.Multer.File,
   ): Promise<UploadVideoResponseDto> {
+    if (!file) {
+      throw new BadRequestException('file is required');
+    }
     const businessId = await this.assetsService.getBusinessIdForUser(user._id);
 
     const { duration, resolution } = await this.probeVideo(file);

@@ -5,7 +5,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
-import { Model, Types } from 'mongoose';
+import { Model, RootFilterQuery, Types } from 'mongoose';
 import { BusinessDoc, CampaignDocument } from 'src/database/schema';
 import { Asset, AssetDoc } from 'src/database/schema/asset.schema';
 import { SaveCampaignAssetDto } from './dto/save-campaign-asset.dto';
@@ -35,7 +35,7 @@ export class AssetsService {
   }): Promise<Asset[]> {
     const businessId = await this.getBusinessIdForUser(params.userId);
 
-    const query: any = { businessId };
+    const query: RootFilterQuery<AssetDoc> = { businessId };
     if (typeof params.campaignId === 'string' && params.campaignId.length) {
       if (!Types.ObjectId.isValid(params.campaignId)) {
         throw new BadRequestException('Invalid campaignId');
