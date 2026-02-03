@@ -15,6 +15,8 @@ import { BrandAssetModule } from './brand-asset/brand-asset.module';
 import { CampaignModule } from './campaign/campaign.module';
 import { InternalModule } from './internal/internal.module';
 import { ApiKeyGuard } from './internal/auth/api-key.guard';
+import { AssetsModule } from './assets/assets.module';
+import { VideoPresetsModule } from './video-presets/video-presets.module';
 
 @Module({
   imports: [
@@ -27,6 +29,8 @@ import { ApiKeyGuard } from './internal/auth/api-key.guard';
     WaitlistModule,
     FeedbackModule,
     BrandAssetModule,
+    AssetsModule,
+    VideoPresetsModule,
     CampaignModule,
     InternalModule,
   ],

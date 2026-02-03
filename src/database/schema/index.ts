@@ -9,3 +9,5 @@ export * from './wallet.schema';
 export * from './campaign-top-up-request.schema';
 export * from './creative.schema';
 export * from './campaign-product.schema';
+export * from './asset.schema';
+export * from './video-preset.schema';

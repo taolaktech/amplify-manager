@@ -80,7 +80,7 @@ export class UploadService {
 
   private generateS3Key(
     businessId: string,
-    assetType: 'logo' | 'brand-guide',
+    assetType: string,
     originalFilename: string,
   ): string {
     const uniqueId = uuidv4();
@@ -104,7 +104,7 @@ export class UploadService {
   async uploadFile(
     file: Express.Multer.File,
     businessId: string,
-    assetType: 'logo' | 'brand-guide',
+    assetType: string,
     credentials: Credentials,
     topLevelFolder: TopLevelFolder,
   ): Promise<UploadResult> {
