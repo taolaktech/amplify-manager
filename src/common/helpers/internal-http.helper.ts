@@ -62,6 +62,7 @@ export class InternalHttpHelper {
         Authorization: `Internal ${process.env.INTERNAL_REQUEST_TOKEN}`,
         'X-Request-ID': requestId,
         ...options.headers,
+        'x-api-key': process.env.INTERNAL_REQUEST_TOKEN,
       },
       timeout: options.timeout || 10000,
     };

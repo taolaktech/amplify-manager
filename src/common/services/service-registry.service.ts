@@ -21,6 +21,7 @@ export class ServiceRegistryService {
     this.registry = {
       'amplify-manager': this.parseServiceConfig('AMPLIFY_MANAGER'),
       'amplify-wallet': this.parseServiceConfig('AMPLIFY_WALLET'),
+      'amplify-integrations': this.parseServiceConfig('AMPLIFY_INTEGRATIONS'),
     };
   }
 

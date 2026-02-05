@@ -31,7 +31,7 @@ export const CreativeItemSchema = SchemaFactory.createForClass(CreativeItem);
 
 @Schema({ timestamps: true })
 export class Creative {
-  @Prop({ required: true, unique: true })
+  @Prop({ required: true, unique: true, index: true })
   creativeSetId: string;
 
   @Prop({ ref: 'business', type: Types.ObjectId })
@@ -43,11 +43,24 @@ export class Creative {
   @Prop({
     required: true,
     enum: ['completed', 'failed', 'pending'],
+    default: 'pending',
   })
   status: 'completed' | 'failed' | 'pending';
 
   @Prop({ type: [CreativeItemSchema], default: [] })
   creatives: CreativeItem[];
+
+  @Prop()
+  videoUrl?: string;
+
+  @Prop()
+  videoKey?: string;
+
+  @Prop()
+  providerJobId?: string;
+
+  @Prop()
+  videoPresetId?: string;
 }
 
 export const CreativeSchema = SchemaFactory.createForClass(Creative);

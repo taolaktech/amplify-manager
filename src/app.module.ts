@@ -17,6 +17,7 @@ import { InternalModule } from './internal/internal.module';
 import { ApiKeyGuard } from './internal/auth/api-key.guard';
 import { AssetsModule } from './assets/assets.module';
 import { VideoPresetsModule } from './video-presets/video-presets.module';
+import { VideoGenerationModule } from './video-generation/video-generation.module';
 
 @Module({
   imports: [
@@ -31,6 +32,7 @@ import { VideoPresetsModule } from './video-presets/video-presets.module';
     BrandAssetModule,
     AssetsModule,
     VideoPresetsModule,
+    VideoGenerationModule,
     CampaignModule,
     InternalModule,
   ],
