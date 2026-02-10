@@ -10,7 +10,6 @@ import {
   ApiBody,
   ApiConsumes,
   ApiOperation,
-  ApiProperty,
   ApiResponse,
   ApiSecurity,
   ApiTags,
@@ -26,36 +25,25 @@ import { promises as fs } from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
 import { randomUUID } from 'node:crypto';
-import { VideoPresetsService } from 'src/video-presets/video-presets.service';
-import { UploadVideoPresetRequestDto } from './dto/upload-video-preset.dto';
+import { MediaPresetsService } from 'src/media-presets/media-presets.service';
+import {
+  UploadImagePresetRequestDto,
+  UploadVideoPresetRequestDto,
+} from './dto/upload-media-preset.dto';
+import { MediaPreset } from 'src/database/schema';
+import { UtilsService } from 'src/utils/utils.service';
 
-class UploadVideoPresetResponseDto {
-  @ApiProperty()
-  videoUrl: string;
-
-  @ApiProperty()
-  thumbnailImageUrl: string;
-
-  @ApiProperty()
-  thumbnailVideoUrl: string;
-
-  @ApiProperty({ required: false })
-  duration?: number;
-
-  @ApiProperty({ required: false })
-  resolution?: string;
-}
-
-@ApiTags('Internal Video Presets')
+@ApiTags('Internal Media Presets')
 @ApiSecurity('x-api-key')
-@Controller('internal/video-presets')
-export class InternalVideoPresetsController {
+@Controller('internal/media-presets')
+export class InternalMediaPresetsController {
   private awsCredentials: Credentials;
 
   constructor(
     private readonly uploadService: UploadService,
     private readonly config: AppConfigService,
-    private readonly videoPresetsService: VideoPresetsService,
+    private readonly mediaPresetsService: MediaPresetsService,
+    private readonly utilService: UtilsService,
   ) {
     this.awsCredentials = {
       accessKeyId: this.config.get('AWS_ACCESS_KEY_ID'),
@@ -119,80 +107,11 @@ export class InternalVideoPresetsController {
     }
   }
 
-  private async generateThumbnailImage(
-    file: Express.Multer.File,
-  ): Promise<Buffer> {
-    const tempVideoPath = await this.writeTempFile(file, 'video-preset');
-    const thumbFilename = `${randomUUID()}.png`;
-    const thumbPath = path.join(os.tmpdir(), thumbFilename);
-
-    try {
-      await new Promise<void>((resolve, reject) => {
-        ffmpeg(tempVideoPath)
-          .on('end', () => resolve())
-          .on('error', (err) => reject(err))
-          .screenshots({
-            timestamps: ['00:00:01'],
-            filename: thumbFilename,
-            folder: os.tmpdir(),
-            size: '640x360',
-          });
-      });
-    } catch {
-      await new Promise<void>((resolve, reject) => {
-        ffmpeg(tempVideoPath)
-          .on('end', () => resolve())
-          .on('error', (err) => reject(err))
-          .screenshots({
-            timestamps: ['00:00:00'],
-            filename: thumbFilename,
-            folder: os.tmpdir(),
-            size: '640x360',
-          });
-      });
-    }
-
-    try {
-      return await fs.readFile(thumbPath);
-    } finally {
-      await Promise.all([
-        fs.rm(tempVideoPath, { force: true }),
-        fs.rm(thumbPath, { force: true }),
-      ]);
-    }
-  }
-
-  private async generateThumbnailVideo(
-    file: Express.Multer.File,
-  ): Promise<Buffer> {
-    const tempVideoPath = await this.writeTempFile(file, 'video-preset');
-    const outFilename = `${randomUUID()}.mp4`;
-    const outPath = path.join(os.tmpdir(), outFilename);
-
-    try {
-      await new Promise<void>((resolve, reject) => {
-        ffmpeg(tempVideoPath)
-          .outputOptions(['-t 3', '-movflags +faststart', '-vf scale=640:-2'])
-          .output(outPath)
-          .on('end', () => resolve())
-          .on('error', (err) => reject(err))
-          .run();
-      });
-
-      return await fs.readFile(outPath);
-    } finally {
-      await Promise.all([
-        fs.rm(tempVideoPath, { force: true }),
-        fs.rm(outPath, { force: true }),
-      ]);
-    }
-  }
-
-  @Post('/upload')
+  @Post('/video/upload')
   @ApiOperation({
     summary: 'Upload a video preset, generate thumbnails, and save to DB',
   })
-  @ApiResponse({ status: 201, type: UploadVideoPresetResponseDto })
+  @ApiResponse({ status: 201, type: MediaPreset })
   @ApiBody({ type: UploadVideoPresetRequestDto })
   @UseInterceptors(
     FileInterceptor(
@@ -208,7 +127,7 @@ export class InternalVideoPresetsController {
   async uploadVideoPreset(
     @Body() body: UploadVideoPresetRequestDto,
     @UploadedFile() file: Express.Multer.File,
-  ): Promise<UploadVideoPresetResponseDto> {
+  ): Promise<MediaPreset> {
     if (!file) {
       throw new BadRequestException('file is required');
     }
@@ -223,7 +142,8 @@ export class InternalVideoPresetsController {
       'campaign-assets',
     );
 
-    const thumbnailImageBuffer = await this.generateThumbnailImage(file);
+    const thumbnailImageBuffer =
+      await this.utilService.generateThumbnailFromVideo(file);
     const thumbnailImageFile: Express.Multer.File = {
       fieldname: 'thumbnailImage',
       originalname: `${file.originalname}.png`,
@@ -245,46 +165,87 @@ export class InternalVideoPresetsController {
       'campaign-assets',
     );
 
-    const thumbnailVideoBuffer = await this.generateThumbnailVideo(file);
-    const thumbnailVideoFile: Express.Multer.File = {
-      fieldname: 'thumbnailVideo',
-      originalname: `${file.originalname}.mp4`,
+    const videoPreset = await this.mediaPresetsService.createVideoPreset({
+      label: body.label,
+      videoUrl: videoResult.url,
+      videoKey: videoResult.key,
+      thumbnailImageUrl: thumbnailImageResult.url,
+      thumbnailImageKey: thumbnailImageResult.key,
+      duration,
+      resolution,
+      prompt: body.prompt,
+      tags: body.tags
+        ? body.tags.split(',').map((tag) => tag.toLowerCase().trim())
+        : [],
+    });
+
+    return videoPreset;
+  }
+
+  @Post('/image/upload')
+  @ApiOperation({
+    summary: 'Upload an image preset and save to DB',
+  })
+  @ApiResponse({ status: 201, type: MediaPreset })
+  @ApiBody({ type: UploadImagePresetRequestDto })
+  @UseInterceptors(
+    FileInterceptor(
+      'file',
+      createMulterOptions(250 * 1024 * 1024, ['image/jpeg', 'image/png']),
+    ),
+  )
+  @ApiConsumes('multipart/form-data')
+  async uploadImagePreset(
+    @Body() body: UploadImagePresetRequestDto,
+    @UploadedFile() file: Express.Multer.File,
+  ): Promise<MediaPreset> {
+    if (!file) {
+      throw new BadRequestException('file is required');
+    }
+
+    const imageResult = await this.uploadService.uploadFile(
+      file,
+      'global',
+      'image-presets',
+      this.awsCredentials,
+      'campaign-assets',
+    );
+
+    const thumbnailImageBuffer =
+      await this.utilService.generateThumbnailFromImage(file);
+    const thumbnailImageFile: Express.Multer.File = {
+      fieldname: 'thumbnailImage',
+      originalname: `${file.originalname}.png`,
       encoding: '7bit',
-      mimetype: 'video/mp4',
-      size: thumbnailVideoBuffer.length,
-      buffer: thumbnailVideoBuffer,
+      mimetype: 'image/png',
+      size: thumbnailImageBuffer.length,
+      buffer: thumbnailImageBuffer,
       destination: '',
       filename: '',
       path: '',
       stream: undefined as any,
     };
 
-    const thumbnailVideoResult = await this.uploadService.uploadFile(
-      thumbnailVideoFile,
+    const thumbnailImageResult = await this.uploadService.uploadFile(
+      thumbnailImageFile,
       'global',
-      'video-presets-thumbnail-video',
+      'image-presets-thumbnail-image',
       this.awsCredentials,
       'campaign-assets',
     );
 
-    await this.videoPresetsService.create({
+    const imagePreset = await this.mediaPresetsService.createImagePreset({
       label: body.label,
-      videoUrl: videoResult.url,
-      videoKey: videoResult.key,
-      thumbnailImageUrl: thumbnailImageResult.url,
-      thumbnailImageKey: thumbnailImageResult.key,
-      thumbnailVideoUrl: thumbnailVideoResult.url,
-      thumbnailVideoKey: thumbnailVideoResult.key,
-      duration,
-      resolution,
+      prompt: body.prompt,
+      tags: body.tags
+        ? body.tags.split(',').map((tag) => tag.toLowerCase().trim())
+        : [],
+      imageUrl: imageResult.url,
+      imageKey: imageResult.key,
+      thumbnailUrl: thumbnailImageResult.url,
+      thumbnailKey: thumbnailImageResult.key,
     });
 
-    return {
-      videoUrl: videoResult.url,
-      thumbnailImageUrl: thumbnailImageResult.url,
-      thumbnailVideoUrl: thumbnailVideoResult.url,
-      duration,
-      resolution,
-    };
+    return imagePreset;
   }
 }

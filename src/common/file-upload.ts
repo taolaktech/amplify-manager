@@ -37,6 +37,7 @@ export interface Credentials {
 
 interface UploadResult {
   url: string;
+  presignedUrl?: string;
   key: string;
   mimeType: string;
 }
@@ -142,7 +143,7 @@ export class UploadService {
     await upload.done();
     this.logger.log(`::: completed file upload :::`);
 
-    const url = await this.getPresignedSignedUrl(fullKey);
+    const url = this.getUrl(fullKey);
     return {
       url,
       key: fullKey,

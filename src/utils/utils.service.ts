@@ -5,6 +5,14 @@ import { Industry } from 'src/enums/industry';
 import { IndustryRoasBenchMark } from './industry-roas-benchmark';
 import { Platform } from './platform';
 
+import ffmpeg from 'fluent-ffmpeg';
+import ffmpegInstaller from '@ffmpeg-installer/ffmpeg';
+import ffprobeInstaller from '@ffprobe-installer/ffprobe';
+import { promises as fs } from 'node:fs';
+import * as os from 'node:os';
+import * as path from 'node:path';
+import { randomUUID } from 'node:crypto';
+
 type EmailOptions = {
   to: string;
   subject: string;
@@ -13,7 +21,10 @@ type EmailOptions = {
 
 @Injectable()
 export class UtilsService {
-  constructor(private config: AppConfigService) {}
+  constructor(private config: AppConfigService) {
+    ffmpeg.setFfmpegPath(ffmpegInstaller.path);
+    ffmpeg.setFfprobePath(ffprobeInstaller.path);
+  }
   private createMailTransporter() {
     const user = this.config.get('SMTP_USERNAME');
     const pass = this.config.get('SMTP_PASSWORD');
@@ -137,5 +148,128 @@ export class UtilsService {
       hasNextPage: params.page < totalPages,
       hasPrevPage: params.page > 1,
     };
+  }
+
+  async probeVideo(file: Express.Multer.File): Promise<{
+    duration?: number;
+    resolution?: string;
+  }> {
+    const tempPath = await this.writeTempFile(file, 'upload');
+    try {
+      return await new Promise((resolve, reject) => {
+        ffmpeg.ffprobe(tempPath, (err, metadata) => {
+          if (err) {
+            reject(err);
+            return;
+          }
+
+          const duration =
+            typeof metadata?.format?.duration === 'number'
+              ? metadata.format.duration
+              : undefined;
+
+          const videoStream = metadata?.streams?.find(
+            (s: any) => s?.codec_type === 'video',
+          );
+
+          const width =
+            typeof videoStream?.width === 'number'
+              ? videoStream.width
+              : undefined;
+          const height =
+            typeof videoStream?.height === 'number'
+              ? videoStream.height
+              : undefined;
+
+          const resolution = width && height ? `${width}x${height}` : undefined;
+
+          resolve({ duration, resolution });
+        });
+      });
+    } finally {
+      await fs.rm(tempPath, { force: true });
+    }
+  }
+
+  async generateThumbnailFromVideo(file: Express.Multer.File): Promise<Buffer> {
+    const tempVideoPath = await this.writeTempFile(file, 'upload');
+    const thumbFilename = `${randomUUID()}.png`;
+    const thumbPath = path.join(os.tmpdir(), thumbFilename);
+
+    try {
+      await new Promise<void>((resolve, reject) => {
+        ffmpeg(tempVideoPath)
+          .on('end', () => resolve())
+          .on('error', (err) => reject(err))
+          .screenshots({
+            timestamps: ['00:00:01'],
+            filename: thumbFilename,
+            folder: os.tmpdir(),
+            size: '320x240',
+          });
+      });
+    } catch {
+      // If 1 second is too long (short video), fall back to first frame.
+      await new Promise<void>((resolve, reject) => {
+        ffmpeg(tempVideoPath)
+          .on('end', () => resolve())
+          .on('error', (err) => reject(err))
+          .screenshots({
+            timestamps: ['00:00:00'],
+            filename: thumbFilename,
+            folder: os.tmpdir(),
+            size: '320x240',
+          });
+      });
+    }
+
+    try {
+      return await fs.readFile(thumbPath);
+    } finally {
+      await Promise.all([
+        fs.rm(tempVideoPath, { force: true }),
+        fs.rm(thumbPath, { force: true }),
+      ]);
+    }
+  }
+
+  async generateThumbnailFromImage(file: Express.Multer.File): Promise<Buffer> {
+    const tempImagePath = await this.writeTempFile(file, 'upload-image');
+    const thumbFilename = `${randomUUID()}.png`;
+    const thumbPath = path.join(os.tmpdir(), thumbFilename);
+
+    try {
+      await new Promise<void>((resolve, reject) => {
+        ffmpeg(tempImagePath)
+          .outputOptions([
+            '-frames:v 1',
+            '-vf scale=320:-1:force_original_aspect_ratio=decrease',
+          ])
+          .output(thumbPath)
+          .on('end', () => resolve())
+          .on('error', (err) => reject(err))
+          .run();
+      });
+
+      return await fs.readFile(thumbPath);
+    } catch {
+      return file.buffer;
+    } finally {
+      await Promise.all([
+        fs.rm(tempImagePath, { force: true }),
+        fs.rm(thumbPath, { force: true }),
+      ]);
+    }
+  }
+
+  private async writeTempFile(
+    file: Express.Multer.File,
+    prefix: string,
+  ): Promise<string> {
+    const original = file?.originalname || '';
+    const ext = path.extname(original) || '.bin';
+    const tempPath = path.join(os.tmpdir(), `${prefix}-${randomUUID()}${ext}`);
+    await fs.writeFile(tempPath, file.buffer);
+    return tempPath;
   }
 }

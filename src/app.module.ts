@@ -16,8 +16,8 @@ import { CampaignModule } from './campaign/campaign.module';
 import { InternalModule } from './internal/internal.module';
 import { ApiKeyGuard } from './internal/auth/api-key.guard';
 import { AssetsModule } from './assets/assets.module';
-import { VideoPresetsModule } from './video-presets/video-presets.module';
-import { VideoGenerationModule } from './video-generation/video-generation.module';
+import { MediaPresetsModule } from './media-presets/media-presets.module';
+import { MediaGenerationModule } from './media-generation/media-generation.module';
 
 @Module({
   imports: [
@@ -31,8 +31,8 @@ import { VideoGenerationModule } from './video-generation/video-generation.modul
     FeedbackModule,
     BrandAssetModule,
     AssetsModule,
-    VideoPresetsModule,
-    VideoGenerationModule,
+    MediaPresetsModule,
+    MediaGenerationModule,
     CampaignModule,
     InternalModule,
   ],
