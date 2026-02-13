@@ -1,7 +1,7 @@
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
-import { Document } from 'mongoose';
+import { HydratedDocument, Types } from 'mongoose';
 
-export type MediaPresetDoc = MediaPreset & Document;
+export type MediaPresetDoc = HydratedDocument<MediaPreset>;
 
 @Schema({ timestamps: true })
 export class MediaPreset {

@@ -32,6 +32,7 @@ import {
 } from './dto/upload-media-preset.dto';
 import { MediaPreset } from 'src/database/schema';
 import { UtilsService } from 'src/utils/utils.service';
+import axios from 'axios';
 
 @ApiTags('Internal Media Presets')
 @ApiSecurity('x-api-key')
@@ -179,6 +180,10 @@ export class InternalMediaPresetsController {
         : [],
     });
 
+    // initiate n8n workflow to generate prompt
+
+    this.initiateMediaPromptGeneration(videoPreset._id.toString());
+
     return videoPreset;
   }
 
@@ -246,6 +251,24 @@ export class InternalMediaPresetsController {
       thumbnailKey: thumbnailImageResult.key,
     });
 
+    // initiate n8n prompt gen workflow
+    this.initiateMediaPromptGeneration(imagePreset._id.toString());
+
     return imagePreset;
+  }
+
+  private async initiateMediaPromptGeneration(
+    mediaPresetId: string,
+  ): Promise<unknown> {
+    return axios
+      .post<unknown>(this.config.get('N8N_MEDIA_PROMPT_GEN_URL'), {
+        mediaPresetId,
+      })
+      .catch((error) => {
+        console.error(
+          'Failed to initiate media prompt generation:',
+          error.message,
+        );
+      });
   }
 }
