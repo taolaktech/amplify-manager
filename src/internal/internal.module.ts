@@ -1,13 +1,13 @@
 import { Module } from '@nestjs/common';
 import { InternalBusinessModule } from './business/business.module';
 import { InternalCampaignModule } from './campaign/campaign.module';
-import { InternalVideoPresetsModule } from './video-presets/internal-video-presets.module';
+import { InternalMediaPresetsModule } from './media-presets/internal-media-presets.module';
 
 @Module({
   imports: [
     InternalBusinessModule,
     InternalCampaignModule,
-    InternalVideoPresetsModule,
+    InternalMediaPresetsModule,
   ],
   providers: [],
 })

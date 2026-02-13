@@ -11,29 +11,26 @@ export class Asset {
   @Prop({ type: Types.ObjectId, ref: 'business', required: true, index: true })
   businessId: Types.ObjectId;
 
-  @Prop({
-    type: Types.ObjectId,
-    ref: 'campaigns',
-    required: false,
-    default: null,
-    index: true,
-  })
-  campaignId?: Types.ObjectId | null;
-
   @Prop({ required: false, index: true })
-  productId?: string;
+  productId: string;
+
+  @Prop()
+  productImageUrl: string;
+
+  @Prop()
+  otherProductImageUrls: string[];
 
   @Prop({ required: true, enum: ['image', 'video'], index: true })
   type: AssetType;
 
-  @Prop({ required: true, enum: ['generated', 'uploaded'], index: true })
+  @Prop({ default: 'pending', required: true })
+  status: 'pending' | 'completed' | 'failed';
+
+  @Prop({ required: true, enum: ['ai-generated', 'uploaded'], index: true })
   source: AssetSource;
 
   @Prop()
   url?: string;
-
-  @Prop()
-  storageUrl?: string;
 
   @Prop()
   storageKey?: string;
@@ -51,53 +48,16 @@ export class Asset {
   resolution?: string;
 
   @Prop()
-  destinationUrl?: string;
+  size?: number;
 
   @Prop()
   promptUsed?: string;
 
-  @Prop()
-  headlineUsed?: string;
-
-  @Prop()
-  descriptionUsed?: string;
-
   @Prop({ type: [String], default: [] })
   tags: string[];
+
+  @Prop()
+  generationJobId?: string;
 }
 
 export const AssetSchema = SchemaFactory.createForClass(Asset);
-
-// Enforce dedupe within a campaign
-AssetSchema.index(
-  {
-    businessId: 1,
-    campaignId: 1,
-    productId: 1,
-    type: 1,
-    source: 1,
-    url: 1,
-    storageUrl: 1,
-  },
-  {
-    unique: true,
-    partialFilterExpression: { campaignId: { $type: 'objectId' } },
-  },
-);
-
-// Enforce dedupe for draft assets (no campaignId yet)
-AssetSchema.index(
-  {
-    businessId: 1,
-    campaignId: 1,
-    productId: 1,
-    type: 1,
-    source: 1,
-    url: 1,
-    storageUrl: 1,
-  },
-  {
-    unique: true,
-    partialFilterExpression: { campaignId: null },
-  },
-);
