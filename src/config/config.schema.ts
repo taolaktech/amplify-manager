@@ -53,8 +53,6 @@ export const configSchema = z.object({
   AWS_SECRET_ACCESS_KEY: z.string(),
   AWS_REGION: z.string(),
   S3_BUCKET: z.string(),
-
-  N8N_MEDIA_PROMPT_GEN_URL: z.string().url(),
 });
 
 export type AppConfig = z.infer<typeof configSchema>;

@@ -29,8 +29,8 @@ export class MediaPreset {
   @Prop({ type: String, required: false })
   resolution?: string;
 
-  @Prop({ type: String, required: true })
-  prompt: string;
+  @Prop({ type: String, required: false })
+  prompt?: string;
 
   @Prop({ type: [String], default: [] })
   tags: string[];

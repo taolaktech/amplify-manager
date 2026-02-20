@@ -174,7 +174,6 @@ export class InternalMediaPresetsController {
       thumbnailImageKey: thumbnailImageResult.key,
       duration,
       resolution,
-      prompt: body.prompt,
       tags: body.tags
         ? body.tags.split(',').map((tag) => tag.toLowerCase().trim())
         : [],
@@ -241,7 +240,6 @@ export class InternalMediaPresetsController {
 
     const imagePreset = await this.mediaPresetsService.createImagePreset({
       label: body.label,
-      prompt: body.prompt,
       tags: body.tags
         ? body.tags.split(',').map((tag) => tag.toLowerCase().trim())
         : [],
@@ -261,9 +259,12 @@ export class InternalMediaPresetsController {
     mediaPresetId: string,
   ): Promise<unknown> {
     return axios
-      .post<unknown>(this.config.get('N8N_MEDIA_PROMPT_GEN_URL'), {
-        mediaPresetId,
-      })
+      .post<unknown>(
+        `${this.config.get('AMPLIFY_N8N_API_URL')}/webhook/media-preset/generate-prompt`,
+        {
+          mediaPresetId,
+        },
+      )
       .catch((error) => {
         console.error(
           'Failed to initiate media prompt generation:',
