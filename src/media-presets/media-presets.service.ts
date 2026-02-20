@@ -14,8 +14,7 @@ export class MediaPresetsService {
   ) {}
 
   private async createPreset(data: {
-    label: string;
-    prompt: string;
+    label?: string;
     mediaUrl: string;
     mediaKey: string;
     thumbnailUrl: string;
@@ -27,7 +26,6 @@ export class MediaPresetsService {
   }) {
     return this.mediaPresetModel.create({
       label: data.label,
-      prompt: data.prompt,
       mediaUrl: data.mediaUrl,
       mediaKey: data.mediaKey,
       thumbnailUrl: data.thumbnailUrl,
@@ -40,8 +38,7 @@ export class MediaPresetsService {
   }
 
   async createVideoPreset(data: {
-    label: string;
-    prompt: string;
+    label?: string;
     videoUrl: string;
     videoKey: string;
     thumbnailImageUrl: string;
@@ -52,7 +49,6 @@ export class MediaPresetsService {
   }) {
     return this.createPreset({
       label: data.label,
-      prompt: data.prompt,
       mediaUrl: data.videoUrl,
       mediaKey: data.videoKey,
       thumbnailUrl: data.thumbnailImageUrl,
@@ -65,8 +61,7 @@ export class MediaPresetsService {
   }
 
   async createImagePreset(data: {
-    label: string;
-    prompt: string;
+    label?: string;
     imageUrl: string;
     imageKey: string;
     thumbnailUrl: string;
@@ -76,7 +71,6 @@ export class MediaPresetsService {
   }) {
     return this.createPreset({
       label: data.label,
-      prompt: data.prompt,
       mediaUrl: data.imageUrl,
       mediaKey: data.imageKey,
       thumbnailUrl: data.thumbnailUrl,
@@ -97,7 +91,9 @@ export class MediaPresetsService {
     const perPage = Math.min(100, Math.max(1, params.perPage || 20));
     const skip = (page - 1) * perPage;
 
-    const queryObject: RootFilterQuery<MediaPresetDoc> = {};
+    const queryObject: RootFilterQuery<MediaPresetDoc> = {
+      prompt: { $exists: true },
+    };
 
     if (params.type) {
       queryObject.type = params.type;

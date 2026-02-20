@@ -1,14 +1,17 @@
-import { Body, Controller, Get, Param, Post } from '@nestjs/common';
+import { Body, Controller, Post } from '@nestjs/common';
 import {
   ApiBearerAuth,
   ApiOperation,
   ApiResponse,
-  ApiSecurity,
   ApiTags,
 } from '@nestjs/swagger';
 import { GetUser } from 'src/auth/decorators/get-user.decorator';
 import { UserDoc } from 'src/database/schema';
-import { InitiateImageGenerationDto, InitiateVideoGenerationDto } from './dto';
+import {
+  InitiateImageGenerationDto,
+  InitiateImageGenWithN8n,
+  InitiateVideoGenerationDto,
+} from './dto';
 import { MediaGenerationService } from './media-generation.service';
 
 @ApiTags('Media Generation')
@@ -41,6 +44,20 @@ export class MediaGenerationController {
     @Body() dto: InitiateImageGenerationDto,
   ) {
     const result = await this.MediaGenerationService.initiateImageGeneration(
+      user._id,
+      dto,
+    );
+    return { data: result };
+  }
+
+  @Post('/image/n8n/initiate')
+  @ApiOperation({ summary: 'Initiate asset generation with n8n' })
+  @ApiResponse({ status: 201 })
+  async initiateImageGenerationWithN8N(
+    @GetUser() user: UserDoc,
+    @Body() dto: InitiateImageGenWithN8n,
+  ) {
+    const result = await this.MediaGenerationService.initiateAssetGenWithN8n(
       user._id,
       dto,
     );

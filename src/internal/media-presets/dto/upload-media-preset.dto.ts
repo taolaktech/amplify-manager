@@ -1,16 +1,11 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { IsNotEmpty, IsOptional, IsString } from 'class-validator';
+import { IsOptional, IsString } from 'class-validator';
 
 export class UploadVideoPresetRequestDto {
   @ApiProperty({ required: true })
   @IsString()
-  @IsNotEmpty()
-  label: string;
-
-  @ApiProperty({ required: true })
-  @IsString()
-  @IsNotEmpty()
-  prompt: string;
+  @IsOptional()
+  label?: string;
 
   @ApiProperty({ type: 'array', items: { type: 'string' } })
   @IsString()
@@ -24,13 +19,8 @@ export class UploadVideoPresetRequestDto {
 export class UploadImagePresetRequestDto {
   @ApiProperty({ required: true })
   @IsString()
-  @IsNotEmpty()
-  label: string;
-
-  @ApiProperty({ required: true })
-  @IsString()
-  @IsNotEmpty()
-  prompt: string;
+  @IsOptional()
+  label?: string;
 
   @ApiProperty({ type: 'array', items: { type: 'string' } })
   @IsString()
