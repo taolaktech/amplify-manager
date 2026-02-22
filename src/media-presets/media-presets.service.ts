@@ -129,4 +129,8 @@ export class MediaPresetsService {
       },
     };
   }
+
+  async deleteMediaPreset(id: string) {
+    return this.mediaPresetModel.deleteOne({ _id: id });
+  }
 }
