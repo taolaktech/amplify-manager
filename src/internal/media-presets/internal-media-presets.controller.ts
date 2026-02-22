@@ -2,6 +2,7 @@ import {
   BadRequestException,
   Body,
   Controller,
+  HttpException,
   InternalServerErrorException,
   Logger,
   Post,
@@ -218,6 +219,10 @@ export class InternalMediaPresetsController {
         );
       }
 
+      if (error instanceof HttpException) {
+        throw error;
+      }
+
       throw new InternalServerErrorException('Failed to upload video preset');
     }
   }
@@ -332,6 +337,10 @@ export class InternalMediaPresetsController {
           imagePreset._id.toString(),
         );
       }
+
+      if (error instanceof HttpException) {
+        throw error;
+      }
       throw new InternalServerErrorException('Failed to upload image preset');
     }
   }
@@ -339,8 +348,8 @@ export class InternalMediaPresetsController {
   private async initiateMediaPromptGeneration(
     mediaPresetId: string,
   ): Promise<unknown> {
-    return axios
-      .post<unknown>(
+    const response = await axios
+      .post<{ success: boolean }>(
         `${this.config.get('AMPLIFY_N8N_API_URL')}/webhook/media-preset/generate-prompt`,
         {
           mediaPresetId,
@@ -353,5 +362,13 @@ export class InternalMediaPresetsController {
         );
         throw error;
       });
+
+    if (!response.data.success) {
+      throw new InternalServerErrorException(
+        'Failed to initiate media prompt generation',
+      );
+    }
+
+    return response.data;
   }
 }
