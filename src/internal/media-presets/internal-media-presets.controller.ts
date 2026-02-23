@@ -2,6 +2,9 @@ import {
   BadRequestException,
   Body,
   Controller,
+  HttpException,
+  InternalServerErrorException,
+  Logger,
   Post,
   UploadedFile,
   UseInterceptors,
@@ -30,7 +33,7 @@ import {
   UploadImagePresetRequestDto,
   UploadVideoPresetRequestDto,
 } from './dto/upload-media-preset.dto';
-import { MediaPreset } from 'src/database/schema';
+import { MediaPreset, MediaPresetDoc } from 'src/database/schema';
 import { UtilsService } from 'src/utils/utils.service';
 import axios from 'axios';
 
@@ -38,6 +41,7 @@ import axios from 'axios';
 @ApiSecurity('x-api-key')
 @Controller('internal/media-presets')
 export class InternalMediaPresetsController {
+  private logger = new Logger(InternalMediaPresetsController.name);
   private awsCredentials: Credentials;
 
   constructor(
@@ -133,57 +137,94 @@ export class InternalMediaPresetsController {
       throw new BadRequestException('file is required');
     }
 
-    const { duration, resolution } = await this.probeVideo(file);
+    let videoResult:
+      | Awaited<ReturnType<UploadService['uploadFile']>>
+      | undefined;
+    let thumbnailImageResult:
+      | Awaited<ReturnType<UploadService['uploadFile']>>
+      | undefined;
+    let videoPreset: MediaPresetDoc | undefined;
 
-    const videoResult = await this.uploadService.uploadFile(
-      file,
-      'global',
-      'video-presets',
-      this.awsCredentials,
-      'campaign-assets',
-    );
+    try {
+      const { duration, resolution } = await this.probeVideo(file);
 
-    const thumbnailImageBuffer =
-      await this.utilService.generateThumbnailFromVideo(file);
-    const thumbnailImageFile: Express.Multer.File = {
-      fieldname: 'thumbnailImage',
-      originalname: `${file.originalname}.png`,
-      encoding: '7bit',
-      mimetype: 'image/png',
-      size: thumbnailImageBuffer.length,
-      buffer: thumbnailImageBuffer,
-      destination: '',
-      filename: '',
-      path: '',
-      stream: undefined as any,
-    };
+      videoResult = await this.uploadService.uploadFile(
+        file,
+        'global',
+        'video-presets',
+        this.awsCredentials,
+        'video-presets',
+      );
 
-    const thumbnailImageResult = await this.uploadService.uploadFile(
-      thumbnailImageFile,
-      'global',
-      'video-presets-thumbnail-image',
-      this.awsCredentials,
-      'campaign-assets',
-    );
+      const thumbnailImageBuffer =
+        await this.utilService.generateThumbnailFromVideo(file);
+      const thumbnailImageFile: Express.Multer.File = {
+        fieldname: 'thumbnailImage',
+        originalname: `${file.originalname}.png`,
+        encoding: '7bit',
+        mimetype: 'image/png',
+        size: thumbnailImageBuffer.length,
+        buffer: thumbnailImageBuffer,
+        destination: '',
+        filename: '',
+        path: '',
+        stream: undefined as any,
+      };
 
-    const videoPreset = await this.mediaPresetsService.createVideoPreset({
-      label: body.label,
-      videoUrl: videoResult.url,
-      videoKey: videoResult.key,
-      thumbnailImageUrl: thumbnailImageResult.url,
-      thumbnailImageKey: thumbnailImageResult.key,
-      duration,
-      resolution,
-      tags: body.tags
-        ? body.tags.split(',').map((tag) => tag.toLowerCase().trim())
-        : [],
-    });
+      thumbnailImageResult = await this.uploadService.uploadFile(
+        thumbnailImageFile,
+        'global',
+        'video-presets-thumbnail-image',
+        this.awsCredentials,
+        'video-presets',
+      );
 
-    // initiate n8n workflow to generate prompt
+      videoPreset = await this.mediaPresetsService.createVideoPreset({
+        label: body.label,
+        videoUrl: videoResult.url,
+        videoKey: videoResult.key,
+        thumbnailImageUrl: thumbnailImageResult.url,
+        thumbnailImageKey: thumbnailImageResult.key,
+        duration,
+        resolution,
+        tags: body.tags
+          ? body.tags.split(',').map((tag) => tag.toLowerCase().trim())
+          : [],
+      });
 
-    this.initiateMediaPromptGeneration(videoPreset._id.toString());
+      // initiate n8n workflow to generate prompt
 
-    return videoPreset;
+      await this.initiateMediaPromptGeneration(videoPreset._id.toString());
+
+      return videoPreset;
+    } catch (error) {
+      this.logger.error('Failed to upload video preset:', error);
+      if (videoResult) {
+        await this.uploadService.deleteObject(
+          videoResult.key,
+          this.awsCredentials,
+        );
+      }
+
+      if (thumbnailImageResult) {
+        await this.uploadService.deleteObject(
+          thumbnailImageResult.key,
+          this.awsCredentials,
+        );
+      }
+
+      if (videoPreset) {
+        await this.mediaPresetsService.deleteMediaPreset(
+          videoPreset._id.toString(),
+        );
+      }
+
+      if (error instanceof HttpException) {
+        throw error;
+      }
+
+      throw new InternalServerErrorException('Failed to upload video preset');
+    }
   }
 
   @Post('/image/upload')
@@ -207,69 +248,127 @@ export class InternalMediaPresetsController {
       throw new BadRequestException('file is required');
     }
 
-    const imageResult = await this.uploadService.uploadFile(
-      file,
-      'global',
-      'image-presets',
-      this.awsCredentials,
-      'campaign-assets',
-    );
+    let imageResult:
+      | Awaited<ReturnType<UploadService['uploadFile']>>
+      | undefined;
+    let thumbnailImageResult:
+      | Awaited<ReturnType<UploadService['uploadFile']>>
+      | undefined;
+    let imagePreset: MediaPresetDoc | undefined;
 
-    const thumbnailImageBuffer =
-      await this.utilService.generateThumbnailFromImage(file);
-    const thumbnailImageFile: Express.Multer.File = {
-      fieldname: 'thumbnailImage',
-      originalname: `${file.originalname}.png`,
-      encoding: '7bit',
-      mimetype: 'image/png',
-      size: thumbnailImageBuffer.length,
-      buffer: thumbnailImageBuffer,
-      destination: '',
-      filename: '',
-      path: '',
-      stream: undefined as any,
-    };
+    try {
+      imageResult = await this.uploadService.uploadFile(
+        file,
+        'global',
+        'image-presets',
+        this.awsCredentials,
+        'image-presets',
+      );
 
-    const thumbnailImageResult = await this.uploadService.uploadFile(
-      thumbnailImageFile,
-      'global',
-      'image-presets-thumbnail-image',
-      this.awsCredentials,
-      'campaign-assets',
-    );
+      if (!imageResult) {
+        throw new InternalServerErrorException('Failed to upload image preset');
+      }
 
-    const imagePreset = await this.mediaPresetsService.createImagePreset({
-      label: body.label,
-      tags: body.tags
-        ? body.tags.split(',').map((tag) => tag.toLowerCase().trim())
-        : [],
-      imageUrl: imageResult.url,
-      imageKey: imageResult.key,
-      thumbnailUrl: thumbnailImageResult.url,
-      thumbnailKey: thumbnailImageResult.key,
-    });
+      const thumbnailImageBuffer =
+        await this.utilService.generateThumbnailFromImage(file);
+      const thumbnailImageFile: Express.Multer.File = {
+        fieldname: 'thumbnailImage',
+        originalname: `${file.originalname}.png`,
+        encoding: '7bit',
+        mimetype: 'image/png',
+        size: thumbnailImageBuffer.length,
+        buffer: thumbnailImageBuffer,
+        destination: '',
+        filename: '',
+        path: '',
+        stream: undefined as any,
+      };
 
-    // initiate n8n prompt gen workflow
-    this.initiateMediaPromptGeneration(imagePreset._id.toString());
+      thumbnailImageResult = await this.uploadService.uploadFile(
+        thumbnailImageFile,
+        'global',
+        'image-presets-thumbnail-image',
+        this.awsCredentials,
+        'image-presets',
+      );
 
-    return imagePreset;
+      if (!thumbnailImageResult) {
+        throw new InternalServerErrorException('Failed to upload image preset');
+      }
+
+      imagePreset = await this.mediaPresetsService.createImagePreset({
+        label: body.label,
+        tags: body.tags
+          ? body.tags.split(',').map((tag) => tag.toLowerCase().trim())
+          : [],
+        imageUrl: imageResult.url,
+        imageKey: imageResult.key,
+        thumbnailUrl: thumbnailImageResult.url,
+        thumbnailKey: thumbnailImageResult.key,
+      });
+
+      // initiate n8n prompt gen workflow
+      await this.initiateMediaPromptGeneration(imagePreset._id.toString());
+
+      return imagePreset;
+    } catch (error) {
+      this.logger.error('Failed to upload image preset:', error);
+      if (imageResult) {
+        this.logger.debug('Deleting image result:', imageResult.key);
+        await this.uploadService.deleteObject(
+          imageResult.key,
+          this.awsCredentials,
+        );
+      }
+      if (thumbnailImageResult) {
+        this.logger.debug(
+          'Deleting thumbnail image result:',
+          thumbnailImageResult.key,
+        );
+        await this.uploadService.deleteObject(
+          thumbnailImageResult.key,
+          this.awsCredentials,
+        );
+      }
+
+      if (imagePreset) {
+        this.logger.debug('Deleting image preset:', imagePreset._id);
+        await this.mediaPresetsService.deleteMediaPreset(
+          imagePreset._id.toString(),
+        );
+      }
+
+      if (error instanceof HttpException) {
+        throw error;
+      }
+      throw new InternalServerErrorException('Failed to upload image preset');
+    }
   }
 
   private async initiateMediaPromptGeneration(
     mediaPresetId: string,
   ): Promise<unknown> {
-    return axios
-      .post<unknown>(
+    const response = await axios
+      .post<{ success: boolean }>(
         `${this.config.get('AMPLIFY_N8N_API_URL')}/webhook/media-preset/generate-prompt`,
         {
           mediaPresetId,
         },
       )
       .catch((error) => {
-        console.error(
+        new Logger('').error(
           'Failed to initiate media prompt generation:',
           error.message,
         );
+        throw error;
       });
+
+    if (!response.data.success) {
+      throw new InternalServerErrorException(
+        'Failed to initiate media prompt generation',
+      );
+    }
+
+    return response.data;
   }
 }

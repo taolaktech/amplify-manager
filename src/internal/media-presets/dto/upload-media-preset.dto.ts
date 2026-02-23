@@ -2,12 +2,12 @@ import { ApiProperty } from '@nestjs/swagger';
 import { IsOptional, IsString } from 'class-validator';
 
 export class UploadVideoPresetRequestDto {
-  @ApiProperty({ required: true })
+  @ApiProperty({ required: false })
   @IsString()
   @IsOptional()
   label?: string;
 
-  @ApiProperty({ type: 'array', items: { type: 'string' } })
+  @ApiProperty({ type: 'array', required: false, items: { type: 'string' } })
   @IsString()
   @IsOptional()
   tags?: string;
@@ -17,12 +17,12 @@ export class UploadVideoPresetRequestDto {
 }
 
 export class UploadImagePresetRequestDto {
-  @ApiProperty({ required: true })
+  @ApiProperty({ required: false })
   @IsString()
   @IsOptional()
   label?: string;
 
-  @ApiProperty({ type: 'array', items: { type: 'string' } })
+  @ApiProperty({ type: 'array', required: false, items: { type: 'string' } })
   @IsString()
   @IsOptional()
   tags?: string;

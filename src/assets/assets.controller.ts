@@ -1,4 +1,4 @@
-import { Controller, Get, Param, Query } from '@nestjs/common';
+import { Body, Controller, Get, Param, Post, Query } from '@nestjs/common';
 import {
   ApiBearerAuth,
   ApiOperation,
@@ -9,6 +9,10 @@ import {
 import { GetUser } from 'src/auth/decorators';
 import { UserDoc } from 'src/database/schema';
 import { AssetsService } from './assets.service';
+import {
+  InitiateImageGenerationDto,
+  RegenerateImageDto,
+} from './dto/generate-media.dto';
 
 @ApiTags('Assets')
 @ApiBearerAuth()
@@ -54,4 +58,37 @@ export class AssetsController {
       status: 'success',
     };
   }
+
+  @Post('/generate-image')
+  async generateImageAsset(
+    @GetUser() user: UserDoc,
+    @Body() dto: InitiateImageGenerationDto,
+  ) {
+    const response = await this.assetsService.generateImageAsset(user._id, dto);
+
+    return {
+      message: 'Asset generated successfully',
+      data: response,
+      status: 'success',
+    };
+  }
+
+  @Post('/regenerate-image')
+  async regenerateImageAsset(
+    @GetUser() user: UserDoc,
+    @Body() dto: RegenerateImageDto,
+  ) {
+    const response = await this.assetsService.reGenerateImageAsset(
+      user._id,
+      dto,
+    );
+
+    return {
+      message: 'Asset regenerated successfully',
+      data: response,
+      status: 'success',
+    };
+  }
+
+  //
 }

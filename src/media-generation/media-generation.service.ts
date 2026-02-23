@@ -1,4 +1,9 @@
-import { BadRequestException, Injectable, Logger } from '@nestjs/common';
+import {
+  BadRequestException,
+  Injectable,
+  InternalServerErrorException,
+  Logger,
+} from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
 import axios from 'axios';
@@ -6,11 +11,7 @@ import { InternalHttpHelper } from 'src/common/helpers/internal-http.helper';
 import { ServiceNames } from 'src/common/types/service.types';
 import { AppConfigService } from 'src/config/config.service';
 import { BusinessDoc } from 'src/database/schema/business.schema';
-import {
-  InitiateImageGenerationDto,
-  InitiateImageGenWithN8n,
-  InitiateVideoGenerationDto,
-} from './dto';
+import { InitiateImageGenerationDto, InitiateVideoGenerationDto } from './dto';
 import { MediaPresetDoc } from 'src/database/schema/media-preset.schema';
 
 type IntegrationsCreateResponse = {
@@ -62,7 +63,18 @@ export class MediaGenerationService {
 
   async initiateAssetGenWithN8n(
     userId: Types.ObjectId,
-    dto: InitiateImageGenWithN8n,
+    dto: {
+      type: 'image' | 'video';
+      businessId: string;
+      productName: string;
+      productDescription: string;
+      productImages: string[];
+      productId: string;
+      mediaPresetId?: string;
+      headline?: string;
+      bodyCopy?: string;
+      cta?: string;
+    },
   ) {
     const business = await this.businessModel.findOne({ userId });
     if (!business) {
@@ -84,27 +96,25 @@ export class MediaGenerationService {
       productDescription: dto.productDescription,
       productImages: dto.productImages,
       productId: dto.productId,
-      headline: dto.headline,
-      bodyCopy: dto.bodyCopy,
-      cta: dto.cta ?? '',
       mediaPresetId: dto.mediaPresetId,
-      mediaPresetPrompt: preset?.prompt,
+      headline: dto.headline ?? '',
+      bodyCopy: dto.bodyCopy ?? '',
+      cta: dto.cta ?? '',
     };
 
-    const url = `${this.config.get('AMPLIFY_N8N_API_URL')}/webhook/asset/generate
-`;
+    const url = `${this.config.get('AMPLIFY_N8N_API_URL')}/webhook/asset/generate`;
 
-    const resData = await this.postToN8nWebhook<any>(url, payload);
+    const resData = await this.postToN8nWebhook<{ assetId: string }>(
+      url,
+      payload,
+    );
 
-    const assetId =
-      typeof resData?.assetId === 'string'
-        ? resData.assetId
-        : typeof resData?.data?.assetId === 'string'
-          ? resData.data.assetId
-          : undefined;
+    const assetId = resData?.assetId;
 
     if (!assetId) {
-      throw new BadRequestException('Invalid response from asset generation');
+      throw new InternalServerErrorException(
+        'Invalid response from asset generation',
+      );
     }
 
     return { assetId };
@@ -127,7 +137,7 @@ export class MediaGenerationService {
       throw new BadRequestException('Video preset not found');
     }
 
-    // // TODO: Use nanobanana to generate some things like primary use case, key visual feature, usage environment, product details
+    // Use nanobanana to generate some things like primary use case, key visual feature, usage environment, product details
     // const { primaryUseCase, keyVisualFeature, usageEnvironment } =
     //   await this.generateProductDetails();
 
@@ -206,11 +216,7 @@ export class MediaGenerationService {
       throw new BadRequestException('Preset is not an image preset');
     }
 
-    const imageUrls = [
-      imagePreset.mediaUrl,
-      dto.productImage,
-      ...(Array.isArray(dto.otherImages) ? dto.otherImages : []),
-    ].filter((u) => typeof u === 'string' && u.length > 0);
+    const imageUrls = [imagePreset.mediaUrl, dto.productImages];
 
     const prompt = `Generate an image for ${dto.productName} using the following prompt: ${imagePreset.prompt}. The first image is the template to be used for the image generation and the other images are the other images of the product to be used for the image generation
     {
