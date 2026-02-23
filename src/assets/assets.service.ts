@@ -56,10 +56,8 @@ export class AssetsService {
       throw new BadRequestException('Invalid asset id');
     }
 
-    const businessId = await this.getBusinessIdForUser(userId);
-
     const asset = await this.assetModel
-      .findOne({ _id: new Types.ObjectId(assetId), businessId })
+      .findOne({ _id: new Types.ObjectId(assetId) })
       .lean<Asset>();
 
     if (!asset) {
