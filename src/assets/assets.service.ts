@@ -5,14 +5,20 @@ import {
 } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, RootFilterQuery, Types } from 'mongoose';
-import { BusinessDoc } from 'src/database/schema';
+import { BusinessDoc, MediaPresetDoc } from 'src/database/schema';
 import { Asset, AssetDoc } from 'src/database/schema/asset.schema';
+import { InitiateImageGenerationDto } from './dto/generate-media.dto';
+import { MediaGenerationService } from 'src/media-generation/media-generation.service';
+import { string } from 'zod';
 
 @Injectable()
 export class AssetsService {
   constructor(
     @InjectModel('assets') private readonly assetModel: Model<AssetDoc>,
     @InjectModel('business') private readonly businessModel: Model<BusinessDoc>,
+    @InjectModel('media-presets')
+    private readonly mediaPresetModel: Model<MediaPresetDoc>,
+    private readonly mediaGenerationService: MediaGenerationService,
   ) {}
 
   async getBusinessIdForUser(userId: Types.ObjectId): Promise<Types.ObjectId> {
@@ -58,5 +64,46 @@ export class AssetsService {
     }
 
     return asset;
+  }
+
+  async generateImageAsset(
+    userId: Types.ObjectId,
+    dto: InitiateImageGenerationDto,
+  ) {
+    const mediaPresetExists = dto.imagePresetId
+      ? await this.mediaPresetModel.findOne({
+          _id: dto.imagePresetId,
+          prompt: { $exists: true },
+        })
+      : null;
+
+    if (dto.imagePresetId && !mediaPresetExists) {
+      throw new NotFoundException('Media preset not found');
+    }
+
+    const businessId = await this.getBusinessIdForUser(userId);
+
+    const payload = {
+      type: 'image' as const,
+      businessId: businessId.toString(),
+      productName: dto.productName,
+      productDescription: dto.productDescription,
+      productImages: dto.productImages,
+      ...(dto.imagePresetId && { mediaPresetId: dto.imagePresetId }),
+      productId: dto.productId,
+      headline: dto.headline,
+      bodyCopy: dto.bodyCopy,
+      cta: dto.cta,
+    };
+
+    const { assetId } =
+      await this.mediaGenerationService.initiateAssetGenWithN8n(
+        userId,
+        payload,
+      );
+
+    return {
+      assetId,
+    };
   }
 }

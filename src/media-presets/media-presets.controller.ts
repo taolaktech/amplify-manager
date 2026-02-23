@@ -43,7 +43,7 @@ class ListVideoPresetsResponse {
   data: PaginatedVideoPresetsResponse;
 }
 
-@ApiTags('Video Presets')
+@ApiTags('Media Presets')
 @ApiBearerAuth()
 @Controller('api/media-presets')
 export class MediaPresetsController {
