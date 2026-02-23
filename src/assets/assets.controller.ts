@@ -9,7 +9,10 @@ import {
 import { GetUser } from 'src/auth/decorators';
 import { UserDoc } from 'src/database/schema';
 import { AssetsService } from './assets.service';
-import { InitiateImageGenerationDto } from './dto/generate-media.dto';
+import {
+  InitiateImageGenerationDto,
+  RegenerateImageDto,
+} from './dto/generate-media.dto';
 
 @ApiTags('Assets')
 @ApiBearerAuth()
@@ -69,4 +72,23 @@ export class AssetsController {
       status: 'success',
     };
   }
+
+  @Post('/regenerate-image')
+  async regenerateImageAsset(
+    @GetUser() user: UserDoc,
+    @Body() dto: RegenerateImageDto,
+  ) {
+    const response = await this.assetsService.reGenerateImageAsset(
+      user._id,
+      dto,
+    );
+
+    return {
+      message: 'Asset regenerated successfully',
+      data: response,
+      status: 'success',
+    };
+  }
+
+  //
 }

@@ -7,7 +7,10 @@ import { InjectModel } from '@nestjs/mongoose';
 import { Model, RootFilterQuery, Types } from 'mongoose';
 import { BusinessDoc, MediaPresetDoc } from 'src/database/schema';
 import { Asset, AssetDoc } from 'src/database/schema/asset.schema';
-import { InitiateImageGenerationDto } from './dto/generate-media.dto';
+import {
+  InitiateImageGenerationDto,
+  RegenerateImageDto,
+} from './dto/generate-media.dto';
 import { MediaGenerationService } from 'src/media-generation/media-generation.service';
 import { string } from 'zod';
 
@@ -90,6 +93,47 @@ export class AssetsService {
       productDescription: dto.productDescription,
       productImages: dto.productImages,
       ...(dto.imagePresetId && { mediaPresetId: dto.imagePresetId }),
+      productId: dto.productId,
+      headline: dto.headline,
+      bodyCopy: dto.bodyCopy,
+      cta: dto.cta,
+    };
+
+    const { assetId } =
+      await this.mediaGenerationService.initiateAssetGenWithN8n(
+        userId,
+        payload,
+      );
+
+    return {
+      assetId,
+    };
+  }
+
+  async reGenerateImageAsset(userId: Types.ObjectId, dto: RegenerateImageDto) {
+    const asset = await this.getAssetById({ userId, assetId: dto.assetId });
+
+    if (
+      !asset ||
+      asset.type !== 'image' ||
+      asset.status !== 'completed' ||
+      asset.mediaUrl
+    ) {
+      throw new NotFoundException('Asset not found');
+    }
+
+    const businessId = await this.getBusinessIdForUser(userId);
+
+    const productImages = [asset.mediaUrl, ...dto.productImages].filter(
+      (url): url is string => typeof url === 'string' && url.length > 0,
+    );
+
+    const payload = {
+      type: 'image' as const,
+      businessId: businessId.toString(),
+      productName: dto.productName,
+      productDescription: dto.productDescription,
+      productImages,
       productId: dto.productId,
       headline: dto.headline,
       bodyCopy: dto.bodyCopy,

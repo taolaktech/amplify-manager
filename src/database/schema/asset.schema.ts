@@ -30,7 +30,7 @@ export class Asset {
   source: AssetSource;
 
   @Prop()
-  url?: string;
+  mediaUrl?: string;
 
   @Prop()
   storageKey?: string;

@@ -61,6 +61,11 @@ export class RegenerateImageDto {
   @ApiProperty({ required: true })
   @IsString()
   @IsNotEmpty()
+  productName: string;
+
+  @ApiProperty({ required: true })
+  @IsString()
+  @IsNotEmpty()
   productDescription: string;
 
   @ApiProperty({ required: true, type: [String] })
