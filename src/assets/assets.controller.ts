@@ -11,6 +11,7 @@ import { UserDoc } from 'src/database/schema';
 import { AssetsService } from './assets.service';
 import {
   InitiateImageGenerationDto,
+  InitiateVideoGenerationDto,
   RegenerateImageDto,
 } from './dto/generate-media.dto';
 
@@ -65,6 +66,20 @@ export class AssetsController {
     @Body() dto: InitiateImageGenerationDto,
   ) {
     const response = await this.assetsService.generateImageAsset(user._id, dto);
+
+    return {
+      message: 'Asset generated successfully',
+      data: response,
+      status: 'success',
+    };
+  }
+
+  @Post('/generate-video')
+  async generateVideoAsset(
+    @GetUser() user: UserDoc,
+    @Body() dto: InitiateVideoGenerationDto,
+  ) {
+    const response = await this.assetsService.generateVideoAsset(user._id, dto);
 
     return {
       message: 'Asset generated successfully',

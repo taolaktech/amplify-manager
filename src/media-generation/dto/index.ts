@@ -18,6 +18,11 @@ export class InitiateVideoGenerationDto {
   @ApiProperty({ required: true })
   @IsString()
   @IsNotEmpty()
+  productId: string;
+
+  @ApiProperty({ required: true })
+  @IsString()
+  @IsNotEmpty()
   productName: string;
 
   @ApiProperty({ required: true })
@@ -29,6 +34,12 @@ export class InitiateVideoGenerationDto {
   @IsString()
   @IsNotEmpty()
   productDescription: string;
+
+  @ApiProperty({ required: true })
+  @IsArray()
+  @ArrayNotEmpty()
+  @IsString({ each: true })
+  productImages: string[];
 }
 
 export class InitiateImageGenerationDto {

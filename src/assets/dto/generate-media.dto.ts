@@ -52,6 +52,49 @@ export class InitiateImageGenerationDto {
   cta?: string;
 }
 
+export class InitiateVideoGenerationDto {
+  @ApiProperty({ required: true })
+  @IsString()
+  @IsNotEmpty()
+  productName: string;
+
+  @ApiProperty({ required: true })
+  @IsMongoId()
+  @IsOptional()
+  videoPresetId?: string;
+
+  @ApiProperty({ required: true })
+  @IsString()
+  @IsNotEmpty()
+  productDescription: string;
+
+  @ApiProperty({ required: true, type: [String] })
+  @IsArray()
+  @ArrayNotEmpty()
+  @IsUrl({}, { each: true })
+  productImages: string[];
+
+  @ApiProperty({ required: true })
+  @IsString()
+  @IsNotEmpty()
+  productId: string;
+
+  @ApiProperty({ required: true })
+  @IsString()
+  @IsNotEmpty()
+  headline: string;
+
+  @ApiProperty({ required: true })
+  @IsString()
+  @IsNotEmpty()
+  bodyCopy: string;
+
+  @ApiProperty({ required: false, default: '' })
+  @IsOptional()
+  @IsString()
+  cta?: string;
+}
+
 export class RegenerateImageDto {
   @ApiProperty({ required: true })
   @IsString()
