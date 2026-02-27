@@ -9,10 +9,10 @@ import { BusinessDoc, MediaPresetDoc } from 'src/database/schema';
 import { Asset, AssetDoc } from 'src/database/schema/asset.schema';
 import {
   InitiateImageGenerationDto,
+  InitiateVideoGenerationDto,
   RegenerateImageDto,
 } from './dto/generate-media.dto';
 import { MediaGenerationService } from 'src/media-generation/media-generation.service';
-import { string } from 'zod';
 
 @Injectable()
 export class AssetsService {
@@ -95,6 +95,43 @@ export class AssetsService {
       headline: dto.headline,
       bodyCopy: dto.bodyCopy,
       cta: dto.cta,
+    };
+
+    const { assetId } =
+      await this.mediaGenerationService.initiateAssetGenWithN8n(
+        userId,
+        payload,
+      );
+
+    return {
+      assetId,
+    };
+  }
+  async generateVideoAsset(
+    userId: Types.ObjectId,
+    dto: InitiateVideoGenerationDto,
+  ) {
+    const mediaPresetExists = dto.videoPresetId
+      ? await this.mediaPresetModel.findOne({
+          _id: dto.videoPresetId,
+          prompt: { $exists: true },
+        })
+      : null;
+
+    if (dto.videoPresetId && !mediaPresetExists) {
+      throw new NotFoundException('Media preset not found');
+    }
+
+    const businessId = await this.getBusinessIdForUser(userId);
+
+    const payload = {
+      type: 'video' as const,
+      businessId: businessId.toString(),
+      productName: dto.productName,
+      productDescription: dto.productDescription,
+      productImages: dto.productImages,
+      ...(dto.videoPresetId && { mediaPresetId: dto.videoPresetId }),
+      productId: dto.productId,
     };
 
     const { assetId } =
