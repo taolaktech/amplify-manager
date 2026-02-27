@@ -107,6 +107,7 @@ export class AssetsService {
       assetId,
     };
   }
+
   async generateVideoAsset(
     userId: Types.ObjectId,
     dto: InitiateVideoGenerationDto,

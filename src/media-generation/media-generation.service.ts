@@ -90,7 +90,7 @@ export class MediaGenerationService {
     }
 
     const payload = {
-      type: 'image',
+      type: dto.type,
       businessId: business._id.toString(),
       productName: dto.productName,
       productDescription: dto.productDescription,
