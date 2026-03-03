@@ -84,8 +84,10 @@ export class MediaPresetsService {
   async listPresets(params: {
     page: number;
     perPage: number;
-    type?: string; //'image' | 'video';
-    tags?: string;
+    type?: string;
+    tags?: string[];
+    creativeDirections?: string[];
+    niches?: string[];
   }) {
     const page = Math.max(1, params.page || 1);
     const perPage = Math.min(100, Math.max(1, params.perPage || 20));
@@ -99,10 +101,24 @@ export class MediaPresetsService {
       queryObject.type = params.type;
     }
 
-    if (params.tags) {
-      queryObject.tags = {
-        $in: params.tags.split(',').map((tag) => tag.trim()),
-      };
+    const orConditions: RootFilterQuery<MediaPresetDoc>[] = [];
+
+    if (params.tags && params.tags.length > 0) {
+      orConditions.push({ tags: { $in: params.tags } });
+    }
+
+    if (params.creativeDirections && params.creativeDirections.length > 0) {
+      orConditions.push({
+        creativeDirections: { $in: params.creativeDirections },
+      });
+    }
+
+    if (params.niches && params.niches.length > 0) {
+      orConditions.push({ niches: { $in: params.niches } });
+    }
+
+    if (orConditions.length > 0) {
+      queryObject.$or = orConditions;
     }
 
     const [total, presets] = await Promise.all([

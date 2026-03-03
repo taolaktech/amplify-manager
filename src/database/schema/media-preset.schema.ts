@@ -34,6 +34,12 @@ export class MediaPreset {
 
   @Prop({ type: [String], default: [] })
   tags: string[];
+
+  @Prop({ type: [String], default: [] })
+  creativeDirections: string[];
+
+  @Prop({ type: [String], default: [] })
+  niches: string[];
 }
 
 export const MediaPresetSchema = SchemaFactory.createForClass(MediaPreset);

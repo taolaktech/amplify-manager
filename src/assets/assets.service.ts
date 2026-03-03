@@ -13,16 +13,29 @@ import {
   RegenerateImageDto,
 } from './dto/generate-media.dto';
 import { MediaGenerationService } from 'src/media-generation/media-generation.service';
+import { Credentials, UploadService } from 'src/common/file-upload';
+import { AppConfigService } from 'src/config/config.service';
 
 @Injectable()
 export class AssetsService {
+  private awsCredentials: Credentials;
+
   constructor(
     @InjectModel('assets') private readonly assetModel: Model<AssetDoc>,
     @InjectModel('business') private readonly businessModel: Model<BusinessDoc>,
     @InjectModel('media-presets')
     private readonly mediaPresetModel: Model<MediaPresetDoc>,
     private readonly mediaGenerationService: MediaGenerationService,
-  ) {}
+    private readonly uploadService: UploadService,
+    private readonly configService: AppConfigService,
+  ) {
+    this.awsCredentials = {
+      accessKeyId: this.configService.get('AWS_ACCESS_KEY_ID'),
+      secretAccessKey: this.configService.get('AWS_SECRET_ACCESS_KEY'),
+      region: this.configService.get('AWS_REGION'),
+      bucketName: this.configService.get('S3_BUCKET'),
+    };
+  }
 
   async getBusinessIdForUser(userId: Types.ObjectId): Promise<Types.ObjectId> {
     const business = await this.businessModel.findOne({ userId });
@@ -144,6 +157,21 @@ export class AssetsService {
     return {
       assetId,
     };
+  }
+
+  async uploadProductImage(
+    userId: Types.ObjectId,
+    file: Express.Multer.File,
+  ): Promise<{ url: string; key: string }> {
+    const businessId = await this.getBusinessIdForUser(userId);
+    const result = await this.uploadService.uploadFile(
+      file,
+      businessId.toHexString(),
+      'uploaded',
+      this.awsCredentials,
+      'product-uploads',
+    );
+    return { url: result.url, key: result.key };
   }
 
   async reGenerateImageAsset(userId: Types.ObjectId, dto: RegenerateImageDto) {

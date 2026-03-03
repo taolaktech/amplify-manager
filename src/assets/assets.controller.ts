@@ -1,6 +1,17 @@
-import { Body, Controller, Get, Param, Post, Query } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Get,
+  Param,
+  Post,
+  Query,
+  UploadedFile,
+  UseInterceptors,
+} from '@nestjs/common';
+import { FileInterceptor } from '@nestjs/platform-express';
 import {
   ApiBearerAuth,
+  ApiConsumes,
   ApiOperation,
   ApiQuery,
   ApiResponse,
@@ -14,6 +25,7 @@ import {
   InitiateVideoGenerationDto,
   RegenerateImageDto,
 } from './dto/generate-media.dto';
+import { createMulterOptions } from 'src/common/create-multer-options';
 
 @ApiTags('Assets')
 @ApiBearerAuth()
@@ -101,6 +113,33 @@ export class AssetsController {
     return {
       message: 'Asset regenerated successfully',
       data: response,
+      status: 'success',
+    };
+  }
+
+  @Post('/upload')
+  @ApiOperation({ summary: 'Upload a product image to S3' })
+  @ApiConsumes('multipart/form-data')
+  @ApiResponse({ status: 201 })
+  @UseInterceptors(
+    FileInterceptor(
+      'file',
+      createMulterOptions(10 * 1024 * 1024, [
+        'image/jpeg',
+        'image/png',
+        'image/webp',
+        'image/gif',
+      ]),
+    ),
+  )
+  async uploadProductImage(
+    @GetUser() user: UserDoc,
+    @UploadedFile() file: Express.Multer.File,
+  ) {
+    const result = await this.assetsService.uploadProductImage(user._id, file);
+    return {
+      message: 'Image uploaded successfully',
+      data: result,
       status: 'success',
     };
   }

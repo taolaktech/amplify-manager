@@ -1,14 +1,14 @@
-import { Controller, Get, Query } from '@nestjs/common';
+import { Body, Controller, Post } from '@nestjs/common';
 import {
   ApiBearerAuth,
   ApiOperation,
   ApiProperty,
-  ApiQuery,
   ApiResponse,
   ApiTags,
 } from '@nestjs/swagger';
 import { MediaPreset } from 'src/database/schema/media-preset.schema';
 import { MediaPresetsService } from './media-presets.service';
+import { SearchMediaPresetsDto } from './dto/search-media-presets.dto';
 
 class PaginationMeta {
   @ApiProperty()
@@ -49,31 +49,17 @@ class ListVideoPresetsResponse {
 export class MediaPresetsController {
   constructor(private readonly mediaPresetsService: MediaPresetsService) {}
 
-  @Get('/')
-  @ApiOperation({ summary: 'List media presets (paginated)' })
-  @ApiQuery({ name: 'page', required: false })
-  @ApiQuery({ name: 'perPage', required: false })
-  @ApiQuery({ name: 'type', required: false, description: 'image or video' })
-  @ApiQuery({
-    name: 'tags',
-    required: false,
-    description: 'Comma separated tags',
-  })
+  @Post('/search')
+  @ApiOperation({ summary: 'Search / list media presets (paginated)' })
   @ApiResponse({ status: 200, type: ListVideoPresetsResponse })
-  async listPresets(
-    @Query('page') page?: string,
-    @Query('perPage') perPage?: string,
-    @Query('type') type?: string,
-    @Query('tags') tags?: string,
-  ) {
-    const parsedPage = page ? parseInt(page, 10) : 1;
-    const parsedPerPage = perPage ? parseInt(perPage, 10) : 20;
-
+  async searchPresets(@Body() dto: SearchMediaPresetsDto) {
     const { presets, pagination } = await this.mediaPresetsService.listPresets({
-      page: Number.isFinite(parsedPage) ? parsedPage : 1,
-      perPage: Number.isFinite(parsedPerPage) ? parsedPerPage : 20,
-      type,
-      tags,
+      page: dto.page ?? 1,
+      perPage: dto.perPage ?? 20,
+      type: dto.type,
+      tags: dto.tags,
+      creativeDirections: dto.creativeDirections,
+      niches: dto.niches,
     });
 
     return {

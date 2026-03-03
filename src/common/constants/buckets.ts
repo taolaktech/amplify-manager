@@ -3,6 +3,7 @@ export const topLevelFolders = {
   'campaign-assets': 'campaign-assets',
   'video-presets': 'video-presets',
   'image-presets': 'image-presets',
+  'product-uploads': 'product-uploads',
   // add more top-level folders as needed
 } as const;
 
