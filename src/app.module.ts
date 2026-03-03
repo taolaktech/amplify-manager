@@ -18,6 +18,7 @@ import { ApiKeyGuard } from './internal/auth/api-key.guard';
 import { AssetsModule } from './assets/assets.module';
 import { MediaPresetsModule } from './media-presets/media-presets.module';
 import { MediaGenerationModule } from './media-generation/media-generation.module';
+import { OpenAIModule } from './openai/openai.module';
 
 @Module({
   imports: [
@@ -35,6 +36,7 @@ import { MediaGenerationModule } from './media-generation/media-generation.modul
     MediaGenerationModule,
     CampaignModule,
     InternalModule,
+    OpenAIModule,
   ],
   controllers: [AppController],
   providers: [

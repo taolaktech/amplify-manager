@@ -13,6 +13,11 @@ import {
   RegenerateImageDto,
 } from './dto/generate-media.dto';
 import { MediaGenerationService } from 'src/media-generation/media-generation.service';
+import { OpenAIService } from 'src/openai/openai.service';
+import {
+  GenerateVideoScriptDto,
+  GenerateImageAdCopyDto,
+} from './dto/generate-copy.dto';
 
 @Injectable()
 export class AssetsService {
@@ -22,6 +27,7 @@ export class AssetsService {
     @InjectModel('media-presets')
     private readonly mediaPresetModel: Model<MediaPresetDoc>,
     private readonly mediaGenerationService: MediaGenerationService,
+    private readonly openAIService: OpenAIService,
   ) {}
 
   async getBusinessIdForUser(userId: Types.ObjectId): Promise<Types.ObjectId> {
@@ -144,6 +150,36 @@ export class AssetsService {
     return {
       assetId,
     };
+  }
+
+  async generateVideoScript(
+    userId: Types.ObjectId,
+    dto: GenerateVideoScriptDto,
+  ): Promise<{ script: string }> {
+    void userId;
+    const script = await this.openAIService.generateVideoScript({
+      productName: dto.productName,
+      productDescription: dto.productDescription,
+      productImages: dto.productImages,
+      presetLabel: dto.presetLabel,
+      presetDuration: dto.presetDuration,
+      presetResolution: dto.presetResolution,
+    });
+    return { script };
+  }
+
+  async generateImageAdCopy(
+    userId: Types.ObjectId,
+    dto: GenerateImageAdCopyDto,
+  ) {
+    void userId;
+    return this.openAIService.generateImageAdCopy({
+      productName: dto.productName,
+      productDescription: dto.productDescription,
+      productImages: dto.productImages,
+      presetLabel: dto.presetLabel,
+      presetResolution: dto.presetResolution,
+    });
   }
 
   async reGenerateImageAsset(userId: Types.ObjectId, dto: RegenerateImageDto) {

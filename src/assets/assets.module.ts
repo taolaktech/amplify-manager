@@ -5,6 +5,7 @@ import { UploadService } from 'src/common/file-upload';
 import { MediaGenerationService } from 'src/media-generation/media-generation.service';
 import { InternalHttpHelper } from 'src/common/helpers/internal-http.helper';
 import { ServiceRegistryService } from 'src/common/services/service-registry.service';
+import { OpenAIService } from 'src/openai/openai.service';
 
 @Module({
   controllers: [AssetsController],
@@ -14,6 +15,7 @@ import { ServiceRegistryService } from 'src/common/services/service-registry.ser
     MediaGenerationService,
     InternalHttpHelper,
     ServiceRegistryService,
+    OpenAIService,
   ],
 })
 export class AssetsModule {}

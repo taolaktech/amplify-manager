@@ -14,6 +14,10 @@ import {
   InitiateVideoGenerationDto,
   RegenerateImageDto,
 } from './dto/generate-media.dto';
+import {
+  GenerateVideoScriptDto,
+  GenerateImageAdCopyDto,
+} from './dto/generate-copy.dto';
 
 @ApiTags('Assets')
 @ApiBearerAuth()
@@ -101,6 +105,39 @@ export class AssetsController {
     return {
       message: 'Asset regenerated successfully',
       data: response,
+      status: 'success',
+    };
+  }
+
+  @Post('/generate-video-script')
+  @ApiOperation({
+    summary:
+      'Generate an ad video script using AI given product and preset info',
+  })
+  async generateVideoScript(
+    @GetUser() user: UserDoc,
+    @Body() dto: GenerateVideoScriptDto,
+  ) {
+    const result = await this.assetsService.generateVideoScript(user._id, dto);
+    return {
+      message: 'Video script generated successfully',
+      data: result,
+      status: 'success',
+    };
+  }
+
+  @Post('/generate-image-ad-copy')
+  @ApiOperation({
+    summary: 'Generate headline, description, and CTA for an image ad using AI',
+  })
+  async generateImageAdCopy(
+    @GetUser() user: UserDoc,
+    @Body() dto: GenerateImageAdCopyDto,
+  ) {
+    const result = await this.assetsService.generateImageAdCopy(user._id, dto);
+    return {
+      message: 'Image ad copy generated successfully',
+      data: result,
       status: 'success',
     };
   }

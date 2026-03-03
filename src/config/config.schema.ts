@@ -53,6 +53,9 @@ export const configSchema = z.object({
   AWS_SECRET_ACCESS_KEY: z.string(),
   AWS_REGION: z.string(),
   S3_BUCKET: z.string(),
+
+  // OpenAI
+  OPENAI_API_KEY: z.string(),
 });
 
 export type AppConfig = z.infer<typeof configSchema>;
