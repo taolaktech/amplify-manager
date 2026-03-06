@@ -195,6 +195,9 @@ export class AssetsService {
       productImages: dto.productImages,
       ...(dto.videoPresetId && { mediaPresetId: dto.videoPresetId }),
       productId: dto.productId,
+      script: dto.script,
+      includeMusic: dto.includeMusic,
+      includeVoiceOver: dto.includeVoiceOver,
     };
 
     const { assetId } =

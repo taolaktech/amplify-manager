@@ -7,6 +7,7 @@ import {
   IsArray,
   ArrayNotEmpty,
   IsUrl,
+  IsBoolean,
 } from 'class-validator';
 
 export class InitiateImageGenerationDto {
@@ -113,18 +114,16 @@ export class InitiateVideoGenerationDto {
 
   @ApiProperty({ required: true })
   @IsString()
-  @IsNotEmpty()
-  headline: string;
-
-  @ApiProperty({ required: true })
-  @IsString()
-  @IsNotEmpty()
-  bodyCopy: string;
-
-  @ApiProperty({ required: false, default: '' })
   @IsOptional()
-  @IsString()
-  cta?: string;
+  script?: string;
+
+  @ApiProperty({ required: true, default: true })
+  @IsBoolean()
+  includeMusic: boolean;
+
+  @ApiProperty({ required: true, default: true })
+  @IsBoolean()
+  includeVoiceOver: boolean;
 }
 
 export class RegenerateImageDto {

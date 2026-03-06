@@ -14,6 +14,33 @@ import { BusinessDoc } from 'src/database/schema/business.schema';
 import { InitiateImageGenerationDto, InitiateVideoGenerationDto } from './dto';
 import { MediaPresetDoc } from 'src/database/schema/media-preset.schema';
 
+type InitiateAssetGenWithN8nDtoBase = {
+  businessId: string;
+  productName: string;
+  productDescription: string;
+  productImages: string[];
+  productId: string;
+  mediaPresetId?: string;
+  headline?: string;
+  bodyCopy?: string;
+  cta?: string;
+  script?: string;
+};
+
+type InitiateAssetGenWithN8nImageDto = InitiateAssetGenWithN8nDtoBase & {
+  type: 'image';
+};
+
+type InitiateAssetGenWithN8nVideoDto = InitiateAssetGenWithN8nDtoBase & {
+  type: 'video';
+  includeMusic: boolean;
+  includeVoiceOver: boolean;
+};
+
+type InitiateAssetGenWithN8nDto =
+  | InitiateAssetGenWithN8nImageDto
+  | InitiateAssetGenWithN8nVideoDto;
+
 type IntegrationsCreateResponse = {
   success: boolean;
   data: {
@@ -63,18 +90,7 @@ export class MediaGenerationService {
 
   async initiateAssetGenWithN8n(
     userId: Types.ObjectId,
-    dto: {
-      type: 'image' | 'video';
-      businessId: string;
-      productName: string;
-      productDescription: string;
-      productImages: string[];
-      productId: string;
-      mediaPresetId?: string;
-      headline?: string;
-      bodyCopy?: string;
-      cta?: string;
-    },
+    dto: InitiateAssetGenWithN8nDto,
   ) {
     const business = await this.businessModel.findOne({ userId });
     if (!business) {
@@ -97,9 +113,12 @@ export class MediaGenerationService {
       productImages: dto.productImages,
       productId: dto.productId,
       mediaPresetId: dto.mediaPresetId,
-      headline: dto.headline ?? '',
-      bodyCopy: dto.bodyCopy ?? '',
-      cta: dto.cta ?? '',
+      headline: dto.headline,
+      bodyCopy: dto.bodyCopy,
+      cta: dto.cta,
+      script: dto.script,
+      includeMusic: dto.type === 'video' ? dto.includeMusic : false,
+      includeVoiceOver: dto.type === 'video' ? dto.includeVoiceOver : false,
     };
 
     const url = `${this.config.get('AMPLIFY_N8N_API_URL')}/webhook/asset/generate`;
