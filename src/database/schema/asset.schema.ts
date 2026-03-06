@@ -53,15 +53,6 @@ export class Asset {
   @Prop()
   promptUsed?: string;
 
-  @Prop({ type: [String], default: [] })
-  tags: string[];
-
-  @Prop({ type: [String], default: [] })
-  niches: string[];
-
-  @Prop({ type: [String], default: [] })
-  creativeDirections: string[];
-
   @Prop()
   generationJobId?: string;
 }

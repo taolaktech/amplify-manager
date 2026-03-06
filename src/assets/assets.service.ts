@@ -5,9 +5,11 @@ import {
 } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, RootFilterQuery, Types } from 'mongoose';
+import axios from 'axios';
 import { BusinessDoc, MediaPresetDoc } from 'src/database/schema';
 import { Asset, AssetDoc } from 'src/database/schema/asset.schema';
 import {
+  GenerateCopyDto,
   InitiateImageGenerationDto,
   InitiateVideoGenerationDto,
   RegenerateImageDto,
@@ -119,6 +121,53 @@ export class AssetsService {
     return {
       assetId,
     };
+  }
+
+  async generateCopy(userId: Types.ObjectId, dto: GenerateCopyDto) {
+    type N8nGenerateCopyResponse = {
+      success: boolean;
+      data: {
+        headline?: string;
+        description?: string;
+        cta?: string;
+        caption: string;
+        script?: string;
+      };
+    };
+
+    const preset = await this.mediaPresetModel.findById(dto.mediaPresetId);
+    if (!preset) {
+      throw new NotFoundException('Media preset not found');
+    }
+
+    await this.getBusinessIdForUser(userId);
+
+    const url = `${this.configService.get('AMPLIFY_N8N_API_URL')}/webhook/asset/generate-copy`;
+    try {
+      const response = await axios.post<N8nGenerateCopyResponse>(
+        url,
+        {
+          productName: dto.productName,
+          productDescription: dto.productDescription,
+          productCategory: dto.productCategory,
+          presetCreativeDirection: Array.isArray(preset.creativeDirections)
+            ? preset.creativeDirections
+            : [],
+          presetNiche: Array.isArray(preset.niches) ? preset.niches : [],
+          type: preset.type,
+        },
+        {
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          timeout: 15000,
+        },
+      );
+
+      return response.data;
+    } catch (e: any) {
+      throw new BadRequestException('Failed to generate copy');
+    }
   }
 
   async generateVideoAsset(

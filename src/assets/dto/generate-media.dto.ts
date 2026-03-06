@@ -52,6 +52,38 @@ export class InitiateImageGenerationDto {
   cta?: string;
 }
 
+export class GenerateCopyDto {
+  @ApiProperty({ required: true })
+  @IsString()
+  @IsNotEmpty()
+  productName: string;
+
+  @ApiProperty({ required: true })
+  @IsString()
+  @IsNotEmpty()
+  productDescription: string;
+
+  @ApiProperty({ required: true, type: [String] })
+  @IsArray()
+  @ArrayNotEmpty()
+  @IsUrl({}, { each: true })
+  productImages: string[];
+
+  @ApiProperty({ required: true })
+  @IsString()
+  @IsNotEmpty()
+  productId: string;
+
+  @ApiProperty({ required: true })
+  @IsString()
+  @IsOptional()
+  productCategory?: string;
+
+  @ApiProperty({ required: true })
+  @IsMongoId()
+  mediaPresetId: string;
+}
+
 export class InitiateVideoGenerationDto {
   @ApiProperty({ required: true })
   @IsString()

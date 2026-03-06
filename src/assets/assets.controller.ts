@@ -21,6 +21,7 @@ import { GetUser } from 'src/auth/decorators';
 import { UserDoc } from 'src/database/schema';
 import { AssetsService } from './assets.service';
 import {
+  GenerateCopyDto,
   InitiateImageGenerationDto,
   InitiateVideoGenerationDto,
   RegenerateImageDto,
@@ -70,6 +71,12 @@ export class AssetsController {
       data: asset,
       status: 'success',
     };
+  }
+
+  @Post('/generate-copy')
+  async generateCopy(@GetUser() user: UserDoc, @Body() dto: GenerateCopyDto) {
+    const response = await this.assetsService.generateCopy(user._id, dto);
+    return response;
   }
 
   @Post('/generate-image')
