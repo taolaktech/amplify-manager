@@ -16,6 +16,7 @@ import {
   CampaignTopUpRequestSchema,
   CampaignProductSchema,
   AssetSchema,
+  SavedAdSchema,
   MediaPresetSchema,
 } from './schema';
 import { FeedbackSchema } from './schema/feedback.schema';
@@ -47,6 +48,7 @@ import { FeedbackSchema } from './schema/feedback.schema';
       { name: 'creatives', schema: CreativeSchema },
       { name: 'campaign-products', schema: CampaignProductSchema },
       { name: 'assets', schema: AssetSchema },
+      { name: 'saved-ads', schema: SavedAdSchema },
       { name: 'media-presets', schema: MediaPresetSchema },
     ]),
   ],

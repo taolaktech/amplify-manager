@@ -18,6 +18,7 @@ import { ApiKeyGuard } from './internal/auth/api-key.guard';
 import { AssetsModule } from './assets/assets.module';
 import { MediaPresetsModule } from './media-presets/media-presets.module';
 import { MediaGenerationModule } from './media-generation/media-generation.module';
+import { SavedAdsModule } from './saved-ads/saved-ads.module';
 
 @Module({
   imports: [
@@ -31,6 +32,7 @@ import { MediaGenerationModule } from './media-generation/media-generation.modul
     FeedbackModule,
     BrandAssetModule,
     AssetsModule,
+    SavedAdsModule,
     MediaPresetsModule,
     MediaGenerationModule,
     CampaignModule,
