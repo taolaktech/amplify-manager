@@ -14,6 +14,21 @@ export class SavedAd {
   @Prop({ required: false, index: true })
   productId?: string;
 
+  @Prop({ required: false })
+  mediaUrl?: string;
+
+  @Prop({ required: false })
+  mediaType?: string;
+
+  @Prop({ required: false })
+  storageKey?: string;
+
+  @Prop({ required: false })
+  sizeBytes?: number;
+
+  @Prop({ required: false })
+  sizeMb?: number;
+
   @Prop()
   headline?: string;
 

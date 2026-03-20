@@ -9,7 +9,7 @@ import {
 } from '@nestjs/common';
 import { CampaignService } from './campaign.service';
 import { CreateCampaignDto } from './dto/create-campaign.dto';
-import { GetUser } from 'src/auth/decorators';
+import { GetUser, RequireActiveSubscription } from 'src/auth/decorators';
 import {
   ApiBearerAuth,
   ApiOperation,
@@ -110,6 +110,7 @@ export class CampaignController {
     description:
       'Internal Server Error. An unexpected error occurred on the server.',
   })
+  @RequireActiveSubscription()
   async create(
     @GetUser() user: UserDoc,
     @Body() createCampaignDto: CreateCampaignDto,

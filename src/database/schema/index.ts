@@ -12,3 +12,5 @@ export * from './campaign-product.schema';
 export * from './asset.schema';
 export * from './saved-ad.schema';
 export * from './media-preset.schema';
+export * from './credit-ledger.schema';
+export * from './token-transaction.schema';

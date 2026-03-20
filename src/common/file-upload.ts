@@ -1,6 +1,8 @@
 import {
+  CopyObjectCommand,
   DeleteObjectCommand,
   GetObjectCommand,
+  HeadObjectCommand,
   S3Client,
 } from '@aws-sdk/client-s3';
 import { Injectable, Logger } from '@nestjs/common';
@@ -228,5 +230,42 @@ export class UploadService {
       // Depending on the desired behavior, you might want to re-throw
       throw new Error(`::: Could not delete file from S3. Key: ${key} :::`);
     }
+  }
+
+  async getObjectSizeBytes(
+    key: string,
+    credentials: Credentials,
+  ): Promise<number> {
+    if (!this.client) {
+      this.logger.log('Initializing S3 Client for headObject.....');
+      this.initializeClient(credentials);
+    }
+
+    const command = new HeadObjectCommand({
+      Bucket: this.bucketName,
+      Key: key,
+    });
+
+    const result = await this.client.send(command);
+    return typeof result.ContentLength === 'number' ? result.ContentLength : 0;
+  }
+
+  async copyObject(params: {
+    sourceKey: string;
+    destinationKey: string;
+    credentials: Credentials;
+  }): Promise<void> {
+    if (!this.client) {
+      this.logger.log('Initializing S3 Client for copyObject.....');
+      this.initializeClient(params.credentials);
+    }
+
+    const command = new CopyObjectCommand({
+      Bucket: this.bucketName,
+      Key: params.destinationKey,
+      CopySource: `${this.bucketName}/${params.sourceKey}`,
+    });
+
+    await this.client.send(command);
   }
 }

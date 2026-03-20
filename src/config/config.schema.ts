@@ -53,6 +53,48 @@ export const configSchema = z.object({
   AWS_SECRET_ACCESS_KEY: z.string(),
   AWS_REGION: z.string(),
   S3_BUCKET: z.string(),
+
+  // Credit metering
+  CREDIT_COST_USD: z
+    .string()
+    .transform((val) => parseFloat(val))
+    .default('0.01'),
+
+  // GPT text model pricing (USD per million tokens)
+  GPT_INPUT_PRICE_PER_MILLION: z
+    .string()
+    .transform((val) => parseFloat(val))
+    .default('2.50'),
+  GPT_OUTPUT_PRICE_PER_MILLION: z
+    .string()
+    .transform((val) => parseFloat(val))
+    .default('10.00'),
+
+  // Gemini analysis model pricing (USD per million tokens)
+  GEMINI_INPUT_PRICE_PER_MILLION: z
+    .string()
+    .transform((val) => parseFloat(val))
+    .default('0.075'),
+  GEMINI_OUTPUT_PRICE_PER_MILLION: z
+    .string()
+    .transform((val) => parseFloat(val))
+    .default('0.30'),
+
+  // Image generation pricing (USD)
+  IMAGE_TOKEN_COST: z
+    .string()
+    .transform((val) => parseFloat(val))
+    .default('0.042'),
+  IMAGE_GENERATION_COST: z
+    .string()
+    .transform((val) => parseFloat(val))
+    .default('0.070'),
+
+  // Video generation pricing (USD per second — Sora)
+  VIDEO_COST_PER_SECOND: z
+    .string()
+    .transform((val) => parseFloat(val))
+    .default('0.10'),
 });
 
 export type AppConfig = z.infer<typeof configSchema>;

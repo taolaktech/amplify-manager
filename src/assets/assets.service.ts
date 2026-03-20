@@ -1,12 +1,14 @@
 import {
   BadRequestException,
+  HttpException,
   Injectable,
   NotFoundException,
+  Sse,
 } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, RootFilterQuery, Types } from 'mongoose';
 import axios from 'axios';
-import { BusinessDoc, MediaPresetDoc } from 'src/database/schema';
+import { BusinessDoc, MediaPresetDoc, UserDoc } from 'src/database/schema';
 import { Asset, AssetDoc } from 'src/database/schema/asset.schema';
 import {
   GenerateCopyDto,
@@ -17,6 +19,7 @@ import {
 import { MediaGenerationService } from 'src/media-generation/media-generation.service';
 import { Credentials, UploadService } from 'src/common/file-upload';
 import { AppConfigService } from 'src/config/config.service';
+import { TokenBillingService } from 'src/token-billing/token-billing.service';
 
 @Injectable()
 export class AssetsService {
@@ -25,9 +28,11 @@ export class AssetsService {
   constructor(
     @InjectModel('assets') private readonly assetModel: Model<AssetDoc>,
     @InjectModel('business') private readonly businessModel: Model<BusinessDoc>,
+    @InjectModel('users') private readonly userModel: Model<UserDoc>,
     @InjectModel('media-presets')
     private readonly mediaPresetModel: Model<MediaPresetDoc>,
     private readonly mediaGenerationService: MediaGenerationService,
+    private readonly tokenBilling: TokenBillingService,
     private readonly uploadService: UploadService,
     private readonly configService: AppConfigService,
   ) {
@@ -39,26 +44,38 @@ export class AssetsService {
     };
   }
 
+  private async assertUserCanReserveTokens(params: {
+    userId: Types.ObjectId;
+    kind: Parameters<TokenBillingService['reserveForAsset']>[0]['kind'];
+  }) {
+    const quoteAmount = this.tokenBilling.getQuoteAmount(params.kind);
+    if (quoteAmount <= 0) {
+      throw new BadRequestException('Invalid quote amount');
+    }
+
+    const user = await this.userModel
+      .findById(params.userId)
+      .select({ tokenBalance: 1 })
+      .lean();
+
+    if (!user) {
+      throw new NotFoundException('User not found');
+    }
+
+    if ((user as any).tokenBalance < quoteAmount) {
+      throw new BadRequestException({
+        message: 'Insufficient tokens',
+        code: 'INSUFFICIENT_TOKENS',
+      });
+    }
+  }
+
   async getBusinessIdForUser(userId: Types.ObjectId): Promise<Types.ObjectId> {
     const business = await this.businessModel.findOne({ userId });
     if (!business) {
       throw new NotFoundException('Business not found for this user.');
     }
     return business._id;
-  }
-
-  async listAssets(params: {
-    userId: Types.ObjectId;
-    productId?: string;
-    type?: string;
-  }): Promise<Asset[]> {
-    const businessId = await this.getBusinessIdForUser(params.userId);
-
-    const query: RootFilterQuery<AssetDoc> = { businessId };
-    if (params.productId) query.productId = params.productId;
-    if (params.type) query.type = params.type;
-
-    return this.assetModel.find(query).sort({ createdAt: -1 }).lean();
   }
 
   async getAssetById(params: {
@@ -97,6 +114,11 @@ export class AssetsService {
       throw new NotFoundException('Media preset not found');
     }
 
+    await this.assertUserCanReserveTokens({
+      userId,
+      kind: 'image_ad_generation',
+    });
+
     const businessId = await this.getBusinessIdForUser(userId);
 
     const payload = {
@@ -118,6 +140,12 @@ export class AssetsService {
         payload,
       );
 
+    await this.tokenBilling.reserveForAsset({
+      userId,
+      assetId,
+      kind: 'image_ad_generation',
+    });
+
     return {
       assetId,
     };
@@ -127,6 +155,7 @@ export class AssetsService {
     type N8nGenerateCopyResponse = {
       success: boolean;
       data: {
+        assetId: string;
         headline?: string;
         description?: string;
         cta?: string;
@@ -140,7 +169,15 @@ export class AssetsService {
       throw new NotFoundException('Media preset not found');
     }
 
-    await this.getBusinessIdForUser(userId);
+    await this.assertUserCanReserveTokens({
+      userId,
+      kind:
+        preset.type === 'image'
+          ? 'image_copy_generation'
+          : 'video_copy_generation',
+    });
+
+    const businessId = await this.getBusinessIdForUser(userId);
 
     const url = `${this.configService.get('AMPLIFY_N8N_API_URL')}/webhook/asset/generate-copy`;
     try {
@@ -150,22 +187,39 @@ export class AssetsService {
           productName: dto.productName,
           productDescription: dto.productDescription,
           productCategory: dto.productCategory,
-          presetCreativeDirection: Array.isArray(preset.creativeDirections)
-            ? preset.creativeDirections
-            : [],
-          presetNiche: Array.isArray(preset.niches) ? preset.niches : [],
           type: preset.type,
+          businessId: businessId.toString(),
+          mediaPresetId: preset._id.toString(),
+          duration: 12,
+          productId: dto.productId,
         },
         {
           headers: {
             'Content-Type': 'application/json',
           },
-          timeout: 15000,
+          timeout: 150_000,
         },
       );
 
-      return response.data;
+      const assetId = response.data?.data.assetId;
+      if (assetId) {
+        await this.tokenBilling.reserveForAsset({
+          userId,
+          assetId,
+          kind:
+            preset.type === 'image'
+              ? 'image_copy_generation'
+              : 'video_copy_generation',
+        });
+
+        return { assetId };
+      } else {
+        throw new BadRequestException('Failed to generate copy');
+      }
     } catch (e: any) {
+      if (e instanceof HttpException) {
+        throw e;
+      }
       throw new BadRequestException('Failed to generate copy');
     }
   }
@@ -184,6 +238,11 @@ export class AssetsService {
     if (dto.videoPresetId && !mediaPresetExists) {
       throw new NotFoundException('Media preset not found');
     }
+
+    await this.assertUserCanReserveTokens({
+      userId,
+      kind: 'video_generation_12s',
+    });
 
     const businessId = await this.getBusinessIdForUser(userId);
 
@@ -205,6 +264,12 @@ export class AssetsService {
         userId,
         payload,
       );
+
+    await this.tokenBilling.reserveForAsset({
+      userId,
+      assetId,
+      kind: 'video_generation_12s',
+    });
 
     return {
       assetId,
@@ -238,6 +303,11 @@ export class AssetsService {
       throw new NotFoundException('Asset not found');
     }
 
+    await this.assertUserCanReserveTokens({
+      userId,
+      kind: 'image_ad_generation',
+    });
+
     const businessId = await this.getBusinessIdForUser(userId);
 
     const productImages = [asset.mediaUrl, ...dto.productImages].filter(
@@ -261,6 +331,12 @@ export class AssetsService {
         userId,
         payload,
       );
+
+    await this.tokenBilling.reserveForAsset({
+      userId,
+      assetId,
+      kind: 'image_ad_generation',
+    });
 
     return {
       assetId,

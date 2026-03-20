@@ -3,7 +3,7 @@ import { Document, Types } from 'mongoose';
 
 export type AssetDoc = Asset & Document;
 
-export type AssetType = 'image' | 'video';
+export type AssetType = 'image' | 'video' | 'image-copy' | 'video-copy';
 export type AssetSource = 'generated' | 'uploaded';
 
 @Schema({ timestamps: true })
@@ -20,7 +20,11 @@ export class Asset {
   @Prop()
   otherProductImageUrls: string[];
 
-  @Prop({ required: true, enum: ['image', 'video'], index: true })
+  @Prop({
+    required: true,
+    enum: ['image', 'video', 'video-copy', 'image-copy'],
+    index: true,
+  })
   type: AssetType;
 
   @Prop({ default: 'pending', required: true })

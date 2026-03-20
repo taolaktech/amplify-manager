@@ -18,6 +18,8 @@ import {
   AssetSchema,
   SavedAdSchema,
   MediaPresetSchema,
+  CreditLedgerSchema,
+  TokenTransactionSchema,
 } from './schema';
 import { FeedbackSchema } from './schema/feedback.schema';
 
@@ -50,6 +52,8 @@ import { FeedbackSchema } from './schema/feedback.schema';
       { name: 'assets', schema: AssetSchema },
       { name: 'saved-ads', schema: SavedAdSchema },
       { name: 'media-presets', schema: MediaPresetSchema },
+      { name: 'credit-ledgers', schema: CreditLedgerSchema },
+      { name: 'token-transactions', schema: TokenTransactionSchema },
     ]),
   ],
   exports: [MongooseModule],

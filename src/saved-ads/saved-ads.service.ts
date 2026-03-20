@@ -6,19 +6,39 @@ import {
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
 import { UtilsService } from 'src/utils/utils.service';
-import { AssetDoc, BusinessDoc, SavedAdDoc } from 'src/database/schema';
+import {
+  AssetDoc,
+  BusinessDoc,
+  SavedAdDoc,
+  UserDoc,
+} from 'src/database/schema';
 import { CreateSavedAdDto } from './dto/create-saved-ads.dto';
 import { ListSavedAdsDto } from './dto/list-saved-ads.dto';
+import { Credentials, UploadService } from 'src/common/file-upload';
+import { AppConfigService } from 'src/config/config.service';
+import * as path from 'node:path';
 
 @Injectable()
 export class SavedAdsService {
+  private readonly awsCredentials: Credentials;
+
   constructor(
     @InjectModel('saved-ads')
     private readonly savedAssetModel: Model<SavedAdDoc>,
     @InjectModel('assets') private readonly assetModel: Model<AssetDoc>,
+    @InjectModel('users') private readonly userModel: Model<UserDoc>,
     @InjectModel('business') private readonly businessModel: Model<BusinessDoc>,
     private readonly utilsService: UtilsService,
-  ) {}
+    private readonly uploadService: UploadService,
+    private readonly config: AppConfigService,
+  ) {
+    this.awsCredentials = {
+      accessKeyId: this.config.get('AWS_ACCESS_KEY_ID'),
+      secretAccessKey: this.config.get('AWS_SECRET_ACCESS_KEY'),
+      region: this.config.get('AWS_REGION'),
+      bucketName: this.config.get('S3_BUCKET'),
+    };
+  }
 
   private async getBusinessIdForUser(userId: Types.ObjectId) {
     const business = await this.businessModel.findOne({ userId });
@@ -100,7 +120,6 @@ export class SavedAdsService {
         .sort({ createdAt: -1 })
         .skip(skip)
         .limit(perPage)
-        .populate('assetId', 'type mediaUrl')
         .lean(),
       this.savedAssetModel.countDocuments(filter).exec(),
     ]);
@@ -129,9 +148,74 @@ export class SavedAdsService {
       throw new NotFoundException('Asset not found');
     }
 
+    if (!['video', 'image'].includes(asset.type)) {
+      throw new BadRequestException('Only video and image assets can be saved');
+    }
+
+    if (!asset.storageKey) {
+      throw new NotFoundException('Asset storage key not found');
+    }
+
+    // TODO- check limit to see if user can save more assets
+
+    const assetObjectId = new Types.ObjectId(dto.assetId);
+    const businessIdString = businessId.toString();
+
+    const originalMediaKey = asset.storageKey;
+    const mediaExt = path.extname(originalMediaKey) || '';
+    const destinationMediaKey = `saved-ads/${businessIdString}/${assetObjectId.toString()}${mediaExt}`;
+
+    await this.uploadService.copyObject({
+      sourceKey: originalMediaKey,
+      destinationKey: destinationMediaKey,
+      credentials: this.awsCredentials,
+    });
+
+    const sizeBytes = await this.uploadService.getObjectSizeBytes(
+      destinationMediaKey,
+      this.awsCredentials,
+    );
+    const sizeMb = Number((sizeBytes / (1024 * 1024)).toFixed(2));
+
+    const copiedMediaUrl = this.uploadService.getUrl(destinationMediaKey);
+
+    let destinationThumbnailKey: string | undefined;
+    let movedThumbnailUrl: string | undefined;
+
+    if (asset.thumbnailKey) {
+      const thumbExt = path.extname(asset.thumbnailKey) || '';
+      destinationThumbnailKey = `saved-ads/${businessIdString}/${assetObjectId.toString()}-thumbnail${thumbExt}`;
+
+      await this.uploadService.copyObject({
+        sourceKey: asset.thumbnailKey,
+        destinationKey: destinationThumbnailKey,
+        credentials: this.awsCredentials,
+      });
+
+      movedThumbnailUrl = this.uploadService.getUrl(destinationThumbnailKey);
+    }
+
+    await this.assetModel.updateOne(
+      { _id: assetObjectId, businessId },
+      {
+        $set: {
+          storageKey: destinationMediaKey,
+          mediaUrl: copiedMediaUrl,
+          thumbnailKey: destinationThumbnailKey,
+          thumbnailUrl: movedThumbnailUrl,
+          size: sizeBytes,
+        },
+      },
+    );
+
     const created = await this.savedAssetModel.create({
       businessId,
-      assetId: new Types.ObjectId(dto.assetId),
+      assetId: assetObjectId,
+      mediaType: asset.type,
+      mediaUrl: copiedMediaUrl,
+      storageKey: destinationMediaKey,
+      sizeBytes,
+      sizeMb,
       productId: dto.productId,
       headline: dto.headline,
       bodyCopy: dto.bodyCopy,
@@ -142,10 +226,9 @@ export class SavedAdsService {
       websiteUrl: dto.websiteUrl,
     });
 
-    const populated = await this.savedAssetModel
-      .findById(created._id)
-      .populate('assetId', 'type mediaUrl')
-      .lean();
+    const populated = await this.savedAssetModel.findById(created._id).lean();
+
+    await this.recalculateUserTotalStorage(userId, businessId);
 
     return populated;
   }
@@ -165,6 +248,36 @@ export class SavedAdsService {
       throw new NotFoundException('Saved asset not found');
     }
 
+    if (deleted.storageKey) {
+      await this.uploadService.deleteObject(
+        deleted.storageKey,
+        this.awsCredentials,
+      );
+    }
+
+    await this.recalculateUserTotalStorage(userId, businessId);
+
     return deleted;
+  }
+
+  private async recalculateUserTotalStorage(
+    userId: Types.ObjectId,
+    businessId: Types.ObjectId,
+  ) {
+    const totalSizeBytesAgg = await this.savedAssetModel.aggregate([
+      { $match: { businessId } },
+      { $group: { _id: null, total: { $sum: '$sizeBytes' } } },
+    ]);
+
+    const totalBytes =
+      Array.isArray(totalSizeBytesAgg) && totalSizeBytesAgg.length > 0
+        ? Number(totalSizeBytesAgg[0]?.total ?? 0)
+        : 0;
+
+    const totalMb = Number((totalBytes / (1024 * 1024)).toFixed(2));
+    await this.userModel.updateOne(
+      { _id: userId },
+      { $set: { memoryUsedInMB: totalMb } },
+    );
   }
 }

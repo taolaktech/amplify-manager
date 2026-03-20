@@ -19,6 +19,7 @@ import { AssetsModule } from './assets/assets.module';
 import { MediaPresetsModule } from './media-presets/media-presets.module';
 import { MediaGenerationModule } from './media-generation/media-generation.module';
 import { SavedAdsModule } from './saved-ads/saved-ads.module';
+import { CreditLedgerModule } from './credit-ledger/credit-ledger.module';
 
 @Module({
   imports: [
@@ -36,6 +37,7 @@ import { SavedAdsModule } from './saved-ads/saved-ads.module';
     MediaPresetsModule,
     MediaGenerationModule,
     CampaignModule,
+    CreditLedgerModule,
     InternalModule,
   ],
   controllers: [AppController],
