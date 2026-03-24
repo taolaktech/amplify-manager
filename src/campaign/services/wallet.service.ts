@@ -19,6 +19,14 @@ interface IWalletDebitResponse {
   success: boolean;
 }
 
+interface ISubscriptionTokensResponse {
+  data: {
+    totalSubscriptionTokens: number;
+  };
+  message: string;
+  success: boolean;
+}
+
 @Injectable()
 export class AmplifyWalletService {
   private readonly logger = new Logger(AmplifyWalletService.name);
@@ -130,6 +138,23 @@ export class AmplifyWalletService {
       // Re-throw the original error if it's not the specific case we're looking for,
       // or if it's not an Error instance that could be parsed (e.g., network error, etc.).
       // throw error;
+    }
+  }
+
+  async getTotalSubscriptionTokens(userId: string) {
+    try {
+      const response = await this.internalHttpHelper
+        .forService('amplify-wallet')
+        .get<ISubscriptionTokensResponse>(
+          `/api/internal/subscription/subscription-tokens/${userId}`,
+        );
+
+      return response.data;
+    } catch (error) {
+      this.logger.error(
+        `::: Error fetching subscription tokens for user => ${userId}`,
+      );
+      throw error;
     }
   }
 }

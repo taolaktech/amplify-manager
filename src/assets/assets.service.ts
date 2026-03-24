@@ -212,7 +212,7 @@ export class AssetsService {
               : 'video_copy_generation',
         });
 
-        return { assetId };
+        return response.data;
       } else {
         throw new BadRequestException('Failed to generate copy');
       }

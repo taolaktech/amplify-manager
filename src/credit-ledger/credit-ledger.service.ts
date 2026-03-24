@@ -5,6 +5,8 @@ import {
   CreditLedger,
   CreditLedgerDocument,
 } from 'src/database/schema/credit-ledger.schema';
+import { TokenTransactionDocument } from 'src/database/schema/token-transaction.schema';
+import { UserDoc } from 'src/database/schema/user.schema';
 import { AppConfigService } from 'src/config/config.service';
 import { RecordCreditUsageDto } from './dto/record-credit-usage.dto';
 import { QueryCreditLedgerDto } from './dto/query-credit-ledger.dto';
@@ -25,6 +27,10 @@ export class CreditLedgerService {
   constructor(
     @InjectModel('credit-ledgers')
     private readonly creditLedgerModel: Model<CreditLedgerDocument>,
+    @InjectModel('token-transactions')
+    private readonly tokenTransactionModel: Model<TokenTransactionDocument>,
+    @InjectModel('users')
+    private readonly userModel: Model<UserDoc>,
     private readonly configService: AppConfigService,
   ) {
     this.creditCostUsd = this.configService.get('CREDIT_COST_USD');
@@ -152,6 +158,62 @@ export class CreditLedgerService {
       totalCreditsUsed: result[0].totalCreditsUsed,
       totalApiCostUsd: result[0].totalApiCostUsd,
       entryCount: result[0].entryCount,
+    };
+  }
+
+  async getUserSubscriptionUsageSummary(userId: string): Promise<{
+    tokensUsed: number;
+    totalTokenBalance: number;
+    windowStart: Date | null;
+  }> {
+    const userObjectId = new Types.ObjectId(userId);
+
+    const lastSubscriptionTopUp = await this.tokenTransactionModel
+      .findOne({
+        userId: userObjectId,
+        reason: 'subscription_topup',
+        type: 'credit',
+      })
+      .sort({ createdAt: -1 })
+      .lean<{ createdAt?: Date }>();
+
+    const windowStart = lastSubscriptionTopUp?.createdAt ?? null;
+
+    const match: Record<string, unknown> = {
+      userId: userObjectId,
+    };
+
+    if (windowStart) {
+      match.createdAt = { $gte: windowStart };
+    }
+
+    const usageAgg = await this.creditLedgerModel.aggregate([
+      { $match: match },
+      {
+        $group: {
+          _id: null,
+          tokensUsed: { $sum: '$creditsUsed' },
+        },
+      },
+    ]);
+
+    const tokensUsed = usageAgg?.[0]?.tokensUsed ?? 0;
+
+    const user = await this.userModel
+      .findById(userObjectId)
+      .select('subscriptionTokenBalance topUpTokenBalance')
+      .lean<{
+        subscriptionTokenBalance?: number;
+        topUpTokenBalance?: number;
+      }>();
+
+    const totalTokenBalance =
+      (user?.subscriptionTokenBalance ?? 0) + (user?.topUpTokenBalance ?? 0);
+
+    return {
+      tokensUsed,
+      totalTokenBalance,
+      windowStart,
     };
   }
 }
