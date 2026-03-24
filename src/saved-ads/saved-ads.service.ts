@@ -48,6 +48,25 @@ export class SavedAdsService {
     return business._id;
   }
 
+  private async findAssetForBusiness(params: {
+    assetId: string;
+    businessId: Types.ObjectId;
+  }) {
+    if (!Types.ObjectId.isValid(params.assetId)) {
+      throw new BadRequestException('Invalid asset id');
+    }
+
+    return this.assetModel
+      .findOne({
+        _id: new Types.ObjectId(params.assetId),
+        $or: [
+          { businessId: params.businessId },
+          { businessId: params.businessId.toString() },
+        ],
+      })
+      .lean();
+  }
+
   async listSavedAds(userId: Types.ObjectId, dto: ListSavedAdsDto) {
     const businessId = await this.getBusinessIdForUser(userId);
 
@@ -107,7 +126,10 @@ export class SavedAdsService {
 
     if (dto.type) {
       const assets = await this.assetModel
-        .find({ businessId, type: dto.type })
+        .find({
+          $or: [{ businessId }, { businessId: businessId.toString() }],
+          type: dto.type,
+        })
         .select({ _id: 1 })
         .lean();
       const ids = assets.map((a: any) => a?._id).filter(Boolean);
@@ -136,13 +158,10 @@ export class SavedAdsService {
   async createSavedAd(userId: Types.ObjectId, dto: CreateSavedAdDto) {
     const businessId = await this.getBusinessIdForUser(userId);
 
-    if (!Types.ObjectId.isValid(dto.assetId)) {
-      throw new BadRequestException('Invalid asset id');
-    }
-
-    const asset = await this.assetModel
-      .findOne({ _id: new Types.ObjectId(dto.assetId), businessId })
-      .lean();
+    const asset = await this.findAssetForBusiness({
+      assetId: dto.assetId,
+      businessId,
+    });
 
     if (!asset) {
       throw new NotFoundException('Asset not found');

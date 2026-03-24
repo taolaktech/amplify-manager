@@ -40,7 +40,6 @@ export class AssetsController {
   @ApiResponse({ status: 200 })
   async getAssetById(@GetUser() user: UserDoc, @Param('id') id: string) {
     const asset = await this.assetsService.getAssetById({
-      userId: user._id,
       assetId: id,
     });
 

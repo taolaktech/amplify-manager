@@ -82,19 +82,14 @@ export class AssetsService {
     return business._id;
   }
 
-  async getAssetById(params: {
-    userId: Types.ObjectId;
-    assetId: string;
-  }): Promise<Asset> {
-    const { userId, assetId } = params;
+  async getAssetById(params: { assetId: string }): Promise<Asset> {
+    const { assetId } = params;
 
     if (!Types.ObjectId.isValid(assetId)) {
       throw new BadRequestException('Invalid asset id');
     }
 
-    const asset = await this.assetModel
-      .findOne({ _id: new Types.ObjectId(assetId) })
-      .lean<Asset>();
+    const asset = await this.assetModel.findById(assetId).lean<Asset>();
 
     if (!asset) {
       throw new NotFoundException('Asset not found');
@@ -296,14 +291,9 @@ export class AssetsService {
   }
 
   async reGenerateImageAsset(userId: Types.ObjectId, dto: RegenerateImageDto) {
-    const asset = await this.getAssetById({ userId, assetId: dto.assetId });
+    const asset = await this.getAssetById({ assetId: dto.assetId });
 
-    if (
-      !asset ||
-      asset.type !== 'image' ||
-      asset.status !== 'completed' ||
-      asset.mediaUrl
-    ) {
+    if (!asset || asset.status !== 'completed') {
       throw new NotFoundException('Asset not found');
     }
 
