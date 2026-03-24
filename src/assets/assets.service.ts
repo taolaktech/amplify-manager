@@ -55,14 +55,18 @@ export class AssetsService {
 
     const user = await this.userModel
       .findById(params.userId)
-      .select({ tokenBalance: 1 })
+      .select({ subscriptionTokenBalance: 1, topUpTokenBalance: 1 })
       .lean();
 
     if (!user) {
       throw new NotFoundException('User not found');
     }
 
-    if ((user as any).tokenBalance < quoteAmount) {
+    const spendableBalance =
+      ((user as any).subscriptionTokenBalance ?? 0) +
+      ((user as any).topUpTokenBalance ?? 0);
+
+    if (spendableBalance < quoteAmount) {
       throw new BadRequestException({
         message: 'Insufficient tokens',
         code: 'INSUFFICIENT_TOKENS',
