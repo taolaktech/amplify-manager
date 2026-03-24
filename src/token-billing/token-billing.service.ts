@@ -25,6 +25,29 @@ export type GenerationKind =
 export class TokenBillingService {
   private readonly logger = new Logger(TokenBillingService.name);
 
+  private isTransientMongoTransactionError(error: unknown): boolean {
+    const anyErr = error as any;
+    const labels = anyErr?.errorLabelSet;
+    const hasTransientLabel =
+      labels && typeof labels.has === 'function'
+        ? labels.has('TransientTransactionError')
+        : false;
+
+    const code = anyErr?.code;
+    const codeName = anyErr?.codeName;
+
+    return (
+      hasTransientLabel ||
+      code === 112 ||
+      codeName === 'WriteConflict' ||
+      codeName === 'TransientTransactionError'
+    );
+  }
+
+  private async sleep(ms: number) {
+    await new Promise((resolve) => setTimeout(resolve, ms));
+  }
+
   private getSpendableBalance(
     user: Pick<UserDoc, 'subscriptionTokenBalance' | 'topUpTokenBalance'>,
   ): number {
@@ -133,82 +156,95 @@ export class TokenBillingService {
 
     const assetId = new Types.ObjectId(params.assetId);
 
-    const session = await this.connection.startSession();
-    try {
-      session.startTransaction();
+    const maxAttempts = 3;
+    for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+      const session = await this.connection.startSession();
+      try {
+        session.startTransaction();
 
-      const existing = await this.tokenTransactionModel
-        .exists({
-          userId: params.userId,
-          assetId,
-          reason: 'generation_reserve',
-          type: 'debit',
-        })
-        .session(session);
-
-      if (existing) {
-        this.logger.log(
-          `reserveForAsset idempotent-skip assetId=${params.assetId} userId=${params.userId.toString()} quote=${quoteAmount}`,
-        );
-        await session.commitTransaction();
-        return { quoteAmount };
-      }
-
-      const updatedUser = await this.userModel
-        .findById(params.userId)
-        .session(session);
-
-      if (!updatedUser) {
-        await session.abortTransaction();
-        throw new NotFoundException('User not found');
-      }
-
-      const spendableBefore = this.getSpendableBalance(updatedUser);
-      if (spendableBefore < quoteAmount) {
-        await session.abortTransaction();
-        this.logger.warn(
-          `reserveForAsset insufficient-tokens assetId=${params.assetId} userId=${params.userId.toString()} quote=${quoteAmount} spendable=${spendableBefore}`,
-        );
-        throw new BadRequestException({
-          message: 'Insufficient tokens',
-          code: 'INSUFFICIENT_TOKENS',
-        });
-      }
-
-      this.debitSpendableBalance(updatedUser, quoteAmount);
-      updatedUser.reservedTokenBalance =
-        (updatedUser.reservedTokenBalance ?? 0) + quoteAmount;
-
-      await updatedUser.save({ session });
-
-      await this.tokenTransactionModel.create(
-        [
-          {
-            userId: updatedUser._id,
-            type: 'debit',
-            amount: quoteAmount,
-            reason: 'generation_reserve',
+        const existing = await this.tokenTransactionModel
+          .exists({
+            userId: params.userId,
             assetId,
-            balanceAfter: this.getSpendableBalance(updatedUser),
-          },
-        ],
-        { session },
-      );
+            reason: 'generation_reserve',
+            type: 'debit',
+          })
+          .session(session);
 
-      await session.commitTransaction();
-      this.logger.log(
-        `reserveForAsset success assetId=${params.assetId} userId=${params.userId.toString()} quote=${quoteAmount} spendableAfter=${this.getSpendableBalance(updatedUser)}`,
-      );
-      return { quoteAmount };
-    } catch (error) {
-      await session.abortTransaction();
-      this.logger.error(
-        `reserveForAsset error assetId=${params.assetId} userId=${params.userId.toString()} kind=${params.kind}`,
-        error instanceof Error ? error.stack : undefined,
-      );
-      throw error;
-    } finally {
-      await session.endSession();
+        if (existing) {
+          this.logger.log(
+            `reserveForAsset idempotent-skip assetId=${params.assetId} userId=${params.userId.toString()} quote=${quoteAmount}`,
+          );
+          await session.commitTransaction();
+          return { quoteAmount };
+        }
+
+        const updatedUser = await this.userModel
+          .findById(params.userId)
+          .session(session);
+
+        if (!updatedUser) {
+          throw new NotFoundException('User not found');
+        }
+
+        const spendableBefore = this.getSpendableBalance(updatedUser);
+        if (spendableBefore < quoteAmount) {
+          this.logger.warn(
+            `reserveForAsset insufficient-tokens assetId=${params.assetId} userId=${params.userId.toString()} quote=${quoteAmount} spendable=${spendableBefore}`,
+          );
+          throw new BadRequestException({
+            message: 'Insufficient tokens',
+            code: 'INSUFFICIENT_TOKENS',
+          });
+        }
+
+        this.debitSpendableBalance(updatedUser, quoteAmount);
+        updatedUser.reservedTokenBalance =
+          (updatedUser.reservedTokenBalance ?? 0) + quoteAmount;
+
+        await updatedUser.save({ session });
+
+        await this.tokenTransactionModel.create(
+          [
+            {
+              userId: updatedUser._id,
+              type: 'debit',
+              amount: quoteAmount,
+              reason: 'generation_reserve',
+              assetId,
+              balanceAfter: this.getSpendableBalance(updatedUser),
+            },
+          ],
+          { session },
+        );
+
+        await session.commitTransaction();
+        this.logger.log(
+          `reserveForAsset success assetId=${params.assetId} userId=${params.userId.toString()} quote=${quoteAmount} spendableAfter=${this.getSpendableBalance(updatedUser)}`,
+        );
+        return { quoteAmount };
+      } catch (error) {
+        if (session.inTransaction()) {
+          await session.abortTransaction();
+        }
+        const shouldRetry =
+          this.isTransientMongoTransactionError(error) && attempt < maxAttempts;
+        if (shouldRetry) {
+          const backoffMs = 50 * Math.pow(2, attempt - 1);
+          this.logger.warn(
+            `reserveForAsset transient-error retrying attempt=${attempt}/${maxAttempts} backoffMs=${backoffMs} assetId=${params.assetId} userId=${params.userId.toString()}`,
+          );
+          await this.sleep(backoffMs);
+        } else {
+          this.logger.error(
+            `reserveForAsset error assetId=${params.assetId} userId=${params.userId.toString()} kind=${params.kind}`,
+            error instanceof Error ? error.stack : undefined,
+          );
+          throw error;
+        }
+      } finally {
+        await session.endSession();
+      }
     }
   }
 
@@ -264,7 +300,6 @@ export class TokenBillingService {
         .lean<BusinessDoc>();
 
       if (!business) {
-        await session.abortTransaction();
         throw new NotFoundException('Business not found');
       }
 
@@ -273,7 +308,6 @@ export class TokenBillingService {
         .session(session);
 
       if (!user) {
-        await session.abortTransaction();
         throw new NotFoundException('User not found');
       }
 
@@ -384,7 +418,6 @@ export class TokenBillingService {
       if (overage > 0) {
         const spendableBeforeOverage = this.getSpendableBalance(user);
         if (spendableBeforeOverage < overage) {
-          await session.abortTransaction();
           this.logger.warn(
             `settleAssetGeneration insufficient-overage assetId=${params.assetId} userId=${user._id.toString()} overage=${overage} spendable=${spendableBeforeOverage}`,
           );
@@ -471,7 +504,9 @@ export class TokenBillingService {
         `settleAssetGeneration success assetId=${params.assetId} userId=${user._id.toString()} status=${params.status} actualCost=${actualCost} spendableAfter=${this.getSpendableBalance(user)} reservedAfter=${user.reservedTokenBalance}`,
       );
     } catch (error) {
-      await session.abortTransaction();
+      if (session.inTransaction()) {
+        await session.abortTransaction();
+      }
       this.logger.error(
         `settleAssetGeneration error assetId=${params.assetId} status=${params.status} kind=${params.kind}`,
         error instanceof Error ? error.stack : undefined,
