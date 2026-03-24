@@ -117,8 +117,8 @@ export class MediaGenerationService {
       bodyCopy: dto.bodyCopy,
       cta: dto.cta,
       script: dto.script,
-      includeMusic: dto.type === 'video' ? dto.includeMusic : false,
-      includeVoiceOver: dto.type === 'video' ? dto.includeVoiceOver : false,
+      includeMusic: dto.type === 'video' ? dto.includeMusic : undefined,
+      includeVoiceOver: dto.type === 'video' ? dto.includeVoiceOver : undefined,
     };
 
     const url = `${this.config.get('AMPLIFY_N8N_API_URL')}/webhook/asset/generate`;

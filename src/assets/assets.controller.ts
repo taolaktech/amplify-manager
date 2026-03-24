@@ -30,7 +30,7 @@ import { createMulterOptions } from 'src/common/create-multer-options';
 
 @ApiTags('Assets')
 @ApiBearerAuth()
-@RequireActiveSubscription()
+// @RequireActiveSubscription()
 @Controller('api/assets')
 export class AssetsController {
   constructor(private readonly assetsService: AssetsService) {}

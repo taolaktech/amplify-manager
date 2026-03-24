@@ -25,6 +25,38 @@ export type GenerationKind =
 export class TokenBillingService {
   private readonly logger = new Logger(TokenBillingService.name);
 
+  private getSpendableBalance(
+    user: Pick<UserDoc, 'subscriptionTokenBalance' | 'topUpTokenBalance'>,
+  ): number {
+    return (user.subscriptionTokenBalance ?? 0) + (user.topUpTokenBalance ?? 0);
+  }
+
+  private debitSpendableBalance(
+    user: Pick<UserDoc, 'subscriptionTokenBalance' | 'topUpTokenBalance'>,
+    amount: number,
+  ): void {
+    if (amount <= 0) return;
+
+    const topUpAvailable = user.topUpTokenBalance ?? 0;
+    const fromTopUp = Math.min(topUpAvailable, amount);
+    const remaining = amount - fromTopUp;
+
+    user.topUpTokenBalance = topUpAvailable - fromTopUp;
+
+    if (remaining > 0) {
+      const subAvailable = user.subscriptionTokenBalance ?? 0;
+      user.subscriptionTokenBalance = subAvailable - remaining;
+    }
+  }
+
+  private creditSpendableBalance(
+    user: Pick<UserDoc, 'topUpTokenBalance'>,
+    amount: number,
+  ): void {
+    if (amount <= 0) return;
+    user.topUpTokenBalance = (user.topUpTokenBalance ?? 0) + amount;
+  }
+
   constructor(
     @InjectConnection() private readonly connection: mongoose.Connection,
     @InjectModel('users') private readonly userModel: Model<UserDoc>,
@@ -122,30 +154,32 @@ export class TokenBillingService {
         return { quoteAmount };
       }
 
-      const updatedUser = await this.userModel.findOneAndUpdate(
-        {
-          _id: params.userId,
-          tokenBalance: { $gte: quoteAmount },
-        },
-        {
-          $inc: {
-            tokenBalance: -quoteAmount,
-            reservedTokenBalance: quoteAmount,
-          },
-        },
-        { new: true, session },
-      );
+      const updatedUser = await this.userModel
+        .findById(params.userId)
+        .session(session);
 
       if (!updatedUser) {
         await session.abortTransaction();
+        throw new NotFoundException('User not found');
+      }
+
+      const spendableBefore = this.getSpendableBalance(updatedUser);
+      if (spendableBefore < quoteAmount) {
+        await session.abortTransaction();
         this.logger.warn(
-          `reserveForAsset insufficient-tokens assetId=${params.assetId} userId=${params.userId.toString()} quote=${quoteAmount}`,
+          `reserveForAsset insufficient-tokens assetId=${params.assetId} userId=${params.userId.toString()} quote=${quoteAmount} spendable=${spendableBefore}`,
         );
         throw new BadRequestException({
           message: 'Insufficient tokens',
           code: 'INSUFFICIENT_TOKENS',
         });
       }
+
+      this.debitSpendableBalance(updatedUser, quoteAmount);
+      updatedUser.reservedTokenBalance =
+        (updatedUser.reservedTokenBalance ?? 0) + quoteAmount;
+
+      await updatedUser.save({ session });
 
       await this.tokenTransactionModel.create(
         [
@@ -155,7 +189,7 @@ export class TokenBillingService {
             amount: quoteAmount,
             reason: 'generation_reserve',
             assetId,
-            balanceAfter: updatedUser.tokenBalance,
+            balanceAfter: this.getSpendableBalance(updatedUser),
           },
         ],
         { session },
@@ -163,7 +197,7 @@ export class TokenBillingService {
 
       await session.commitTransaction();
       this.logger.log(
-        `reserveForAsset success assetId=${params.assetId} userId=${params.userId.toString()} quote=${quoteAmount} tokenBalanceAfter=${updatedUser.tokenBalance}`,
+        `reserveForAsset success assetId=${params.assetId} userId=${params.userId.toString()} quote=${quoteAmount} spendableAfter=${this.getSpendableBalance(updatedUser)}`,
       );
       return { quoteAmount };
     } catch (error) {
@@ -288,7 +322,7 @@ export class TokenBillingService {
             0,
             (user.reservedTokenBalance ?? 0) - quoteAmount,
           );
-          user.tokenBalance = (user.tokenBalance ?? 0) + quoteAmount;
+          this.creditSpendableBalance(user, quoteAmount);
 
           await this.tokenTransactionModel.create(
             [
@@ -298,14 +332,14 @@ export class TokenBillingService {
                 amount: quoteAmount,
                 reason: 'generation_reserve_refund',
                 assetId,
-                balanceAfter: user.tokenBalance,
+                balanceAfter: this.getSpendableBalance(user),
               },
             ],
             { session },
           );
 
           this.logger.log(
-            `settleAssetGeneration failed-refund assetId=${params.assetId} userId=${user._id.toString()} amount=${quoteAmount} tokenBalanceAfter=${user.tokenBalance}`,
+            `settleAssetGeneration failed-refund assetId=${params.assetId} userId=${user._id.toString()} amount=${quoteAmount} spendableAfter=${this.getSpendableBalance(user)}`,
           );
         }
 
@@ -327,7 +361,7 @@ export class TokenBillingService {
       }
 
       if (refundAmount > 0) {
-        user.tokenBalance = (user.tokenBalance ?? 0) + refundAmount;
+        this.creditSpendableBalance(user, refundAmount);
         await this.tokenTransactionModel.create(
           [
             {
@@ -336,22 +370,23 @@ export class TokenBillingService {
               amount: refundAmount,
               reason: 'generation_reserve_refund',
               assetId,
-              balanceAfter: user.tokenBalance,
+              balanceAfter: this.getSpendableBalance(user),
             },
           ],
           { session },
         );
 
         this.logger.log(
-          `settleAssetGeneration completed-refund assetId=${params.assetId} userId=${user._id.toString()} amount=${refundAmount} tokenBalanceAfter=${user.tokenBalance}`,
+          `settleAssetGeneration completed-refund assetId=${params.assetId} userId=${user._id.toString()} amount=${refundAmount} spendableAfter=${this.getSpendableBalance(user)}`,
         );
       }
 
       if (overage > 0) {
-        if (user.tokenBalance < overage) {
+        const spendableBeforeOverage = this.getSpendableBalance(user);
+        if (spendableBeforeOverage < overage) {
           await session.abortTransaction();
           this.logger.warn(
-            `settleAssetGeneration insufficient-overage assetId=${params.assetId} userId=${user._id.toString()} overage=${overage} tokenBalance=${user.tokenBalance}`,
+            `settleAssetGeneration insufficient-overage assetId=${params.assetId} userId=${user._id.toString()} overage=${overage} spendable=${spendableBeforeOverage}`,
           );
           throw new BadRequestException({
             message: 'Insufficient tokens for overage debit',
@@ -359,7 +394,7 @@ export class TokenBillingService {
           });
         }
 
-        user.tokenBalance = user.tokenBalance - overage;
+        this.debitSpendableBalance(user, overage);
 
         await this.tokenTransactionModel.create(
           [
@@ -369,14 +404,14 @@ export class TokenBillingService {
               amount: overage,
               reason: 'generation_overage',
               assetId,
-              balanceAfter: user.tokenBalance,
+              balanceAfter: this.getSpendableBalance(user),
             },
           ],
           { session },
         );
 
         this.logger.log(
-          `settleAssetGeneration completed-overage assetId=${params.assetId} userId=${user._id.toString()} amount=${overage} tokenBalanceAfter=${user.tokenBalance}`,
+          `settleAssetGeneration completed-overage assetId=${params.assetId} userId=${user._id.toString()} amount=${overage} spendableAfter=${this.getSpendableBalance(user)}`,
         );
       }
 
@@ -398,7 +433,7 @@ export class TokenBillingService {
               amount: actualCost,
               reason: 'generation',
               assetId,
-              balanceAfter: user.tokenBalance,
+              balanceAfter: this.getSpendableBalance(user),
             },
           ],
           { session },
@@ -433,7 +468,7 @@ export class TokenBillingService {
       await session.commitTransaction();
 
       this.logger.log(
-        `settleAssetGeneration success assetId=${params.assetId} userId=${user._id.toString()} status=${params.status} actualCost=${actualCost} tokenBalanceAfter=${user.tokenBalance} reservedAfter=${user.reservedTokenBalance}`,
+        `settleAssetGeneration success assetId=${params.assetId} userId=${user._id.toString()} status=${params.status} actualCost=${actualCost} spendableAfter=${this.getSpendableBalance(user)} reservedAfter=${user.reservedTokenBalance}`,
       );
     } catch (error) {
       await session.abortTransaction();

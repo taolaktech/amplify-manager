@@ -110,7 +110,7 @@ export class CampaignController {
     description:
       'Internal Server Error. An unexpected error occurred on the server.',
   })
-  @RequireActiveSubscription()
+  // @RequireActiveSubscription()
   async create(
     @GetUser() user: UserDoc,
     @Body() createCampaignDto: CreateCampaignDto,

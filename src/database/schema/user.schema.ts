@@ -88,7 +88,10 @@ export class User {
   walletId?: string;
 
   @Prop({ type: Number, default: 0 })
-  tokenBalance: number;
+  subscriptionTokenBalance: number;
+
+  @Prop({ type: Number, default: 0 })
+  topUpTokenBalance: number;
 
   @Prop({ type: Number, default: 0 })
   reservedTokenBalance: number;
