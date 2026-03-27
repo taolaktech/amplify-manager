@@ -120,6 +120,11 @@ export class SavedAdsService {
           { script: re },
           { brandName: re },
           { websiteUrl: re },
+          { productTitle: re },
+          { productHandle: re },
+          { productType: re },
+          { productCategory: re },
+          { productTags: re },
         ]);
       }
     }
@@ -236,6 +241,12 @@ export class SavedAdsService {
       sizeBytes,
       sizeMb,
       productId: dto.productId,
+      productTitle: dto.productTitle,
+      productHandle: dto.productHandle,
+      productType: dto.productType,
+      productCategory: dto.productCategory,
+      productImageUrl: dto.productImageUrl,
+      productTags: dto.productTags,
       headline: dto.headline,
       bodyCopy: dto.bodyCopy,
       cta: dto.cta,

@@ -14,6 +14,24 @@ export class SavedAd {
   @Prop({ required: false, index: true })
   productId?: string;
 
+  @Prop({ required: false, index: true })
+  productTitle?: string;
+
+  @Prop({ required: false, index: true })
+  productHandle?: string;
+
+  @Prop({ required: false, index: true })
+  productType?: string;
+
+  @Prop({ required: false, index: true })
+  productCategory?: string;
+
+  @Prop({ required: false })
+  productImageUrl?: string;
+
+  @Prop({ type: [String], required: false, index: true })
+  productTags?: string[];
+
   @Prop({ required: false })
   mediaUrl?: string;
 
