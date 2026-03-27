@@ -68,12 +68,29 @@ export class CreditLedgerController {
     const totalSubscriptionTokens =
       await this.walletService.getTotalSubscriptionTokens(user._id.toString());
 
+    const subscriptionTokenBalance = usage.subscriptionTokenBalance ?? 0;
+    const topUpTokens = usage.topUpTokenBalance ?? 0;
+    const reserveTokens = usage.reservedTokenBalance ?? 0;
+    const planSubscriptionTokens =
+      totalSubscriptionTokens.totalSubscriptionTokens ?? 0;
+
+    const creditUsedSinceLastSubscription = Math.max(
+      0,
+      planSubscriptionTokens - subscriptionTokenBalance,
+    );
+
+    const totalCreditsLimit =
+      topUpTokens + reserveTokens + planSubscriptionTokens;
+    const creditsRemaining = Math.max(
+      0,
+      totalCreditsLimit - creditUsedSinceLastSubscription,
+    );
+
     return {
       data: {
-        tokensUsed: usage.tokensUsed,
-        totalSubscriptionTokens:
-          totalSubscriptionTokens.totalSubscriptionTokens,
-        totalTokenBalance: usage.totalTokenBalance,
+        tokensUsed: creditUsedSinceLastSubscription,
+        totalSubscriptionTokens: totalCreditsLimit,
+        totalTokenBalance: creditsRemaining,
       },
       status: 'success',
       message: 'Subscription usage retrieved successfully',

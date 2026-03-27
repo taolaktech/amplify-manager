@@ -12,10 +12,14 @@ import {
 import { GetUser } from './decorators';
 import { UserDoc } from 'src/database/schema';
 import { ApiBearerAuth } from '@nestjs/swagger';
+import { AmplifyWalletService } from 'src/campaign/services/wallet.service';
 
 @Controller('api/auth')
 export class AuthController {
-  constructor(private authService: AuthService) {}
+  constructor(
+    private authService: AuthService,
+    private readonly walletService: AmplifyWalletService,
+  ) {}
 
   @Public()
   @Post('/sign-up')
@@ -47,8 +51,22 @@ export class AuthController {
 
   @ApiBearerAuth()
   @Get('/me')
-  me(@GetUser() user: UserDoc) {
-    return user;
+  async me(@GetUser() user: UserDoc) {
+    let memoryLimitInMB = 0;
+    try {
+      const subDetails = await this.walletService.getSubscriptionDetails(
+        user._id.toString(),
+      );
+      const parsed = Number(subDetails?.memoryLimitInMB ?? 0);
+      memoryLimitInMB = Number.isFinite(parsed) ? parsed : 0;
+    } catch (e) {
+      memoryLimitInMB = 0;
+    }
+
+    return {
+      ...user.toObject(),
+      memoryLimitInMB,
+    };
   }
 
   @Public()

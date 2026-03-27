@@ -5,6 +5,7 @@ interface ISubscriptionDetailsResponse {
   data: {
     planTier: 'free' | 'starter' | 'grow' | 'scale';
     campaignLimit: number;
+    memoryLimitInMB?: number;
   };
   message: string;
   success: boolean;

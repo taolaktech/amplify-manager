@@ -163,7 +163,9 @@ export class CreditLedgerService {
 
   async getUserSubscriptionUsageSummary(userId: string): Promise<{
     tokensUsed: number;
-    totalTokenBalance: number;
+    subscriptionTokenBalance: number;
+    topUpTokenBalance: number;
+    reservedTokenBalance: number;
     windowStart: Date | null;
   }> {
     const userObjectId = new Types.ObjectId(userId);
@@ -201,18 +203,18 @@ export class CreditLedgerService {
 
     const user = await this.userModel
       .findById(userObjectId)
-      .select('subscriptionTokenBalance topUpTokenBalance')
+      .select('subscriptionTokenBalance topUpTokenBalance reservedTokenBalance')
       .lean<{
         subscriptionTokenBalance?: number;
         topUpTokenBalance?: number;
+        reservedTokenBalance?: number;
       }>();
-
-    const totalTokenBalance =
-      (user?.subscriptionTokenBalance ?? 0) + (user?.topUpTokenBalance ?? 0);
 
     return {
       tokensUsed,
-      totalTokenBalance,
+      subscriptionTokenBalance: user?.subscriptionTokenBalance ?? 0,
+      topUpTokenBalance: user?.topUpTokenBalance ?? 0,
+      reservedTokenBalance: user?.reservedTokenBalance ?? 0,
       windowStart,
     };
   }
