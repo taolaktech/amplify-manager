@@ -97,6 +97,12 @@ export class CreateSavedAdDto {
   @ApiProperty({ required: false })
   @IsOptional()
   @IsString()
+  @MaxLength(500)
+  customPrompt?: string;
+
+  @ApiProperty({ required: false })
+  @IsOptional()
+  @IsString()
   @MaxLength(200)
   brandName?: string;
 

@@ -25,6 +25,164 @@ export type GenerationKind =
 export class TokenBillingService {
   private readonly logger = new Logger(TokenBillingService.name);
 
+  async restoreStaleGenerationReservesForUser(params: {
+    userId: Types.ObjectId;
+    pendingTimeoutMs: number;
+  }): Promise<{ restoredCount: number; restoredAmount: number }> {
+    const pendingTimeoutMs = Math.max(0, Number(params.pendingTimeoutMs ?? 0));
+
+    const reserveTxs = await this.tokenTransactionModel
+      .find({
+        userId: params.userId,
+        reason: 'generation_reserve',
+        type: 'debit',
+        amount: { $gt: 0 },
+        assetId: { $exists: true },
+      })
+      .select({ assetId: 1, amount: 1, createdAt: 1 })
+      .lean();
+
+    if (!reserveTxs || reserveTxs.length === 0) {
+      return { restoredCount: 0, restoredAmount: 0 };
+    }
+
+    const assetIds = reserveTxs
+      .map((t) => t.assetId)
+      .filter((id): id is Types.ObjectId => !!id);
+
+    const settledOrRefunded = await this.tokenTransactionModel
+      .distinct('assetId', {
+        userId: params.userId,
+        assetId: { $in: assetIds },
+        reason: {
+          $in: [
+            'generation',
+            'generation_overage',
+            'generation_reserve_refund',
+            'generation_reserve_restore',
+          ],
+        },
+      })
+      .then((ids) => new Set((ids || []).map((id) => id.toString())));
+
+    const assets = await this.assetModel
+      .find({ _id: { $in: assetIds } })
+      .select({ _id: 1, status: 1, createdAt: 1 })
+      .lean<
+        Array<{
+          _id: Types.ObjectId;
+          status: AssetDoc['status'];
+          createdAt?: Date;
+        }>
+      >();
+
+    const assetById = new Map((assets || []).map((a) => [a._id.toString(), a]));
+
+    const now = Date.now();
+    const stale = reserveTxs.filter((tx) => {
+      const assetId = tx.assetId?.toString();
+      if (!assetId) return false;
+      if (settledOrRefunded.has(assetId)) return false;
+
+      const asset = assetById.get(assetId);
+      if (!asset) return true;
+      if (asset.status !== 'pending') return true;
+
+      const createdAtMs = asset.createdAt
+        ? new Date(asset.createdAt).getTime()
+        : 0;
+      if (pendingTimeoutMs > 0 && createdAtMs > 0) {
+        return now - createdAtMs > pendingTimeoutMs;
+      }
+
+      return false;
+    });
+
+    if (stale.length === 0) {
+      return { restoredCount: 0, restoredAmount: 0 };
+    }
+
+    const session = await this.connection.startSession();
+    try {
+      session.startTransaction();
+
+      const user = await this.userModel
+        .findById(params.userId)
+        .session(session);
+      if (!user) {
+        throw new NotFoundException('User not found');
+      }
+
+      let restoredCount = 0;
+      let restoredAmount = 0;
+
+      for (const tx of stale) {
+        const assetId = tx.assetId;
+        if (!assetId) continue;
+
+        const alreadyRestored = await this.tokenTransactionModel
+          .exists({
+            userId: params.userId,
+            assetId,
+            reason: 'generation_reserve_restore',
+            type: 'credit',
+          })
+          .session(session);
+
+        if (alreadyRestored) continue;
+
+        const amount = Number(tx.amount ?? 0);
+        if (!Number.isFinite(amount) || amount <= 0) continue;
+
+        user.reservedTokenBalance = Math.max(
+          0,
+          (user.reservedTokenBalance ?? 0) - amount,
+        );
+        this.creditSpendableBalance(user, amount);
+
+        await this.tokenTransactionModel.create(
+          [
+            {
+              userId: user._id,
+              type: 'credit',
+              amount,
+              reason: 'generation_reserve_restore',
+              assetId,
+              balanceAfter: this.getSpendableBalance(user),
+            },
+          ],
+          { session },
+        );
+
+        restoredCount += 1;
+        restoredAmount += amount;
+      }
+
+      if (restoredCount > 0) {
+        await user.save({ session });
+      }
+
+      await session.commitTransaction();
+      if (restoredCount > 0) {
+        this.logger.warn(
+          `restoreStaleGenerationReservesForUser restored userId=${params.userId.toString()} restoredCount=${restoredCount} restoredAmount=${restoredAmount}`,
+        );
+      }
+      return { restoredCount, restoredAmount };
+    } catch (error) {
+      if (session.inTransaction()) {
+        await session.abortTransaction();
+      }
+      this.logger.error(
+        `restoreStaleGenerationReservesForUser error userId=${params.userId.toString()}`,
+        error instanceof Error ? error.stack : undefined,
+      );
+      throw error;
+    } finally {
+      await session.endSession();
+    }
+  }
+
   private isTransientMongoTransactionError(error: unknown): boolean {
     const anyErr = error as any;
     const labels = anyErr?.errorLabelSet;

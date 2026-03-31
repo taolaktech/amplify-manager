@@ -8,10 +8,8 @@ import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
 import axios from 'axios';
 import { InternalHttpHelper } from 'src/common/helpers/internal-http.helper';
-import { ServiceNames } from 'src/common/types/service.types';
 import { AppConfigService } from 'src/config/config.service';
 import { BusinessDoc } from 'src/database/schema/business.schema';
-import { InitiateImageGenerationDto, InitiateVideoGenerationDto } from './dto';
 import { MediaPresetDoc } from 'src/database/schema/media-preset.schema';
 
 type InitiateAssetGenWithN8nDtoBase = {
@@ -25,6 +23,7 @@ type InitiateAssetGenWithN8nDtoBase = {
   bodyCopy?: string;
   cta?: string;
   script?: string;
+  customPrompt?: string;
 };
 
 type InitiateAssetGenWithN8nImageDto = InitiateAssetGenWithN8nDtoBase & {
@@ -117,6 +116,7 @@ export class MediaGenerationService {
       bodyCopy: dto.bodyCopy,
       cta: dto.cta,
       script: dto.script,
+      customPrompt: dto.customPrompt,
       includeMusic: dto.type === 'video' ? dto.includeMusic : undefined,
       includeVoiceOver: dto.type === 'video' ? dto.includeVoiceOver : undefined,
     };
@@ -137,141 +137,5 @@ export class MediaGenerationService {
     }
 
     return { assetId };
-  }
-
-  async initiateVideoGeneration(
-    userId: Types.ObjectId,
-    dto: InitiateVideoGenerationDto,
-  ) {
-    const business = await this.businessModel.findOne({ userId });
-    if (!business) {
-      throw new BadRequestException('Business not found for this user');
-    }
-
-    const videoPreset = await this.mediaPresetModel.findOne({
-      _id: dto.videoPresetId,
-    });
-
-    if (!videoPreset) {
-      throw new BadRequestException('Video preset not found');
-    }
-
-    // Use nanobanana to generate some things like primary use case, key visual feature, usage environment, product details
-    // const { primaryUseCase, keyVisualFeature, usageEnvironment } =
-    //   await this.generateProductDetails();
-
-    const seconds: '4' | '8' | '12' =
-      videoPreset.duration === 4 ||
-      videoPreset.duration === 8 ||
-      videoPreset.duration === 12
-        ? (String(videoPreset.duration) as '4' | '8' | '12')
-        : '8';
-    const size = '720x1280';
-    const prompt = `
-      You are an ad video generation expert. 
-      
-      Generate a video for ${dto.productName} using the following template: ${videoPreset.prompt}. 
-      
-      Modify the product details of the template to match the following:
-  
-      "Product Name": "${dto.productName}"
-
-      "Product Category": "${dto.productCategory}"
-
-      "Product Description": "${dto.productDescription}"
-    `;
-
-    this.logger.log(
-      `Initiating video generation for product ${dto.productName}`,
-      { businessId: business._id.toString() },
-    );
-
-    const integrationsRes = await this.internalHttpHelper
-      .forService(ServiceNames.AMPLIFY_INTEGRATIONS)
-      .post<IntegrationsCreateResponse>(
-        'internal/media-generation/initiate-video-gen',
-        {
-          businessId: business._id.toString(),
-          videoPresetId: dto.videoPresetId,
-          prompt,
-          provider: 'openai',
-          model: 'sora-2',
-          seconds,
-          size,
-          quality: 'standard',
-        },
-      );
-
-    if (!integrationsRes?.success) {
-      throw new BadRequestException('Failed to start video generation');
-    }
-
-    const providerJobId = integrationsRes.data.id;
-
-    return {
-      assetId: integrationsRes.data.assetId,
-      providerJobId,
-    };
-  }
-
-  async initiateImageGeneration(
-    userId: Types.ObjectId,
-    dto: InitiateImageGenerationDto,
-  ) {
-    const business = await this.businessModel.findOne({ userId });
-    if (!business) {
-      throw new BadRequestException('Business not found for this user');
-    }
-
-    const imagePreset = await this.mediaPresetModel.findOne({
-      _id: dto.imagePresetId,
-    });
-
-    if (!imagePreset) {
-      throw new BadRequestException('Image preset not found');
-    }
-
-    if (imagePreset.type !== 'image') {
-      throw new BadRequestException('Preset is not an image preset');
-    }
-
-    const imageUrls = [imagePreset.mediaUrl, dto.productImages];
-
-    const prompt = `Generate an image for ${dto.productName} using the following prompt: ${imagePreset.prompt}. The first image is the template to be used for the image generation and the other images are the other images of the product to be used for the image generation
-    {
-      "Product Name": "${dto.productName}",
-      "Product Category": "${dto.productCategory}",
-      "Product Details": "${dto.productDescription}",
-      }
-      `;
-
-    this.logger.log(
-      `Initiating image generation for product ${dto.productName}`,
-      { businessId: business._id.toString() },
-    );
-
-    const integrationsRes = await this.internalHttpHelper
-      .forService(ServiceNames.AMPLIFY_INTEGRATIONS)
-      .post<IntegrationsCreateImageResponse>(
-        'internal/media-generation/initiate-image-gen',
-        {
-          businessId: business._id.toString(),
-          prompt,
-          provider: 'nanobanana',
-          numImages: 1,
-          imageSize: '9:16', //1:1, 9:16, 16:9, 3:4, 4:3, 3:2, 2:3, 5:4, 4:5, 21:9
-          imageUrls,
-          imagePresetId: dto.imagePresetId,
-        },
-      );
-
-    if (!integrationsRes?.success || !integrationsRes?.data?.taskId) {
-      throw new BadRequestException('Failed to start image generation');
-    }
-
-    return {
-      providerJobId: integrationsRes.data.taskId,
-      assetId: integrationsRes.data.assetId,
-    };
   }
 }

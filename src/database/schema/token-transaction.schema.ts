@@ -9,6 +9,7 @@ export type TokenTransactionReason =
   | 'generation_reserve'
   | 'generation_overage'
   | 'generation_reserve_refund'
+  | 'generation_reserve_restore'
   | 'subscription_topup'
   | 'top_up_pack';
 
@@ -44,12 +45,20 @@ export class TokenTransaction {
       'generation_reserve',
       'generation_overage',
       'generation_reserve_refund',
+      'generation_reserve_restore',
       'subscription_topup',
       'top_up_pack',
     ],
     index: true,
   })
   reason: TokenTransactionReason;
+
+  @Prop({
+    type: String,
+    required: false,
+    index: true,
+  })
+  referenceId?: string; //invoice id from stripe
 
   @Prop({
     type: Types.ObjectId,
@@ -68,3 +77,11 @@ export class TokenTransaction {
 
 export const TokenTransactionSchema =
   SchemaFactory.createForClass(TokenTransaction);
+
+TokenTransactionSchema.index(
+  { userId: 1, reason: 1, type: 1, referenceId: 1 },
+  {
+    unique: true,
+    partialFilterExpression: { referenceId: { $type: 'string' } },
+  },
+);

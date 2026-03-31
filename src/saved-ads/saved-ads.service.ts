@@ -252,6 +252,7 @@ export class SavedAdsService {
       cta: dto.cta,
       caption: dto.caption,
       script: dto.script,
+      customPrompt: dto.customPrompt,
       brandName: dto.brandName,
       websiteUrl: dto.websiteUrl,
     });

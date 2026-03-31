@@ -14,16 +14,21 @@ import {
   GenerateCopyDto,
   InitiateImageGenerationDto,
   InitiateVideoGenerationDto,
+  PreflightMultiGenerationDto,
   RegenerateImageDto,
 } from './dto/generate-media.dto';
 import { MediaGenerationService } from 'src/media-generation/media-generation.service';
 import { Credentials, UploadService } from 'src/common/file-upload';
 import { AppConfigService } from 'src/config/config.service';
 import { TokenBillingService } from 'src/token-billing/token-billing.service';
+import { Logger } from '@nestjs/common';
 
 @Injectable()
 export class AssetsService {
+  private readonly logger = new Logger(AssetsService.name);
   private awsCredentials: Credentials;
+
+  private readonly generationPendingTimeoutMs = 30 * 60 * 1000;
 
   constructor(
     @InjectModel('assets') private readonly assetModel: Model<AssetDoc>,
@@ -53,25 +58,122 @@ export class AssetsService {
       throw new BadRequestException('Invalid quote amount');
     }
 
-    const user = await this.userModel
-      .findById(params.userId)
-      .select({ subscriptionTokenBalance: 1, topUpTokenBalance: 1 })
-      .lean();
+    const loadUserBalances = async () =>
+      this.userModel
+        .findById(params.userId)
+        .select({
+          subscriptionTokenBalance: 1,
+          topUpTokenBalance: 1,
+          reservedTokenBalance: 1,
+        })
+        .lean();
+
+    let user = await loadUserBalances();
 
     if (!user) {
       throw new NotFoundException('User not found');
     }
 
-    const spendableBalance =
-      ((user as any).subscriptionTokenBalance ?? 0) +
-      ((user as any).topUpTokenBalance ?? 0);
+    const maybeRestoreStaleReserves = async () => {
+      await this.tokenBilling
+        .restoreStaleGenerationReservesForUser({
+          userId: params.userId,
+          pendingTimeoutMs: this.generationPendingTimeoutMs,
+        })
+        .catch(() => undefined);
 
-    if (spendableBalance < quoteAmount) {
-      throw new BadRequestException({
-        message: 'Insufficient tokens',
-        code: 'INSUFFICIENT_TOKENS',
-      });
+      user = await loadUserBalances();
+      if (!user) {
+        throw new NotFoundException('User not found');
+      }
+    };
+
+    const reservedTokenBalance = user.reservedTokenBalance ?? 0;
+
+    let didRestore = false;
+    if (reservedTokenBalance > 0) {
+      await maybeRestoreStaleReserves();
+      didRestore = true;
     }
+
+    const spendableAfterRestore =
+      (user.subscriptionTokenBalance ?? 0) + (user.topUpTokenBalance ?? 0);
+
+    if (spendableAfterRestore < quoteAmount) {
+      if (!didRestore) {
+        await maybeRestoreStaleReserves();
+      }
+
+      const spendableFinal =
+        (user.subscriptionTokenBalance ?? 0) + (user.topUpTokenBalance ?? 0);
+      if (spendableFinal < quoteAmount) {
+        throw new BadRequestException({
+          message: 'Insufficient tokens',
+          code: 'INSUFFICIENT_TOKENS',
+        });
+      }
+    }
+  }
+
+  async preflightMultiGeneration(
+    userId: Types.ObjectId,
+    dto: PreflightMultiGenerationDto,
+  ) {
+    const tokensRequired = (dto.items || []).reduce((sum, item) => {
+      const quoteAmount = this.tokenBilling.getQuoteAmount(item.kind);
+      const count = Number(item.count ?? 0);
+      if (!Number.isFinite(quoteAmount) || quoteAmount <= 0) return sum;
+      if (!Number.isFinite(count) || count <= 0) return sum;
+      return sum + quoteAmount * count;
+    }, 0);
+
+    const loadUserBalances = async () =>
+      this.userModel
+        .findById(userId)
+        .select({
+          subscriptionTokenBalance: 1,
+          topUpTokenBalance: 1,
+          reservedTokenBalance: 1,
+        })
+        .lean();
+
+    let user = await loadUserBalances();
+
+    if (!user) {
+      throw new NotFoundException('User not found');
+    }
+
+    const computeSpendableBalance = (u: {
+      subscriptionTokenBalance?: number;
+      topUpTokenBalance?: number;
+    }) => (u.subscriptionTokenBalance ?? 0) + (u.topUpTokenBalance ?? 0);
+
+    const spendableBalance = computeSpendableBalance(user);
+
+    const initialCanGenerate = spendableBalance >= tokensRequired;
+    if (!initialCanGenerate) {
+      const reservedTokenBalance = user.reservedTokenBalance ?? 0;
+      if (reservedTokenBalance > 0) {
+        await this.tokenBilling
+          .restoreStaleGenerationReservesForUser({
+            userId,
+            pendingTimeoutMs: this.generationPendingTimeoutMs,
+          })
+          .catch(() => undefined);
+
+        user = await loadUserBalances();
+        if (!user) {
+          throw new NotFoundException('User not found');
+        }
+      }
+    }
+
+    const spendableFinal = computeSpendableBalance(user);
+
+    return {
+      canGenerate: spendableFinal >= tokensRequired,
+      tokensRequired,
+    };
   }
 
   async getBusinessIdForUser(userId: Types.ObjectId): Promise<Types.ObjectId> {
@@ -180,6 +282,7 @@ export class AssetsService {
 
     const url = `${this.configService.get('AMPLIFY_N8N_API_URL')}/webhook/asset/generate-copy`;
     try {
+      this.logger.log('Generating copy with N8N');
       const response = await axios.post<N8nGenerateCopyResponse>(
         url,
         {
@@ -200,7 +303,7 @@ export class AssetsService {
         },
       );
 
-      const assetId = response.data?.data.assetId;
+      const assetId = response.data?.data?.assetId;
       if (assetId) {
         await this.tokenBilling.reserveForAsset({
           userId,
@@ -219,6 +322,7 @@ export class AssetsService {
       if (e instanceof HttpException) {
         throw e;
       }
+      this.logger.error('Failed to generate copy', e);
       throw new BadRequestException('Failed to generate copy');
     }
   }

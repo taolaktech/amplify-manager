@@ -4,7 +4,6 @@ import {
   Get,
   Param,
   Post,
-  Query,
   UploadedFile,
   UseInterceptors,
 } from '@nestjs/common';
@@ -13,7 +12,6 @@ import {
   ApiBearerAuth,
   ApiConsumes,
   ApiOperation,
-  ApiQuery,
   ApiResponse,
   ApiTags,
 } from '@nestjs/swagger';
@@ -24,6 +22,7 @@ import {
   GenerateCopyDto,
   InitiateImageGenerationDto,
   InitiateVideoGenerationDto,
+  PreflightMultiGenerationDto,
   RegenerateImageDto,
 } from './dto/generate-media.dto';
 import { createMulterOptions } from 'src/common/create-multer-options';
@@ -54,6 +53,23 @@ export class AssetsController {
   async generateCopy(@GetUser() user: UserDoc, @Body() dto: GenerateCopyDto) {
     const response = await this.assetsService.generateCopy(user._id, dto);
     return response;
+  }
+
+  @Post('/preflight-multi-generation')
+  async preflightMultiGeneration(
+    @GetUser() user: UserDoc,
+    @Body() dto: PreflightMultiGenerationDto,
+  ) {
+    const result = await this.assetsService.preflightMultiGeneration(
+      user._id,
+      dto,
+    );
+
+    return {
+      message: 'Preflight completed successfully',
+      data: result,
+      status: 'success',
+    };
   }
 
   @Post('/generate-image')

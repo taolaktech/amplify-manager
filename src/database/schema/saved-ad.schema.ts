@@ -63,6 +63,9 @@ export class SavedAd {
   script?: string;
 
   @Prop()
+  customPrompt?: string;
+
+  @Prop()
   brandName?: string;
 
   @Prop()
