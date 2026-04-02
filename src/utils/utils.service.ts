@@ -205,7 +205,7 @@ export class UtilsService {
             timestamps: ['00:00:01'],
             filename: thumbFilename,
             folder: os.tmpdir(),
-            size: '320x240',
+            size: '720x1280',
           });
       });
     } catch {
@@ -218,7 +218,7 @@ export class UtilsService {
             timestamps: ['00:00:00'],
             filename: thumbFilename,
             folder: os.tmpdir(),
-            size: '320x240',
+            size: '720x1280',
           });
       });
     }
@@ -241,10 +241,7 @@ export class UtilsService {
     try {
       await new Promise<void>((resolve, reject) => {
         ffmpeg(tempImagePath)
-          .outputOptions([
-            '-frames:v 1',
-            '-vf scale=320:-1:force_original_aspect_ratio=decrease',
-          ])
+          .outputOptions(['-frames:v 1', '-vf scale=720:1280'])
           .output(thumbPath)
           .on('end', () => resolve())
           .on('error', (err) => reject(err))
