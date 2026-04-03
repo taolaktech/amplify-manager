@@ -233,6 +233,7 @@ export class AssetsService {
       headline: dto.headline,
       bodyCopy: dto.bodyCopy,
       cta: dto.cta,
+      customPrompt: dto.customPrompt,
     };
 
     const { assetId } =
@@ -358,6 +359,7 @@ export class AssetsService {
       ...(dto.videoPresetId && { mediaPresetId: dto.videoPresetId }),
       productId: dto.productId,
       script: dto.script,
+      customPrompt: dto.customPrompt,
       includeMusic: dto.includeMusic,
       includeVoiceOver: dto.includeVoiceOver,
     };
@@ -422,6 +424,7 @@ export class AssetsService {
       headline: dto.headline,
       bodyCopy: dto.bodyCopy,
       cta: dto.cta,
+      customPrompt: dto.customPrompt,
     };
 
     const { assetId } =
