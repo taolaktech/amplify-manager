@@ -215,13 +215,24 @@ export class CreateCampaignDto {
   endDate: string;
 
   @ApiProperty({
-    description: 'The total budget for the entire campaign.',
-    example: 10000,
-    minimum: 1,
+    description: 'Daily budget allocated to Google Ads.',
+    example: 50,
+    minimum: 0,
   })
-  @IsNumber({}, { message: 'Total budget must be a number.' })
-  @Min(1, { message: 'Total budget must be at least 1.' })
-  totalBudget: number;
+  @IsNumber({}, { message: 'Google daily budget must be a number.' })
+  @Min(0, { message: 'Google daily budget must be at least 0.' })
+  @IsOptional()
+  googleDailyBudget: number;
+
+  @ApiProperty({
+    description: 'Daily budget allocated to Facebook/Meta Ads.',
+    example: 50,
+    minimum: 0,
+  })
+  @IsNumber({}, { message: 'Facebook daily budget must be a number.' })
+  @Min(0, { message: 'Facebook daily budget must be at least 0.' })
+  @IsOptional()
+  facebookDailyBudget: number;
 
   @ApiProperty({
     type: [ProductDto],

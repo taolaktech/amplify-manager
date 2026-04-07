@@ -236,9 +236,23 @@ export class Campaign {
   @Prop({ required: true })
   endDate: Date;
 
-  @ApiProperty({ example: 15000, description: 'Total campaign budget.' })
+  @ApiProperty({ example: 15000, description: 'Total campaign daily budget.' })
   @Prop({ required: true })
   totalBudget: number;
+
+  @ApiProperty({
+    example: 50,
+    description: 'Daily budget allocated to Google Ads.',
+  })
+  @Prop({ default: 0 })
+  googleDailyBudget: number;
+
+  @ApiProperty({
+    example: 50,
+    description: 'Daily budget allocated to Facebook/Meta Ads.',
+  })
+  @Prop({ default: 0 })
+  facebookDailyBudget: number;
 
   @ApiProperty({
     type: [Product],

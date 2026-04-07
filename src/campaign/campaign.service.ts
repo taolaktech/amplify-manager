@@ -617,9 +617,23 @@ export class CampaignService {
       //   `::: User ${userId.toString()} wallet has been debited ($${createCampaignDto.totalBudget}) for campaign ${campaignId.toString()}`,
       // );
 
+      // Compute totalBudget from per-platform daily budgets × campaign duration
+      const startDate = new Date(createCampaignDto.startDate);
+      const endDate = new Date(createCampaignDto.endDate);
+      const campaignDays = Math.max(
+        Math.ceil(
+          (endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24),
+        ),
+        1,
+      );
+      const googleDaily = Number(createCampaignDto.googleDailyBudget || 0);
+      const facebookDaily = Number(createCampaignDto.facebookDailyBudget || 0);
+      const computedTotalBudget = (googleDaily + facebookDaily) * campaignDays;
+
       // 1. Save the campaign to the database
       const newCampaign = await this.campaignModel.create({
         ...createCampaignDto,
+        totalBudget: computedTotalBudget,
         status: CampaignStatus.READY_TO_LAUNCH,
         createdBy: userId,
         shopifyAccountId: business.integrations?.shopify?.shopifyAccount,
