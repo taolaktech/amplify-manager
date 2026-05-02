@@ -446,7 +446,7 @@ export class TokenBillingService {
         .lean<AssetDoc>();
 
       if (!asset) {
-        this.logger.log(
+        this.logger.debug(
           `settleAssetGeneration skip assetId=${params.assetId} (asset not found)`,
         );
         await session.commitTransaction();
