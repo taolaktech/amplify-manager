@@ -6,8 +6,7 @@ import {
 } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
-import axios from 'axios';
-import { InternalHttpHelper } from 'src/common/helpers/internal-http.helper';
+import axios, { AxiosError } from 'axios';
 import { AppConfigService } from 'src/config/config.service';
 import { BusinessDoc } from 'src/database/schema/business.schema';
 import { MediaPresetDoc } from 'src/database/schema/media-preset.schema';
@@ -40,22 +39,6 @@ type InitiateAssetGenWithN8nDto =
   | InitiateAssetGenWithN8nImageDto
   | InitiateAssetGenWithN8nVideoDto;
 
-type IntegrationsCreateResponse = {
-  success: boolean;
-  data: {
-    id: string;
-    assetId: string;
-  };
-};
-
-type IntegrationsCreateImageResponse = {
-  success: boolean;
-  data: {
-    taskId: string;
-    assetId: string;
-  };
-};
-
 @Injectable()
 export class MediaGenerationService {
   private readonly logger = new Logger(MediaGenerationService.name);
@@ -65,7 +48,6 @@ export class MediaGenerationService {
     private readonly businessModel: Model<BusinessDoc>,
     @InjectModel('media-presets')
     private readonly mediaPresetModel: Model<MediaPresetDoc>,
-    private readonly internalHttpHelper: InternalHttpHelper,
     private readonly config: AppConfigService,
   ) {}
 
@@ -81,8 +63,18 @@ export class MediaGenerationService {
         timeout: 15000,
       });
       return response.data;
-    } catch (e: any) {
-      this.logger.error(`Failed to call N8N asset generation webhook`, e);
+    } catch (e: unknown) {
+      if (e instanceof AxiosError) {
+        this.logger.error(
+          `Failed to call N8N asset generation webhook`,
+          e.response,
+        );
+      } else {
+        this.logger.error(
+          `Unknown error calling N8N asset generation webhook`,
+          e,
+        );
+      }
       throw new BadRequestException('Failed to start asset generation');
     }
   }

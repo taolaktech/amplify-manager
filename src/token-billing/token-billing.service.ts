@@ -537,7 +537,7 @@ export class TokenBillingService {
 
         await user.save({ session });
         await session.commitTransaction();
-        return;
+        return { userId: user._id.toString() };
       }
       // quote is the amount that was reserved for the generation
       // refundAmount is the amount that is less than the quote
@@ -661,6 +661,8 @@ export class TokenBillingService {
       this.logger.log(
         `settleAssetGeneration success assetId=${params.assetId} userId=${user._id.toString()} status=${params.status} actualCost=${actualCost} spendableAfter=${this.getSpendableBalance(user)} reservedAfter=${user.reservedTokenBalance}`,
       );
+
+      return { userId: user._id.toString() };
     } catch (error) {
       if (session.inTransaction()) {
         await session.abortTransaction();

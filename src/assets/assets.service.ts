@@ -3,10 +3,9 @@ import {
   HttpException,
   Injectable,
   NotFoundException,
-  Sse,
 } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
-import { Model, RootFilterQuery, Types } from 'mongoose';
+import { Model, Types } from 'mongoose';
 import axios from 'axios';
 import { BusinessDoc, MediaPresetDoc, UserDoc } from 'src/database/schema';
 import { Asset, AssetDoc } from 'src/database/schema/asset.schema';
@@ -176,7 +175,9 @@ export class AssetsService {
     };
   }
 
-  async getBusinessIdForUser(userId: Types.ObjectId): Promise<Types.ObjectId> {
+  private async getBusinessIdForUser(
+    userId: Types.ObjectId,
+  ): Promise<Types.ObjectId> {
     const business = await this.businessModel.findOne({ userId });
     if (!business) {
       throw new NotFoundException('Business not found for this user.');
@@ -271,15 +272,30 @@ export class AssetsService {
       throw new NotFoundException('Media preset not found');
     }
 
-    await this.assertUserCanReserveTokens({
-      userId,
-      kind:
-        preset.type === 'image'
-          ? 'image_copy_generation'
-          : 'video_copy_generation',
-    });
+    const kind =
+      preset.type === 'image'
+        ? 'image_copy_generation'
+        : 'video_copy_generation';
+
+    await this.assertUserCanReserveTokens({ userId, kind });
 
     const businessId = await this.getBusinessIdForUser(userId);
+
+    // Create asset up-front and reserve tokens BEFORE the N8n call.
+    // Copy generation is synchronous — the settlement webhook can fire
+    // before axios.post returns, so the reservation must already exist.
+    const asset = await this.assetModel.create({
+      businessId,
+      type: preset.type === 'image' ? 'image-copy' : 'video-copy',
+      status: 'pending',
+      source: 'ai-generated',
+      productId: dto.productId,
+      productName: dto.productName,
+      productDescription: dto.productDescription,
+      productCategory: dto.productCategory,
+    });
+    const assetId = (asset._id as Types.ObjectId).toString();
+    await this.tokenBilling.reserveForAsset({ userId, assetId, kind });
 
     const url = `${this.configService.get('AMPLIFY_N8N_API_URL')}/webhook/asset/generate-copy`;
     try {
@@ -295,6 +311,7 @@ export class AssetsService {
           mediaPresetId: preset._id.toString(),
           duration: 12,
           productId: dto.productId,
+          assetId,
         },
         {
           headers: {
@@ -303,22 +320,7 @@ export class AssetsService {
           timeout: 150_000,
         },
       );
-
-      const assetId = response.data?.data?.assetId;
-      if (assetId) {
-        await this.tokenBilling.reserveForAsset({
-          userId,
-          assetId,
-          kind:
-            preset.type === 'image'
-              ? 'image_copy_generation'
-              : 'video_copy_generation',
-        });
-
-        return response.data;
-      } else {
-        throw new BadRequestException('Failed to generate copy');
-      }
+      return response.data;
     } catch (e: any) {
       if (e instanceof HttpException) {
         throw e;
@@ -363,6 +365,8 @@ export class AssetsService {
       includeMusic: dto.includeMusic,
       includeVoiceOver: dto.includeVoiceOver,
     };
+
+    console.log({ payload });
 
     const { assetId } =
       await this.mediaGenerationService.initiateAssetGenWithN8n(

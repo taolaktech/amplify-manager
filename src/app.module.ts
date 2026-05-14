@@ -15,7 +15,7 @@ import { BrandAssetModule } from './brand-asset/brand-asset.module';
 import { CampaignModule } from './campaign/campaign.module';
 import { InternalModule } from './internal/internal.module';
 import { ApiKeyGuard } from './internal/auth/api-key.guard';
-import { AssetsModule } from './assets/assets.module';
+import { AssetsModule, AssetEventsModule } from './assets/assets.module';
 import { MediaPresetsModule } from './media-presets/media-presets.module';
 import { MediaGenerationModule } from './media-generation/media-generation.module';
 import { SavedAdsModule } from './saved-ads/saved-ads.module';
@@ -23,6 +23,7 @@ import { CreditLedgerModule } from './credit-ledger/credit-ledger.module';
 
 @Module({
   imports: [
+    AssetEventsModule,
     DatabaseModule,
     AuthModule,
     UtilsModule,

@@ -158,8 +158,8 @@ export class InitiateVideoGenerationDto {
 
   @ApiProperty({ required: true })
   @IsString()
-  @IsOptional()
-  script?: string;
+  @IsNotEmpty()
+  script: string;
 
   @ApiProperty({ required: true, default: true })
   @IsBoolean()

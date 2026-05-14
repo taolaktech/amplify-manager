@@ -1,4 +1,4 @@
-import { Module } from '@nestjs/common';
+import { Global, Module } from '@nestjs/common';
 import { AssetsController } from './assets.controller';
 import { AssetsService } from './assets.service';
 import { UploadService } from 'src/common/file-upload';
@@ -6,6 +6,7 @@ import { MediaGenerationService } from 'src/media-generation/media-generation.se
 import { InternalHttpHelper } from 'src/common/helpers/internal-http.helper';
 import { ServiceRegistryService } from 'src/common/services/service-registry.service';
 import { TokenBillingService } from 'src/token-billing/token-billing.service';
+import { AssetEventsService } from './asset-events.service';
 
 @Module({
   controllers: [AssetsController],
@@ -19,3 +20,10 @@ import { TokenBillingService } from 'src/token-billing/token-billing.service';
   ],
 })
 export class AssetsModule {}
+
+@Global()
+@Module({
+  providers: [AssetEventsService],
+  exports: [AssetEventsService],
+})
+export class AssetEventsModule {}

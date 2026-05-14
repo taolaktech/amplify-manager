@@ -4,6 +4,7 @@ import {
   Get,
   Param,
   Post,
+  Sse,
   UploadedFile,
   UseInterceptors,
 } from '@nestjs/common';
@@ -15,9 +16,11 @@ import {
   ApiResponse,
   ApiTags,
 } from '@nestjs/swagger';
+import { Observable, map } from 'rxjs';
 import { GetUser, RequireActiveSubscription } from 'src/auth/decorators';
 import { UserDoc } from 'src/database/schema';
 import { AssetsService } from './assets.service';
+import { AssetEventsService } from './asset-events.service';
 import {
   GenerateCopyDto,
   InitiateImageGenerationDto,
@@ -32,7 +35,28 @@ import { createMulterOptions } from 'src/common/create-multer-options';
 // @RequireActiveSubscription()
 @Controller('api/assets')
 export class AssetsController {
-  constructor(private readonly assetsService: AssetsService) {}
+  constructor(
+    private readonly assetsService: AssetsService,
+    private readonly assetEvents: AssetEventsService,
+  ) {}
+
+  @Sse('/events/status')
+  @ApiOperation({
+    summary: 'SSE stream of asset status updates for the authenticated user',
+  })
+  assetStatusStream(@GetUser() user: UserDoc): Observable<MessageEvent> {
+    return this.assetEvents.subscribe(user._id.toString()).pipe(
+      map(
+        (event) =>
+          ({
+            data: JSON.stringify({
+              assetId: event.assetId,
+              status: event.status,
+            }),
+          }) as MessageEvent,
+      ),
+    );
+  }
 
   @Get('/:id')
   @ApiOperation({ summary: 'Get asset by id' })
@@ -143,6 +167,4 @@ export class AssetsController {
       status: 'success',
     };
   }
-
-  //
 }
